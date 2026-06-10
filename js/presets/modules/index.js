@@ -1,0 +1,87 @@
+/* Preset module definitions + the generic instantiator (docs/08).
+   A preset is pure data; instantiation mints fresh ids every time.
+   Widgets may carry `ref` keys; links can point at '@ref' to wire presets. */
+
+import { store } from '../../core/store.js';
+import { ulid } from '../../core/ids.js';
+
+/**
+ * Instantiate a preset module definition.
+ * @param {{key, name, icon, pages: object[]}} def
+ * @returns {object} the created module record
+ */
+export function instantiatePreset(def) {
+  const refs = new Map(); // '@ref' -> widgetId
+  const pending = []; // widgets whose links need ref resolution
+
+  const mod = store.put('modules', {
+    id: ulid(), name: def.name, icon: def.icon || 'flower',
+    pages: [], themeOverride: def.theme || null, presetKey: def.key
+  });
+
+  const buildWidget = (wDef, pageId, parentWidgetId) => {
+    const widget = store.put('widgets', {
+      id: ulid(), type: wDef.type,
+      pageId: parentWidgetId ? null : pageId,
+      parentWidgetId: parentWidgetId || null,
+      name: wDef.name || wDef.type,
+      collapsed: !!wDef.collapsed,
+      themeOverride: null,
+      w: wDef.w || 'full',
+      config: structuredClone(wDef.config || {}),
+      links: structuredClone(wDef.links || [])
+    });
+    if (wDef.ref) refs.set('@' + wDef.ref, widget.id);
+    if (widget.links.length) pending.push(widget);
+    if (wDef.children?.length) {
+      widget.config.childOrder = wDef.children.map(c => buildWidget(c, pageId, widget.id).id);
+      store.put('widgets', widget);
+    }
+    if (wDef.objects?.length) {
+      for (const o of wDef.objects) {
+        store.put('objects', { id: ulid(), widgetId: widget.id, kind: o.kind, date: o.date || null, data: structuredClone(o.data || {}) });
+      }
+    }
+    return widget;
+  };
+
+  for (const pDef of def.pages) {
+    const page = store.put('pages', {
+      id: ulid(), moduleId: mod.id, name: pDef.name, icon: pDef.icon || 'circle',
+      widgets: [], themeOverride: null
+    });
+    page.widgets = (pDef.widgets || []).map(wDef => buildWidget(wDef, page.id, null).id);
+    store.put('pages', page);
+    mod.pages.push(page.id);
+  }
+  store.put('modules', mod);
+
+  // resolve '@ref' links
+  for (const widget of pending) {
+    widget.links = widget.links
+      .map(l => ({ ...l, sourceWidgetId: l.sourceWidgetId?.startsWith?.('@') ? refs.get(l.sourceWidgetId) : l.sourceWidgetId }))
+      .filter(l => l.sourceWidgetId);
+    store.put('widgets', widget);
+  }
+  return mod;
+}
+
+/** The preset gallery list. Heavier definitions join as phases land (docs/10). */
+export const PRESET_MODULES = [
+  {
+    key: 'starter',
+    name: 'My Garden',
+    icon: 'flower',
+    description: 'A gentle Home page to start from — time, notes, a counter.',
+    pages: [
+      {
+        name: 'Home', icon: 'home',
+        widgets: [
+          { type: 'time', name: 'Today' },
+          { type: 'notes', name: 'Welcome', objects: [{ kind: 'note', data: { html: '<h1>Welcome to The Blossom</h1><p>This space is yours. Tap any card to open it, drag the dots to rearrange, and use the + below to plant more widgets.</p>', lastOpened: null } }] },
+          { type: 'counter', name: 'Glasses of water', w: 'half', config: { count: 0, step: 1, dailyReset: true, target: 8 } }
+        ]
+      }
+    ]
+  }
+];

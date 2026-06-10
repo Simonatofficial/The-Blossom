@@ -1,0 +1,226 @@
+/* Shared UI components (docs/01): panel, drawer, toast, confirm, menu, form
+   helpers. Drawers over modals; only destructive confirms use a dialog. */
+
+import { icon } from './icons.js';
+
+/** Build an element from an HTML string (single root). */
+export function el(html) {
+  const t = document.createElement('template');
+  t.innerHTML = html.trim();
+  return t.content.firstElementChild;
+}
+
+/* ---------- toast ---------- */
+let toastHost = null;
+
+/** Show a quiet toast. @param {string} msg @param {string} [iconName] */
+export function toast(msg, iconName = 'flower') {
+  if (!toastHost) {
+    toastHost = el('<div id="toast-host"></div>');
+    document.body.appendChild(toastHost);
+  }
+  const t = el(`<div class="toast">${icon(iconName, 16)}<span></span></div>`);
+  t.querySelector('span').textContent = msg;
+  toastHost.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => {
+    t.classList.remove('show');
+    setTimeout(() => t.remove(), 300);
+  }, 2600);
+}
+
+/* ---------- confirm dialog (destructive actions only) ---------- */
+
+/**
+ * @param {{title: string, message?: string, confirmText?: string}} opts
+ * @returns {Promise<boolean>}
+ */
+export function confirmDialog({ title, message = '', confirmText = 'Delete' }) {
+  return new Promise(resolve => {
+    const back = el(`
+      <div class="dialog-backdrop">
+        <div class="dialog" role="alertdialog" aria-label="${title}">
+          <h3></h3><p></p>
+          <div class="row-end">
+            <button class="btn btn-ghost" data-act="cancel">Cancel</button>
+            <button class="btn" data-act="ok"></button>
+          </div>
+        </div>
+      </div>`);
+    back.querySelector('h3').textContent = title;
+    back.querySelector('p').textContent = message;
+    back.querySelector('[data-act="ok"]').textContent = confirmText;
+    const done = (val) => {
+      back.classList.remove('open');
+      setTimeout(() => back.remove(), 220);
+      resolve(val);
+    };
+    back.querySelector('[data-act="cancel"]').onclick = () => done(false);
+    back.querySelector('[data-act="ok"]').onclick = () => done(true);
+    back.onclick = (e) => { if (e.target === back) done(false); };
+    document.body.appendChild(back);
+    requestAnimationFrame(() => back.classList.add('open'));
+    back.querySelector('[data-act="cancel"]').focus();
+  });
+}
+
+/* ---------- drawers (stackable) ---------- */
+const drawerStack = [];
+
+/**
+ * Open a slide-in drawer.
+ * @param {{title: string, iconName?: string, onClose?: () => void}} opts
+ * @returns {{body: HTMLElement, close: () => void, setTitle: (t: string) => void}}
+ */
+export function openDrawer({ title, iconName = 'flower', onClose = null }) {
+  const back = el('<div class="drawer-backdrop"></div>');
+  const drawer = el(`
+    <div class="drawer" role="dialog" aria-label="${title}">
+      <div class="drawer-head">
+        <span class="d-icon" style="color:var(--accent)">${icon(iconName, 20)}</span>
+        <h2></h2>
+        <button class="btn-icon" aria-label="Close">${icon('x', 18)}</button>
+      </div>
+      <div class="drawer-body"></div>
+    </div>`);
+  drawer.querySelector('h2').textContent = title;
+  const ctl = {
+    body: drawer.querySelector('.drawer-body'),
+    setTitle(t) { drawer.querySelector('h2').textContent = t; },
+    close() {
+      const i = drawerStack.indexOf(ctl);
+      if (i >= 0) drawerStack.splice(i, 1);
+      back.classList.remove('open');
+      drawer.classList.remove('open');
+      setTimeout(() => { back.remove(); drawer.remove(); }, 280);
+      onClose?.();
+    }
+  };
+  back.onclick = () => ctl.close();
+  drawer.querySelector('.drawer-head .btn-icon').onclick = () => ctl.close();
+  document.body.appendChild(back);
+  document.body.appendChild(drawer);
+  requestAnimationFrame(() => { back.classList.add('open'); drawer.classList.add('open'); });
+  drawerStack.push(ctl);
+  return ctl;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && drawerStack.length) drawerStack[drawerStack.length - 1].close();
+});
+
+/* ---------- popover menu ---------- */
+
+/**
+ * @param {HTMLElement} anchor
+ * @param {(({label: string, iconName?: string, danger?: boolean, fn: () => void})|'sep')[]} items
+ */
+export function popMenu(anchor, items) {
+  document.querySelector('.menu')?.remove();
+  const menu = el('<div class="menu" role="menu"></div>');
+  for (const item of items) {
+    if (item === 'sep') { menu.appendChild(el('<hr>')); continue; }
+    const b = el(`<button role="menuitem" class="${item.danger ? 'danger' : ''}">${item.iconName ? icon(item.iconName, 16) : ''}<span></span></button>`);
+    b.querySelector('span').textContent = item.label;
+    b.onclick = () => { close(); item.fn(); };
+    menu.appendChild(b);
+  }
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  let x = Math.min(r.right - mw + 8, window.innerWidth - mw - 8);
+  let y = r.bottom + 6;
+  if (y + mh > window.innerHeight - 8) y = Math.max(8, r.top - mh - 6);
+  menu.style.left = `${Math.max(8, x)}px`;
+  menu.style.top = `${y}px`;
+  requestAnimationFrame(() => menu.classList.add('open'));
+  function close() {
+    menu.classList.remove('open');
+    setTimeout(() => menu.remove(), 160);
+    document.removeEventListener('pointerdown', onAway, true);
+  }
+  function onAway(e) { if (!menu.contains(e.target)) close(); }
+  setTimeout(() => document.addEventListener('pointerdown', onAway, true), 0);
+}
+
+/* ---------- small form helpers ---------- */
+
+/** A labeled field row. */
+export function field(labelText, controlEl, hint = '') {
+  const f = el(`<div class="field"><label></label></div>`);
+  f.querySelector('label').textContent = labelText;
+  f.appendChild(controlEl);
+  if (hint) {
+    const h = el('<div class="hint"></div>');
+    h.textContent = hint;
+    f.appendChild(h);
+  }
+  return f;
+}
+
+/** Text input. */
+export function input(value = '', placeholder = '') {
+  const i = el(`<input class="input" type="text">`);
+  i.value = value;
+  i.placeholder = placeholder;
+  return i;
+}
+
+/** Segmented control. */
+export function seg(options, value, onChange) {
+  const s = el('<div class="seg"></div>');
+  for (const opt of options) {
+    const b = el('<button type="button"></button>');
+    b.textContent = opt.label;
+    if (opt.value === value) b.classList.add('active');
+    b.onclick = () => {
+      s.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      onChange(opt.value);
+    };
+    s.appendChild(b);
+  }
+  return s;
+}
+
+/** Toggle switch. */
+export function switchEl(checked, onChange) {
+  const s = el(`<label class="switch"><input type="checkbox"><span class="knob"></span></label>`);
+  const c = s.querySelector('input');
+  c.checked = checked;
+  c.onchange = () => onChange(c.checked);
+  return s;
+}
+
+/** Warm empty state. */
+export function emptyState(iconName, text, btnLabel = null, onBtn = null) {
+  const e = el(`<div class="empty-state">${icon(iconName, 30)}<p></p></div>`);
+  e.querySelector('p').textContent = text;
+  if (btnLabel) {
+    const b = el('<button class="btn"></button>');
+    b.textContent = btnLabel;
+    b.onclick = onBtn;
+    e.appendChild(b);
+  }
+  return e;
+}
+
+/** Ask the user for a single line of text (drawer, not a modal). */
+export function promptText({ title, label = 'Name', value = '', placeholder = '', confirmText = 'Save' }) {
+  return new Promise(resolve => {
+    let settled = false;
+    const d = openDrawer({
+      title, iconName: 'edit',
+      onClose: () => { if (!settled) { settled = true; resolve(null); } }
+    });
+    const i = input(value, placeholder);
+    const ok = el('<button class="btn btn-primary" style="width:100%"></button>');
+    ok.textContent = confirmText;
+    const finish = () => { settled = true; resolve(i.value.trim() || null); d.close(); };
+    ok.onclick = finish;
+    i.onkeydown = (e) => { if (e.key === 'Enter') finish(); };
+    d.body.appendChild(field(label, i));
+    d.body.appendChild(ok);
+    setTimeout(() => i.focus(), 150);
+  });
+}
