@@ -242,3 +242,87 @@
 }
 .note-toolbar .btn-icon { width: 30px; height: 30px; font-size: 0.85rem; font-weight: 600; }
 .note-toolbar .sep { width: 1px; background: var(--border); margin: 4px 3px; }
+
+/* ---- Quest widget ---- */
+.quest-widget .q-counter { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 6px 0 2px; }
+.quest-widget .q-step {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--surface-alt);
+  color: var(--accent); font-size: 1.3rem; cursor: pointer;
+  display: grid; place-items: center;
+  transition: background var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+}
+.quest-widget .q-step:hover { background: var(--accent-soft); }
+.quest-widget .q-step:active { transform: scale(0.92); }
+.quest-widget .q-progress { text-align: center; min-width: 84px; }
+.quest-widget .q-done { font-size: 2rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.quest-widget .q-of { color: var(--text-soft); font-size: 0.85rem; margin-left: 4px; }
+.quest-widget.done .q-done { color: var(--success); }
+.quest-widget.resting { opacity: 0.65; }
+
+.stat-tile { padding: 12px 18px; text-align: center; flex: 1; min-width: 90px; }
+.stat-tile .st-num { font-size: 1.5rem; font-weight: 600; }
+.stat-tile .st-label { color: var(--text-soft); font-size: 0.76rem; }
+
+.heatmap { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; }
+.heat-cell { aspect-ratio: 1; border-radius: 4px; background: var(--surface-alt); }
+
+/* ---- Tracker widget ---- */
+.tracker-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border);
+}
+.tracker-row:last-child { border-bottom: none; }
+.tracker-row .tr-name { font-size: 0.92rem; }
+.tracker-row.goal-met .tr-name { color: var(--success); }
+.tracker-row .tr-value { min-width: 34px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tracker-row .tr-dot { border: none; background: none; padding: 2px; cursor: pointer; color: var(--border); }
+.tracker-row .tr-dot.on { color: var(--accent); }
+.tracker-row .tr-measure { width: 90px; padding: 5px 8px; text-align: right; }
+.tr-spark { width: 100%; height: 40px; }
+
+/* ---- Journal widget ---- */
+.journal-card .j-state { font-size: 0.95rem; }
+.j-strip { display: flex; align-items: center; gap: 6px; }
+.j-day {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 7px 9px; border: none; border-radius: 10px; background: transparent;
+  color: var(--text); cursor: pointer;
+  transition: background var(--t-fast) var(--ease);
+}
+.j-day:hover { background: var(--accent-soft); }
+.j-day.sel { background: var(--accent-soft); outline: 1px solid var(--accent); }
+.j-day.today .j-dn { color: var(--accent); font-weight: 700; }
+.j-day .j-dw { font-size: 0.65rem; color: var(--text-soft); }
+.j-day .j-dn { font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+.j-day .j-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+
+/* ---- Routine widget ---- */
+.routine-widget .r-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 8px; border: none; border-radius: 10px; background: transparent;
+  color: var(--text); cursor: pointer; text-align: left;
+  transition: background var(--t-fast) var(--ease);
+}
+.routine-widget .r-item:hover { background: var(--accent-soft); }
+.routine-widget .r-item.done { opacity: 0.6; }
+.routine-widget .r-items { margin-top: 6px; border-top: 1px solid var(--border); padding-top: 6px; }
+
+/* ---- Calendar widget ---- */
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-h { text-align: center; font-size: 0.68rem; color: var(--text-soft); padding: 2px 0; }
+.cal-cell {
+  aspect-ratio: 1; border: none; border-radius: 9px; background: transparent;
+  color: var(--text); cursor: pointer; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px; padding: 2px;
+  transition: background var(--t-fast) var(--ease);
+}
+.cal-cell:hover { background: var(--accent-soft); }
+.cal-cell.dim { opacity: 0.35; }
+.cal-cell.today .cal-n { color: var(--accent); font-weight: 700; }
+.cal-cell.sel { background: var(--accent-soft); outline: 1px solid var(--accent); }
+.cal-cell .cal-n { font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.cal-grid.compact .cal-n { font-size: 0.72rem; }
+.cal-dots { display: flex; gap: 2px; height: 4px; }
+.cal-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); display: block; }
+.cal-dot.ev { background: var(--highlight); }

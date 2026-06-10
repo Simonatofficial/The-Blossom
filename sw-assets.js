@@ -21,6 +21,7 @@ self.SW_ASSETS = [
   './js/fx/themes.js',
   './js/modules/engine.js',
   './js/presets/modules/index.js',
+  './js/presets/prompts.js',
   './js/presets/themes.js',
   './js/ui/components.js',
   './js/ui/icons.js',
@@ -31,11 +32,17 @@ self.SW_ASSETS = [
   './js/ui/shell.js',
   './js/widgets/all.js',
   './js/widgets/base.js',
+  './js/widgets/calendar.js',
   './js/widgets/counter.js',
+  './js/widgets/journal.js',
   './js/widgets/notes.js',
+  './js/widgets/quest.js',
+  './js/widgets/questops.js',
   './js/widgets/registry.js',
+  './js/widgets/routine.js',
   './js/widgets/separator.js',
   './js/widgets/time.js',
+  './js/widgets/tracker.js',
   './manifest.webmanifest'
 ];
 
