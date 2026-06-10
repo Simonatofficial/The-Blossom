@@ -4,6 +4,7 @@
 
 import { registry } from './registry.js';
 import { store } from '../core/store.js';
+import { events } from '../core/events.js';
 import { wallet } from '../core/wallet.js';
 import { icon } from '../ui/icons.js';
 import { el, field, input } from '../ui/components.js';
@@ -55,6 +56,7 @@ export function grantXp(widget, amount, ctx, reason = '') {
     c.log.unshift({ level: c.level, date: todayStr(), coins });
     c.log = c.log.slice(0, 30);
     ctx?.toast?.(`${widget.name} reached level ${c.level} · +${coins}c`, 'sparkles');
+    events.emit('notify', { category: 'levelup', text: `${widget.name} reached level ${c.level} · +${coins}c` });
     // one step of parent propagation per level-up event (docs/07)
     const parent = widget.parentWidgetId && store.get('widgets', widget.parentWidgetId);
     if (parent?.type === 'skill') {

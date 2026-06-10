@@ -56,6 +56,7 @@ function checkCompletion(widget, ctx, anchorEl) {
   store.put('widgets', widget);
   if (anchorEl) bloomBurst(anchorEl);
   ctx?.toast?.(`${widget.name} bloomed · +${coins}c`, 'flower');
+  ctx?.events?.emit('notify', { category: 'goal', text: `${widget.name} bloomed · +${coins}c` });
 }
 
 registry.register({

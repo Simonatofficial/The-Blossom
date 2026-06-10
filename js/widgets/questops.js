@@ -4,6 +4,7 @@
    the rules live in one place (decision noted in docs/05). */
 
 import { store } from '../core/store.js';
+import { events } from '../core/events.js';
 import { wallet } from '../core/wallet.js';
 import { dayObject, saveObject, todayStr } from './base.js';
 
@@ -104,7 +105,10 @@ export function rollQuestDay(widget, fromDate) {
       state.streak += 1;
       state.best = Math.max(state.best, state.streak);
       const bonus = STREAK_MILESTONES[state.streak];
-      if (bonus) wallet.add(bonus, `streak:${widget.id}`);
+      if (bonus) {
+        wallet.add(bonus, `streak:${widget.id}`);
+        events.emit('notify', { category: 'streak', text: `${widget.name}: ${state.streak}-day streak · +${bonus}c` });
+      }
     } else {
       if (done > 0 && log && !log.data.paid) {
         const mult = DIFFICULTY[widget.config.difficulty]?.mult || 1;

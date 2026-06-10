@@ -396,3 +396,52 @@
   box-shadow: var(--shadow-soft);
 }
 .fg-stem-host { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+
+/* ---- Dice widget ---- */
+.dice-widget .d-result {
+  text-align: center; font-size: 2.4rem; font-weight: 700;
+  font-variant-numeric: tabular-nums; min-height: 1.3em; color: var(--accent);
+}
+@keyframes dice-tumble { 0% { transform: rotate(-12deg) scale(0.7); opacity: 0.4; } 100% { transform: none; opacity: 1; } }
+.dice-widget .d-result.tumble { animation: dice-tumble 280ms var(--ease); }
+
+/* ---- Calculator widget ---- */
+.calc-display {
+  text-align: right; font-size: 1.3rem; font-variant-numeric: tabular-nums;
+  padding: 10px 14px; margin-bottom: 8px;
+  background: var(--surface-alt); border-radius: var(--radius-sm);
+  overflow-x: auto; white-space: nowrap;
+}
+.calc-grid { display: grid; gap: 5px; }
+.calc-key {
+  padding: 11px 0; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface-alt); color: var(--text); font-size: 0.95rem; cursor: pointer;
+  transition: background var(--t-fast) var(--ease);
+}
+.calc-key:hover { background: var(--accent-soft); }
+.calc-key.op { color: var(--accent); }
+
+/* ---- Gallery widget ---- */
+.gal-cover { position: relative; border-radius: var(--radius-sm); overflow: hidden; }
+.gal-cover img { width: 100%; max-height: 180px; object-fit: cover; }
+.gal-grid { columns: 3 140px; column-gap: 8px; }
+.gal-cell { border: none; padding: 0; background: none; cursor: pointer; margin-bottom: 8px; width: 100%; }
+.gal-cell img { width: 100%; border-radius: 10px; display: block; }
+.gal-light {
+  position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.75);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;
+}
+.gal-light img { max-height: 70vh; max-width: 92vw; border-radius: 12px; transition: transform var(--t-med) var(--ease); cursor: zoom-in; }
+
+/* ---- Music widget ---- */
+.music-widget .m-track {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  padding: 7px 10px; border: none; border-radius: 9px; background: transparent;
+  color: var(--text-soft); cursor: pointer; font-size: 0.86rem; text-align: left;
+}
+.music-widget .m-track:hover { background: var(--accent-soft); }
+.music-widget .m-track.on { color: var(--accent); }
+.music-widget .m-list { margin-top: 6px; max-height: 180px; overflow-y: auto; }
+
+/* ---- Canvas widget ---- */
+.draw-surface { display: block; width: 100%; background: var(--surface-alt); cursor: crosshair; }

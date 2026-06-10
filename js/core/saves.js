@@ -25,6 +25,7 @@ export function checkDayRollover() {
   events.emit('day:rolled', { from: last, to: today });
   store.setMeta('lastActiveDate', today);
   makeAutosave(`Daily — ${last}`, 'daily');
+  events.emit('notify', { category: 'rollover', text: `A new day — ${last} is tended and saved.` });
 }
 
 export function initSaves() {
