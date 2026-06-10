@@ -15,3 +15,4 @@ import './health.js';
 import './goal.js';
 import './habit.js';
 import './market.js';
+import './graph.js';

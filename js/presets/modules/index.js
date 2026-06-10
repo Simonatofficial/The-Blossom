@@ -4,6 +4,28 @@
 
 import { store } from '../../core/store.js';
 import { ulid } from '../../core/ids.js';
+import { BLOSSOM_PRESET } from './blossom.js';
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Deep-resolve '@ref' / '@today' tokens inside configs and links. */
+function resolveTokens(value, refs) {
+  if (typeof value === 'string') {
+    if (value === '@today') return todayStr();
+    if (value.startsWith('@') && refs.has(value)) return refs.get(value);
+    return value;
+  }
+  if (Array.isArray(value)) return value.map(v => resolveTokens(v, refs));
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) out[k] = resolveTokens(v, refs);
+    return out;
+  }
+  return value;
+}
 
 /**
  * Instantiate a preset module definition.
@@ -12,7 +34,7 @@ import { ulid } from '../../core/ids.js';
  */
 export function instantiatePreset(def) {
   const refs = new Map(); // '@ref' -> widgetId
-  const pending = []; // widgets whose links need ref resolution
+  const created = []; // every widget built in this instantiation
 
   const mod = store.put('modules', {
     id: ulid(), name: def.name, icon: def.icon || 'flower',
@@ -32,7 +54,7 @@ export function instantiatePreset(def) {
       links: structuredClone(wDef.links || [])
     });
     if (wDef.ref) refs.set('@' + wDef.ref, widget.id);
-    if (widget.links.length) pending.push(widget);
+    created.push(widget);
     if (wDef.children?.length) {
       widget.config.childOrder = wDef.children.map(c => buildWidget(c, pageId, widget.id).id);
       store.put('widgets', widget);
@@ -56,11 +78,12 @@ export function instantiatePreset(def) {
   }
   store.put('modules', mod);
 
-  // resolve '@ref' links
-  for (const widget of pending) {
-    widget.links = widget.links
-      .map(l => ({ ...l, sourceWidgetId: l.sourceWidgetId?.startsWith?.('@') ? refs.get(l.sourceWidgetId) : l.sourceWidgetId }))
-      .filter(l => l.sourceWidgetId);
+  // resolve '@ref' links and any '@' tokens deep inside configs
+  for (const widget of created) {
+    widget.links = (widget.links || [])
+      .map(l => resolveTokens(l, refs))
+      .filter(l => l.sourceWidgetId && !String(l.sourceWidgetId).startsWith('@'));
+    widget.config = resolveTokens(widget.config, refs);
     store.put('widgets', widget);
   }
   return mod;
@@ -68,6 +91,7 @@ export function instantiatePreset(def) {
 
 /** The preset gallery list. Heavier definitions join as phases land (docs/10). */
 export const PRESET_MODULES = [
+  BLOSSOM_PRESET,
   {
     key: 'starter',
     name: 'My Garden',

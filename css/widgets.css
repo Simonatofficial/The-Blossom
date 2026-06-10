@@ -381,3 +381,18 @@
 .m-coins { display: flex; gap: 14px; justify-content: center; }
 .m-coin { display: inline-flex; align-items: center; gap: 4px; font-size: 0.9rem; }
 .m-coin b { font-variant-numeric: tabular-nums; }
+
+/* ---- Graph widget ---- */
+.graph-holder { position: relative; }
+.graph-holder canvas { position: relative; z-index: 1; }
+.graph-stack.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.graph-tip {
+  position: absolute; z-index: 3;
+  padding: 6px 11px; border-radius: 9px;
+  background: var(--surface); border: 1px solid var(--accent);
+  backdrop-filter: blur(10px);
+  font-size: 0.78rem; white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow-soft);
+}
+.fg-stem-host { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
