@@ -10,7 +10,7 @@ Three pages: **Calendar · Home · Blossom**.
 
 - **Calendar:** the Calendar widget, full-width, aggregating the whole module.
 - **Home:** Time widget on top, then Quest/Habit/Routine cluster, Tracker, Journal, Goal, Market, Notifications — the daily driver page. (Users rearrange freely; this is just the starting layout.)
-- **Blossom:** the signature page. A large **Flower Graph** (botanical style on) with **four petals** linked to four Skill widgets — **Physical, Mental, Emotional, Social** — each petal's length = that skill's level (normalized), with complex particles around each petal for sub-skills. Below the flower, the four Skill widgets in a 2×2 grid, each containing nested sub-skills:
+- **Blossom:** the signature page. A large **Flower Graph** (stemless, ×-oriented per docs/05 CR-6) with **four petals** linked to four Skill widgets — **Physical, Mental, Emotional, Social** — each petal's length = that skill's level (normalized), with complex particles around each petal for sub-skills. Below the flower, the four Skill widgets in a 2×2 grid, each containing nested sub-skills:
   - **Physical:** Strength, Conditioning, Mobility & Recovery, Nutrition, Sleep, Health
   - **Mental:** Focus, Learning, Creativity, Discipline, Wisdom
   - **Emotional:** Emotional Awareness, Regulation, Resilience, Expression, Self-Compassion, Positive Emotion

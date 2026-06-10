@@ -11,8 +11,8 @@ export function openPresetGallery() {
     const card = el(`<button class="list-item" style="align-items:flex-start;padding:14px">
       <span style="color:var(--accent);margin-top:2px">${icon(preset.icon, 22)}</span>
       <span class="li-main">
-        <span class="li-title" style="font-weight:600"></span>
-        <span class="li-sub" style="white-space:normal"></span>
+        <span class="li-title"></span>
+        <span class="li-sub"></span>
       </span>${icon('plus', 16)}</button>`);
     card.querySelector('.li-title').textContent = preset.name;
     card.querySelector('.li-sub').textContent = preset.description;

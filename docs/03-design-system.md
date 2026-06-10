@@ -18,10 +18,11 @@ A **theme** = colors + atmosphere + background particles + click/drag particles.
 {
   id, name,
   colors: {
-    bg, bgGradient: [c1, c2, angle],   // page background gradient
+    bg, bgGradient: [c1, c2, ..., angle], // 2–4 stop background gradient
     surface, surfaceAlt,               // panels, cards
     border, text, textSoft,
     accent, accentSoft, highlight,
+    glow,                              // translucent accent for box-shadows/halos
     success, warn                      // used sparingly (streaks, wilting)
   },
   atmosphere: { preset: 'constellations', options: {...} } | null,
@@ -33,6 +34,10 @@ A **theme** = colors + atmosphere + background particles + click/drag particles.
 Colors are injected as CSS variables (`--bg`, `--accent`, …) on `:root`, or on a wrapper element for per-module/page/widget overrides — **theme scoping is just scoped CSS variables**, so it's free. Every theme must pass a WCAG AA contrast check between `text`/`surface` and `accent`/`bg`; the custom-theme editor warns (never blocks) when contrast is low.
 
 **Per-scope themes:** Module, Page, and Widget settings each have a Theme row: "Inherit (default) / pick a theme / customize". Atmosphere and particles only ever run at the workspace level of the **active scope chain** (the deepest non-inherit atmosphere wins) — never two atmospheres at once.
+
+**Vibrancy rules (CR-4):** presets must feel vivid, not gray-cozy. Gradients are multi-stop (2–4) and hand-tuned to the atmosphere's light source; accent/highlight carry real chroma; `glow` powers halos on active tabs, progress fills, badges, and flower petals; atmosphere `colorShift` defaults ON and visibly breathes through the UI. Vibrancy lives in accents/gradients/glows — text-on-surface contrast stays AA.
+
+**Editing preset effects (CR-5):** any selected theme — preset or custom — exposes an **Effects** section (Atmosphere / Particles / Pointer FX rows: on/off, swap preset, "Adjust…"). Edits to presets are saved as a non-destructive override layer (`meta.settings.themeOverrides[themeId]`) merged at apply time; the preset shows a "customized" chip with a "Reset to preset" action, and "Save as new theme" promotes overrides to a custom theme.
 
 ### Preset themes
 
@@ -126,7 +131,9 @@ One engine, two layers: **background** (`#particle-canvas`, behind UI) and **poi
 
 - **Bottom tab bar** = the module's pages (3–5 visible; overflow into a "More" sheet). Active tab: accent underline glow, not a filled pill.
 - **Widget card**: header row (drag handle ⋮⋮ on left-hold, name, collapse chevron, overflow menu ···) + body. Collapsed = header only. Overflow menu: Edit, Theme, Move, Link values, Copy Blossom code, Delete.
-- **Drawers over modals**: settings, pickers, and editors slide from the right (desktop) or bottom (mobile). Only destructive confirmations use a small centered dialog.
+- **Panel placement is a user setting (CR-1)**: Settings → Appearance → "Open panels as" — Full page / Left panel / Right panel / Bottom sheet (default: right ≥600px, bottom sheet below). Implemented once in `ui/components.js` `openPanel()`; every surface (widget internal views, settings, pickers, editors, galleries) routes through it. Only destructive confirmations use a small centered dialog, regardless of the setting.
+- **Menu rows (CR-3)**: one shared `.menu-row` component for every menu/gallery/picker — leading icon, then a flex-column text block: name (`1rem`, 600 weight) on its own line, description beneath (`0.8125rem`, `textSoft`, max 2 lines, ellipsis). Never let name and description render inline.
+- **Widget gallery search (CR-2)**: the "+ Add widget" gallery has a pinned search field filtering by name/description/keywords, with a This module / Everywhere scope that also finds existing widget instances and navigates to them.
 - **Typography**: one humanist sans (system stack: `system-ui` first — no webfont download, offline rule) with a serif option in settings for journal/notes bodies. Base 16px, 1.6 line height.
 - **Responsive**: single column ≤600px; 2-column masonry for widgets 600–1100px; 3-column above. Widget width settings: full / half / third (where columns allow).
 

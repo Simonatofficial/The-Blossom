@@ -32,6 +32,7 @@ Source: https://github.com/mattpocock/skills/blob/main/skills/productivity/grill
 | `docs/08-modules.md` | Preset modules: The Blossom, Infinite Canvas, D&D DM, D&D Character, World Builder, Study Guide |
 | `docs/09-deployment.md` | GitHub Pages publishing, manifest, service worker, Android/Windows install |
 | `docs/10-roadmap.md` | Phased build order — follow this sequence |
+| `docs/11-change-requests.md` | Active change requests from user testing — work these alongside Phase 7+ |
 
 ## Tech stack (non-negotiable)
 

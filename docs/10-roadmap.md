@@ -23,6 +23,9 @@ Particle engine + all presets, pointer FX, atmosphere engine + all presets, cust
 ## Phase 6 — Companion widgets
 Canvas (widget version), Calculator, Alarm/Timer, Music Player, Notifications, Image/Gallery, Dice.
 
+## Phase 6.5 — Change requests (docs/11)
+Work the active CRs in their stated order (menu-row fix → Flower Graph fixes → panel placement → widget search → preset effect overrides → vibrancy pass) before or interleaved with Phase 7 — CR-1 especially must land before new modules add more panels.
+
 ## Phase 7 — Big modules (one per release)
 1. **Study Guide** (closest to existing widgets)
 2. **Infinite Canvas** (sector/quadtree/tile engine — budget real time)

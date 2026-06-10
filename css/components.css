@@ -310,6 +310,10 @@
   margin-bottom: 10px;
 }
 
+/* THE shared list/menu row (CR-3). Every menu, gallery, and picker uses this
+   exact structure — leading icon · stacked text column · trailing affordance.
+   Name sits on its own line; the description goes beneath it. Do not write
+   ad-hoc row markup; reuse .list-item + .li-main/.li-title/.li-sub. */
 .list-item {
   display: flex;
   align-items: center;
@@ -326,9 +330,32 @@
   transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
 }
 .list-item:hover { border-color: var(--accent); }
-.list-item .li-main { flex: 1; min-width: 0; }
-.list-item .li-title { font-size: 0.93rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.list-item .li-sub { font-size: 0.76rem; color: var(--text-soft); }
+.list-item .li-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.list-item .li-title {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.list-item .li-sub {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 0.8125rem;
+  color: var(--text-soft);
+  line-height: 1.4;
+  overflow: hidden;
+  white-space: normal;
+}
 
 /* ---- toast ---- */
 #toast-host {
