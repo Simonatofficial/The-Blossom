@@ -1,0 +1,118 @@
+/* ============ The Blossom — base.css ============
+   Reset, CSS variables, typography, layout primitives.
+   Default variables match the Space preset; fx/themes.js overwrites them. */
+
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+
+:root {
+  /* colors (Space defaults) */
+  --bg: #1b1430;
+  --bg-grad-1: #1b1430;
+  --bg-grad-2: #2a1f4d;
+  --bg-angle: 160deg;
+  --surface: rgba(38, 28, 70, 0.72);
+  --surface-alt: rgba(52, 40, 94, 0.6);
+  --border: rgba(167, 139, 250, 0.22);
+  --text: #ece7fb;
+  --text-soft: #a99ec9;
+  --accent: #a78bfa;
+  --accent-soft: rgba(167, 139, 250, 0.16);
+  --highlight: #cdbcf5;
+  --success: #7fd1a8;
+  --warn: #e8b76f;
+
+  /* shape & motion */
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-lg: 18px;
+  --shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  --shadow-soft: 0 2px 10px rgba(0, 0, 0, 0.1);
+  --ease: cubic-bezier(0.25, 0.6, 0.3, 1);
+  --t-fast: 150ms;
+  --t-med: 200ms;
+  --t-slow: 250ms;
+
+  /* type */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
+  --font-body: var(--font-sans);
+}
+
+html { height: 100%; }
+
+body {
+  min-height: 100svh;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg);
+  background-image: linear-gradient(var(--bg-angle), var(--bg-grad-1), var(--bg-grad-2));
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  transition: color var(--t-slow) var(--ease);
+}
+
+/* ---- canvas layers (docs/01 z-order) ---- */
+#atmosphere-canvas, #particle-canvas, #fx-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+#atmosphere-canvas { z-index: 0; }
+#particle-canvas { z-index: 1; }
+#app { position: relative; z-index: 2; min-height: 100svh; }
+#fx-canvas { z-index: 50; }
+
+/* ---- typography ---- */
+h1, h2, h3, h4 { font-weight: 600; line-height: 1.3; text-wrap: balance; }
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.3rem; }
+h3 { font-size: 1.1rem; }
+h4 { font-size: 1rem; }
+p { overflow-wrap: break-word; }
+a { color: var(--accent); }
+small, .soft { color: var(--text-soft); font-size: 0.85rem; }
+
+img, canvas, svg, video { display: block; max-width: 100%; }
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+::selection { background: var(--accent-soft); }
+
+/* scrollbars: quiet */
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* focus: visible but gentle */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---- layout primitives ---- */
+.row { display: flex; align-items: center; gap: 8px; }
+.row-between { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.col { display: flex; flex-direction: column; gap: 8px; }
+.grow { flex: 1 1 auto; min-width: 0; }
+.center { display: grid; place-items: center; }
+.hidden { display: none !important; }
+
+/* reduced motion: stillness is also cozy */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
