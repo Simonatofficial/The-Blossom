@@ -77,7 +77,7 @@ User-reported issues and feature requests from live testing. **Work these in pri
 
 ---
 
-## CR-6 — Flower Graph fixes · `js/widgets/graph.js` (flower renderer)
+## CR-6 — Flower Graph fixes · `js/widgets/graph.js` (flower renderer) · ✅ 2026-06-10
 
 Four issues, all in the signature graph (spec updated in docs/05):
 

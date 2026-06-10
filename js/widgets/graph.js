@@ -11,14 +11,14 @@ import { el, field, seg, input } from '../ui/components.js';
 import { todayStr, dateAdd, childWidgetsOf } from './base.js';
 import * as values from '../core/values.js';
 import { openLinkPicker } from '../ui/picker.js';
-import { drawFlower, stemSvg, hexA } from './flowergraph.js';
+import { drawFlower, hexA } from './flowergraph.js';
 
 const RANGES = { week: 7, month: 30, quarter: 90 };
 
 function themeColors(host) {
   const s = getComputedStyle(host);
   const v = (n) => s.getPropertyValue(n).trim();
-  return { accent: v('--accent'), highlight: v('--highlight'), success: v('--success'), warn: v('--warn'), textSoft: v('--text-soft'), border: v('--border') };
+  return { accent: v('--accent'), highlight: v('--highlight'), success: v('--success'), warn: v('--warn'), textSoft: v('--text-soft'), border: v('--border'), glow: v('--glow') };
 }
 
 function seriesColor(i, theme, override) {
@@ -45,7 +45,7 @@ function renderGraph(holder, widget, gdef, ctx, big) {
   holder.classList.add('graph-holder');
   const theme = themeColors(holder);
   const W = Math.max(280, holder.clientWidth || (big ? 640 : 320));
-  const H = gdef.kind === 'flower' ? Math.min(W, big ? 480 : 300) + (gdef.style === 'botanical' ? 70 : 0) : (big ? 280 : 190);
+  const H = gdef.kind === 'flower' ? Math.min(W, big ? 480 : 320) : (big ? 280 : 190);
   const dpr = Math.min(2, devicePixelRatio || 1);
   const canvas = el(`<canvas style="width:100%;height:${H}px"></canvas>`);
   canvas.width = W * dpr;
@@ -102,9 +102,8 @@ function renderGraph(holder, widget, gdef, ctx, big) {
 
     if (gdef.kind === 'flower') {
       const cx = W / 2;
-      const flowerH = H - (gdef.style === 'botanical' ? 70 : 0);
-      const cy = flowerH / 2 + 8;
-      const radius = Math.min(W, flowerH) / 2 - (big ? 40 : 26);
+      const cy = H / 2 + 6;
+      const radius = Math.min(W, H) / 2 - (big ? 40 : 26);
       const res = drawFlower(g, {
         cx, cy, radius,
         petals: seriesData.map((s, i) => ({
@@ -112,9 +111,13 @@ function renderGraph(holder, widget, gdef, ctx, big) {
           lifted: selected?.kind === 'petal' && selected.i === i,
           particles: s.particles
         })),
-        t, theme, showLabels: W >= 480 || big, reducedMotion: reduced
+        t,
+        rotation: (gdef.rotationDeg || 0) * Math.PI / 180,
+        theme, showLabels: W >= 480 || big, reducedMotion: reduced
       });
+      // particles are visually on top, so they win the hit test (CR-6)
       hits = [
+        ...res.particleHits.map(p => ({ kind: 'particle', i: p.petal, k: p.index, test: (x, y) => Math.hypot(x - p.x, y - p.y) < p.r })),
         ...res.petalHits.map((h, i) => ({ kind: 'petal', i, test: (x, y) => {
           const dx = x - cx, dy = y - cy;
           const r = Math.hypot(dx, dy);
@@ -123,8 +126,7 @@ function renderGraph(holder, widget, gdef, ctx, big) {
           while (da > Math.PI) da -= 2 * Math.PI;
           while (da < -Math.PI) da += 2 * Math.PI;
           return Math.abs(da) < h.halfWidth;
-        } })),
-        ...res.particleHits.map(p => ({ kind: 'particle', i: p.petal, k: p.index, test: (x, y) => Math.hypot(x - p.x, y - p.y) < p.r }))
+        } }))
       ];
       return !reduced; // keep breathing
     }
@@ -269,11 +271,6 @@ function renderGraph(holder, widget, gdef, ctx, big) {
     tip.style.top = `${Math.max(4, y - 34)}px`;
   });
 
-  if (gdef.kind === 'flower' && gdef.style === 'botanical') {
-    const stemHost = el('<div class="fg-stem-host"></div>');
-    stemHost.innerHTML = stemSvg(W, H, W / 2, H - 86, theme.success);
-    holder.appendChild(stemHost);
-  }
 }
 
 registry.register({
@@ -317,6 +314,12 @@ registry.register({
           controls.appendChild(seg(
             [{ value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, { value: 'quarter', label: 'Quarter' }],
             gdef.range, (v) => { gdef.range = v; save(); renderAll(); }));
+        }
+        if (gdef.kind === 'flower') {
+          const rot = el('<input type="range" class="range" min="0" max="360" step="5" style="width:130px" title="Rotation">');
+          rot.value = gdef.rotationDeg || 0;
+          rot.onchange = () => { gdef.rotationDeg = Number(rot.value); save(); renderAll(); };
+          controls.appendChild(rot);
         }
         panel.appendChild(controls);
 

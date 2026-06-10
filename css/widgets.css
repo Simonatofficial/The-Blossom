@@ -395,7 +395,6 @@
   pointer-events: none;
   box-shadow: var(--shadow-soft);
 }
-.fg-stem-host { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
 
 /* ---- Dice widget ---- */
 .dice-widget .d-result {
