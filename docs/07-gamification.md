@@ -52,3 +52,9 @@ Owned items live in the Market's **Owned** shelf; using one opens a target picke
 ## Celebration language
 
 Level-ups, streak milestones, and goal completions trigger: card bloom animation (petals unfurl over the card, 800ms), a soft chime (optional, off by default), a toast ("Discipline reached level 7 · +70c"), and a pointer-FX burst at the card. Never a full-screen takeover.
+
+## Build decisions (v1 implementation notes)
+
+- Wallet is a single raw copper integer; the four denominations are display-only, so the Market's exchange row is unnecessary (conversion is automatic) and was omitted.
+- Streak Restore repairs by re-adding the remembered pre-break streak (the break date and prior streak are stored on the quest when a streak ends).
+- Skill parent propagation: a child level-up grants `childLevel x 10 x 0.5` XP one layer up; cascades continue naturally only if the parent itself levels up.

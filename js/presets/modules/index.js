@@ -1,10 +1,11 @@
-/* Preset module definitions + the generic instantiator (docs/08).
+﻿/* Preset module definitions + the generic instantiator (docs/08).
    A preset is pure data; instantiation mints fresh ids every time.
    Widgets may carry `ref` keys; links can point at '@ref' to wire presets. */
 
 import { store } from '../../core/store.js';
 import { ulid } from '../../core/ids.js';
 import { BLOSSOM_PRESET } from './blossom.js';
+import { SMALL_PRESETS } from './small.js';
 
 function todayStr() {
   const d = new Date();
@@ -92,11 +93,12 @@ export function instantiatePreset(def) {
 /** The preset gallery list. Heavier definitions join as phases land (docs/10). */
 export const PRESET_MODULES = [
   BLOSSOM_PRESET,
+  ...SMALL_PRESETS,
   {
     key: 'starter',
     name: 'My Garden',
     icon: 'flower',
-    description: 'A gentle Home page to start from — time, notes, a counter.',
+    description: 'A gentle Home page to start from: time, notes, a counter.',
     pages: [
       {
         name: 'Home', icon: 'home',

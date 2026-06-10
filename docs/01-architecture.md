@@ -136,3 +136,9 @@ Minimal shell only — everything else is rendered by JS:
 6. **Saves reassurance** — "Everything lives on your device. Back up anytime in Settings."
 
 Every step has a quiet "Skip tour" link. Tour can be replayed from Settings → About.
+
+## Build decisions (v1 implementation notes)
+
+- A dedicated `pages` object store was added to IndexedDB (additive; the spec table implied pages lived inside modules, but Page records have their own ids/widgets arrays).
+- `tools/serve.ps1` is the local test server on machines without Python (`python -m http.server` equivalent); `tools/gen-sw-assets.ps1` regenerates `sw-assets.js`; `tools/gen-icons.ps1` regenerates the PNG icons.
+- Store strategy: full in-memory cache hydrated at boot, synchronous reads, debounced (500ms) write-through to IndexedDB, force-flush on pagehide/visibilitychange.

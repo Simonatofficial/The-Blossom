@@ -175,3 +175,12 @@ A Quest with the COSMOS method built in. Creation runs the **COSMOS wizard** (do
 *External · for the D&D modules but generally fun*
 
 - Tap to roll: d4 d6 d8 d10 d12 d20 d100, custom formula input (`2d6+3`), advantage/disadvantage toggle, roll history. Rolls animate with a tiny tumble + pointer-FX sparkle.
+
+## Build decisions (v1 implementation notes)
+
+- Notes: images embed as downscaled (max 1280px) data URLs so notes survive Blossom-code export/import intact; revision history deferred per spec.
+- Separator: collapsing hides the widgets that follow it on the page until the next separator (group = span between separators).
+- Quest/Habit/Routine/Health share one mechanics module, `js/widgets/questops.js` (schedules, rep logs, payouts, streaks, freezes) - widgets stay decoupled, rules live in one place.
+- Goal progress uses each linked quest/habit's 30-day completion rate (sticky) rather than today's completion (noisy); milestones count done/not-done.
+- Journal entries are nested child widgets; the (entry widget, date) pairs live in the journal's config.
+- Graph hit-testing: petals by angle+radius, points/bars/slices by region; first tap tooltips, second tap navigates (app-wide pattern).

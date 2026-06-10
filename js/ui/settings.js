@@ -16,7 +16,54 @@ export function openSettings() {
   renderThemesSection(d);
   renderCodesSection(d);
   renderSavesSection(d);
+  renderTrashSection(d);
   renderAboutSection(d);
+}
+
+/* ---------- trash (docs/01: soft deletes rest 30 days) ---------- */
+
+function renderTrashSection(d) {
+  const sec = el('<div class="dsec"><h3>Trash</h3><div class="tr-list"></div></div>');
+  const list = sec.querySelector('.tr-list');
+  const LABEL = { modules: 'Module', pages: 'Page', widgets: 'Widget', objects: 'Object', themes: 'Theme' };
+  const render = () => {
+    list.innerHTML = '';
+    const items = store.all('trash').sort((a, b) => b.deletedAt - a.deletedAt).slice(0, 30);
+    if (!items.length) {
+      list.appendChild(el('<p class="soft" style="font-size:0.82rem">Empty — nothing is wilting here.</p>'));
+      return;
+    }
+    for (const item of items) {
+      const li = el(`<div class="list-item" style="cursor:default">
+        <span class="li-main"><span class="li-title"></span><span class="li-sub"></span></span>
+        <span class="chip">${LABEL[item._store] || item._store}</span>
+        <button class="btn-icon" title="Restore">${icon('rotate-ccw', 15)}</button>
+        <button class="btn-icon" title="Delete forever">${icon('x', 15)}</button></div>`);
+      li.querySelector('.li-title').textContent = item.name || item.kind || 'Untitled';
+      li.querySelector('.li-sub').textContent = `deleted ${new Date(item.deletedAt).toLocaleDateString()}`;
+      li.querySelector('[title="Restore"]').onclick = () => {
+        const rec = store.restore(item.id);
+        // re-attach restored widgets to their page if the page still exists
+        if (item._store === 'widgets' && rec?.pageId) {
+          const page = store.get('pages', rec.pageId);
+          if (page && !page.widgets.includes(rec.id)) { page.widgets.push(rec.id); store.put('pages', page); }
+        }
+        events.emit('page:changed', {});
+        events.emit('module:changed', {});
+        toast('Restored', 'leaf');
+        render();
+      };
+      li.querySelector('[title="Delete forever"]').onclick = async () => {
+        if (await confirmDialog({ title: 'Delete forever?', message: 'This cannot be undone.' })) {
+          store.del('trash', item.id);
+          render();
+        }
+      };
+      list.appendChild(li);
+    }
+  };
+  render();
+  d.body.appendChild(sec);
 }
 
 /* ---------- themes ---------- */

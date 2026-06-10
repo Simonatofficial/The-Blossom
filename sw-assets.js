@@ -24,6 +24,7 @@ self.SW_ASSETS = [
   './js/modules/engine.js',
   './js/presets/modules/blossom.js',
   './js/presets/modules/index.js',
+  './js/presets/modules/small.js',
   './js/presets/particles.js',
   './js/presets/prompts.js',
   './js/presets/themes.js',

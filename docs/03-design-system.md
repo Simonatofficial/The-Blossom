@@ -129,3 +129,9 @@ One engine, two layers: **background** (`#particle-canvas`, behind UI) and **poi
 - **Drawers over modals**: settings, pickers, and editors slide from the right (desktop) or bottom (mobile). Only destructive confirmations use a small centered dialog.
 - **Typography**: one humanist sans (system stack: `system-ui` first — no webfont download, offline rule) with a serif option in settings for journal/notes bodies. Base 16px, 1.6 line height.
 - **Responsive**: single column ≤600px; 2-column masonry for widgets 600–1100px; 3-column above. Widget width settings: full / half / third (where columns allow).
+
+## Build decisions (v1 implementation notes)
+
+- Atmosphere "color shift" is painted as canvas tint overlays rather than mutating theme CSS variables (safer, same visual effect).
+- Custom particle definitions are stored in the `themes` store with `type: 'particle'`.
+- Forest/beach themes map to single-shape particle presets (summerLeaves, dustMotes) - mixed-shape presets can come later via a `layers` extension.
