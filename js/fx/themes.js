@@ -5,6 +5,9 @@
 import { events } from '../core/events.js';
 import { store } from '../core/store.js';
 import { PRESET_THEMES } from '../presets/themes.js';
+import { setAtmosphere } from './atmosphere.js';
+import { setBackground, setPointerFx } from './particles.js';
+import { getParticlePreset, getPointerFxPreset } from '../presets/particles.js';
 
 const VAR_MAP = {
   bg: '--bg', surface: '--surface', surfaceAlt: '--surface-alt',
@@ -18,9 +21,9 @@ export function getTheme(id) {
   return PRESET_THEMES.find(t => t.id === id) || store.get('themes', id) || null;
 }
 
-/** @returns {object[]} all themes (presets + custom). */
+/** @returns {object[]} all themes (presets + custom; particle defs excluded). */
 export function allThemes() {
-  return [...PRESET_THEMES, ...store.all('themes')];
+  return [...PRESET_THEMES, ...store.all('themes').filter(t => t.type !== 'particle')];
 }
 
 /** Map a theme's colors to { cssVar: value } pairs. */
@@ -63,6 +66,7 @@ export function applyGlobalTheme(themeId) {
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.colors.bg);
   store.setMeta('themeId', theme.id);
   localStorage.setItem('blossom:themeId', theme.id);
+  applyEffects(theme);
   events.emit('theme:changed', theme);
 }
 
@@ -74,4 +78,29 @@ export function activeThemeId() {
 /** @returns {object} the active workspace theme. */
 export function activeTheme() {
   return getTheme(activeThemeId()) || PRESET_THEMES[1];
+}
+
+/* ---- atmosphere + particle activation (docs/03 scoping: the deepest
+   non-inherit theme in the active scope chain wins; engine calls this on
+   every page render, we skip redundant re-activations) ---- */
+
+let lastFxKey = null;
+
+function resolveParticleDef(spec, custom) {
+  if (!spec?.preset) return null;
+  const base = getParticlePreset(spec.preset) || getPointerFxPreset(spec.preset) || store.get('themes', spec.preset)?.def;
+  return base ? { ...base, ...(spec.overrides || {}) } : null;
+}
+
+/** Activate a theme's atmosphere, background particles, and pointer FX. */
+export function applyEffects(theme, force = false) {
+  if (!theme) return;
+  const key = JSON.stringify([theme.id, theme.atmosphere, theme.particles, theme.pointerFx]);
+  if (!force && key === lastFxKey) return;
+  lastFxKey = key;
+  setAtmosphere(theme.atmosphere || null, theme.colors);
+  const pDef = resolveParticleDef(theme.particles);
+  setBackground(pDef, pDef?.color || theme.colors.accent);
+  const fxDef = resolveParticleDef(theme.pointerFx);
+  setPointerFx(fxDef, fxDef?.color || theme.colors.accent);
 }

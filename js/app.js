@@ -7,7 +7,9 @@ import { router } from './core/router.js';
 import { registry } from './widgets/registry.js';
 import './widgets/all.js';
 import { makeCtx } from './widgets/base.js';
-import { applyGlobalTheme, activeThemeId } from './fx/themes.js';
+import { applyGlobalTheme, activeThemeId, activeTheme, applyEffects } from './fx/themes.js';
+import { initParticles } from './fx/particles.js';
+import { initAtmosphere } from './fx/atmosphere.js';
 import { initShell } from './ui/shell.js';
 import { initEngine } from './modules/engine.js';
 import { initSaves, checkDayRollover } from './core/saves.js';
@@ -36,6 +38,9 @@ async function boot() {
 
   initShell(document.getElementById('app'));
   initEngine(document.getElementById('page-host'));
+  initParticles();
+  initAtmosphere();
+  applyEffects(activeTheme(), true);
   initSaves();
   checkDayRollover();
   router.init();

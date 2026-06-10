@@ -9,7 +9,7 @@ import { registry } from '../widgets/registry.js';
 import { makeCtx, engineHooks, openWidgetSettings, removeWidget } from '../widgets/base.js';
 import { icon } from '../ui/icons.js';
 import { el, toast, confirmDialog, openDrawer, popMenu, emptyState } from '../ui/components.js';
-import { applyScopedTheme } from '../fx/themes.js';
+import { applyScopedTheme, applyEffects, getTheme, activeTheme } from '../fx/themes.js';
 import { openWidgetGallery } from '../ui/picker.js';
 
 let host = null;
@@ -66,6 +66,8 @@ export function renderPage() {
 
   const scope = el('<div class="page-scope"></div>');
   applyScopedTheme(scope, page.themeOverride || mod.themeOverride || null);
+  // deepest non-inherit theme drives atmosphere + particles (docs/03)
+  applyEffects(getTheme(page.themeOverride || mod.themeOverride) || activeTheme());
 
   const grid = el('<div class="widget-grid"></div>');
   const widgets = page.widgets.map(id => store.get('widgets', id)).filter(Boolean);

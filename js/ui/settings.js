@@ -30,18 +30,41 @@ function renderThemesSection(d) {
       const li = el(`<button class="list-item">
         <span style="display:flex;gap:3px">${['bg', 'accent', 'highlight'].map(k => `<span style="width:14px;height:14px;border-radius:50%;background:${t.colors[k]};border:1px solid var(--border)"></span>`).join('')}</span>
         <span class="li-main"><span class="li-title"></span></span>
+        ${t.custom ? `<span class="btn-icon t-edit" title="Edit">${icon('edit', 14)}</span><span class="btn-icon t-del" title="Delete">${icon('trash', 14)}</span>` : ''}
         ${activeThemeId() === t.id ? icon('check', 16) : ''}</button>`);
       li.querySelector('.li-title').textContent = t.name;
-      li.onclick = () => { applyGlobalTheme(t.id); render(); };
+      li.onclick = (e) => {
+        if (e.target.closest('.t-edit, .t-del')) return;
+        applyGlobalTheme(t.id);
+        render();
+      };
+      li.querySelector('.t-edit')?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const { openThemeEditor } = await import('./themeeditor.js');
+        openThemeEditor(t.id);
+      });
+      li.querySelector('.t-del')?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (await confirmDialog({ title: `Delete “${t.name}”?`, message: 'Anything using it falls back to Inherit.' })) {
+          store.del('themes', t.id);
+          if (activeThemeId() === t.id) applyGlobalTheme('space');
+          render();
+        }
+      });
       list.appendChild(li);
     }
     const newBtn = el(`<button class="btn-soft-wide">${icon('plus', 15)} New theme</button>`);
     newBtn.onclick = async () => {
-      const mod = await import('./themeeditor.js').catch(() => null);
-      if (mod?.openThemeEditor) mod.openThemeEditor();
-      else toast('The theme editor blooms in a later phase.', 'palette');
+      const { openThemeEditor } = await import('./themeeditor.js');
+      openThemeEditor();
     };
     list.appendChild(newBtn);
+    const newParticles = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('sparkles', 15)} New particles</button>`);
+    newParticles.onclick = async () => {
+      const { openParticleEditor } = await import('./particleeditor.js');
+      openParticleEditor();
+    };
+    list.appendChild(newParticles);
   };
   render();
   d.body.appendChild(sec);
