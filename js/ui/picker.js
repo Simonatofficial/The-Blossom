@@ -175,9 +175,10 @@ export function openWidgetGallery(opts) {
     li.querySelector('.li-title').textContent = def.name;
     li.querySelector('.li-sub').textContent = def.description || '';
     li.onclick = async () => {
+      d.close();
+      if (def.wizard) { def.wizard(opts); return; } // e.g. Habit → COSMOS wizard (docs/06)
       const { createWidget } = await import('../widgets/base.js');
       const w = createWidget(def.type, opts);
-      d.close();
       opts.onCreated?.(w);
     };
     d.body.appendChild(li);

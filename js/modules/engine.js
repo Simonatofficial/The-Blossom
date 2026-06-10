@@ -39,6 +39,11 @@ export function initEngine(hostEl) {
       }
     }
   });
+  events.on('wallet:changed', () => {
+    for (const [id] of cardEls) {
+      if (store.get('widgets', id)?.type === 'market') refreshCard(id);
+    }
+  });
   events.on('widget:focus', ({ widgetId }) => {
     const card = cardEls.get(widgetId);
     if (!card) return;

@@ -10,3 +10,8 @@ import './quest.js';
 import './journal.js';
 import './routine.js';
 import './calendar.js';
+import './skill.js';
+import './health.js';
+import './goal.js';
+import './habit.js';
+import './market.js';

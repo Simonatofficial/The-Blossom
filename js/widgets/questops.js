@@ -44,20 +44,24 @@ export function completionPct(widget, dateStr) {
 /**
  * Add (or remove) a rep for today. Pays out instantly on the final rep
  * (docs/07: per-rep payouts would be gameable). Editing past days never pays.
+ * @param {{bonusMult?: number, noPayout?: boolean, tier?: string}} [opts]
+ *   bonusMult: habits' Stretch +25%; noPayout: Market quest-skips (docs/07).
  * @returns {{done: number, completedNow: boolean, coins: number}}
  */
-export function addRep(widget, delta = 1, dateStr = todayStr()) {
+export function addRep(widget, delta = 1, dateStr = todayStr(), opts = {}) {
   const reps = widget.config.reps || 1;
   const log = dayObject(widget.id, 'questLog', dateStr, { done: 0, paid: false });
   log.data.done = Math.max(0, Math.min(reps, log.data.done + delta));
+  if (opts.tier) log.data.tier = opts.tier;
   let completedNow = false;
   let coins = 0;
   if (log.data.done >= reps && !log.data.paid && dateStr === todayStr()) {
     log.data.paid = true;
-    coins = BASE_PAYOUT * (DIFFICULTY[widget.config.difficulty]?.mult || 1);
-    if (widget.config.tierBonus) coins = Math.round(coins * widget.config.tierBonus); // habits: Stretch +25%
-    wallet.add(coins, `quest:${widget.id}`);
     completedNow = true;
+    if (!opts.noPayout) {
+      coins = Math.round(BASE_PAYOUT * (DIFFICULTY[widget.config.difficulty]?.mult || 1) * (opts.bonusMult || 1));
+      wallet.add(coins, `quest:${widget.id}`);
+    }
   }
   saveObject(log);
   return { done: log.data.done, completedNow, coins };
@@ -108,7 +112,12 @@ export function rollQuestDay(widget, fromDate) {
         log.data.paid = true;
         saveObject(log);
       }
-      if (!freezeActive(widget.id, fromDate)) state.streak = 0;
+      if (!freezeActive(widget.id, fromDate) && state.streak > 0) {
+        // remember the break so a Streak Restore can repair it within 7 days (docs/07)
+        state.prevStreak = state.streak;
+        state.brokenOn = fromDate;
+        state.streak = 0;
+      }
     }
   }
   store.put('widgets', widget);
