@@ -4,7 +4,9 @@
 
 import { store } from '../../core/store.js';
 import { ulid } from '../../core/ids.js';
+import { registry } from '../../widgets/registry.js';
 import { BLOSSOM_PRESET } from './blossom.js';
+import { STUDY_PRESET } from './study.js';
 import { SMALL_PRESETS } from './small.js';
 
 function todayStr() {
@@ -51,7 +53,9 @@ export function instantiatePreset(def) {
       collapsed: !!wDef.collapsed,
       themeOverride: null,
       w: wDef.w || 'full',
-      config: structuredClone(wDef.config || {}),
+      // merge the type's defaults exactly like createWidget does, so preset
+      // definitions only need to state what differs
+      config: { ...(registry.get(wDef.type)?.defaultConfig?.() || {}), ...structuredClone(wDef.config || {}) },
       links: structuredClone(wDef.links || [])
     });
     if (wDef.ref) refs.set('@' + wDef.ref, widget.id);
@@ -93,6 +97,7 @@ export function instantiatePreset(def) {
 /** The preset gallery list. Heavier definitions join as phases land (docs/10). */
 export const PRESET_MODULES = [
   BLOSSOM_PRESET,
+  STUDY_PRESET,
   ...SMALL_PRESETS,
   {
     key: 'starter',

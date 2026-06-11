@@ -118,3 +118,9 @@ Module-specific widgets: Notebook, FlashcardDeck, Quiz, DocumentShelf.
 - **Fitness Log:** workout Routine widgets, exercise Trackers (weight × reps), body measurements Tracker, progress line graphs, rest-timer.
 
 Each of these is ~1 page of definition JSON — cheap to ship, great for the preset gallery.
+
+## Build decisions - Study Guide (v1)
+
+- DocumentShelf PDFs: no vendored PDF renderer (zero-dependency rule). Images open in the inline lightbox; PDFs open in a new tab from their Blob URL - both fully offline.
+- Study widgets load eagerly with the other widget types rather than via dynamic import(): the whole app ships ~70 small SW-cached modules, so lazy-loading bought nothing measurable here. Revisit for the canvas-heavy modules.
+- Card generation harvests <mark class="key-term"> "term - definition" pairs and Q:/A: line pairs; free-form definition-sentence mining was deliberately left out (too noisy to be assistive).

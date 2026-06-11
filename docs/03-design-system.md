@@ -26,7 +26,9 @@ A **theme** = colors + atmosphere + background particles + click/drag particles.
     success, warn                      // used sparingly (streaks, wilting)
   },
   atmosphere: { preset: 'constellations', options: {...} } | null,
-  particles:  { preset: 'cherryBlossoms', overrides: {...} } | null,
+  particles:  [ { preset: 'cherryBlossoms', overrides: {...}, enabled: true },
+                { preset: 'windStreaks',    enabled: true } ] | null,
+              // up to 3 layers (CR-7); a single object is read as a 1-layer array
   pointerFx:  { preset: 'starSparkle',   overrides: {...} } | null
 }
 ```
@@ -132,6 +134,8 @@ One engine, two layers: **background** (`#particle-canvas`, behind UI) and **poi
 - **Bottom tab bar** = the module's pages (3–5 visible; overflow into a "More" sheet). Active tab: accent underline glow, not a filled pill.
 - **Widget card**: header row (drag handle ⋮⋮ on left-hold, name, collapse chevron, overflow menu ···) + body. Collapsed = header only. Overflow menu: Edit, Theme, Move, Link values, Copy Blossom code, Delete.
 - **Panel placement is a user setting (CR-1)**: Settings → Appearance → "Open panels as" — Full page / Left panel / Right panel / Bottom sheet (default: right ≥600px, bottom sheet below). Implemented once in `ui/components.js` `openPanel()`; every surface (widget internal views, settings, pickers, editors, galleries) routes through it. Only destructive confirmations use a small centered dialog, regardless of the setting.
+- **Views are routes, not stacked overlays (CR-8)**: opening a widget's internal view navigates (router sub-route); the content beneath unmounts — never visible behind the new view, and back/refresh/deep-links work. Only one content surface at a time (a picker opened from a view replaces any prior picker). View containers use the translucent `surface` treatment over a transparent page background so atmosphere + particles stay visible in all four placements; side/bottom placements dim the live page with a ~20% scrim, never show stale surfaces.
+- **Theme scoping follows the widget inside (CR-9)**: the scoped CSS-variable wrapper applies to a widget's card *and* its routed internal view; while a view is open, that widget is the deepest active scope, so its theme's colors — and its atmosphere/particles/pointer FX, if defined — take over until back is pressed.
 - **Menu rows (CR-3)**: one shared `.menu-row` component for every menu/gallery/picker — leading icon, then a flex-column text block: name (`1rem`, 600 weight) on its own line, description beneath (`0.8125rem`, `textSoft`, max 2 lines, ellipsis). Never let name and description render inline.
 - **Widget gallery search (CR-2)**: the "+ Add widget" gallery has a pinned search field filtering by name/description/keywords, with a This module / Everywhere scope that also finds existing widget instances and navigates to them.
 - **Typography**: one humanist sans (system stack: `system-ui` first — no webfont download, offline rule) with a serif option in settings for journal/notes bodies. Base 16px, 1.6 line height.

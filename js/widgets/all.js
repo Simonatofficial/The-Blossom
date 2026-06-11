@@ -23,3 +23,7 @@ import './notifications.js';
 import './music.js';
 import './alarm.js';
 import './canvas.js';
+import './notebook.js';
+import './flashcards.js';
+import './quiz.js';
+import './docshelf.js';

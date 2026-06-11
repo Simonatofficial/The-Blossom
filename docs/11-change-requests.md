@@ -91,6 +91,51 @@ Four issues, all in the signature graph (spec updated in docs/05):
 
 ---
 
+## CR-7 — Multiple particle presets at once (particle layers) · `fx/particles.js`, `fx/themes.js`, `ui/settings.js`
+
+**Problem:** a theme can only run one background particle preset at a time. The user wants to combine them (e.g. cherry blossoms + wind streaks, stars + comets).
+
+**Behavior:**
+- A theme's `particles` field becomes an **array of layers**: `particles: [{preset, overrides?, enabled}, ...]` (max 3 layers). Backward compatible: a single object is read as a one-layer array; no migration that touches user data.
+- The theme Effects section (CR-5) gains a layer list under Particles: each layer = a `.menu-row` with preset name, on/off toggle, "Adjust…", and remove; "+ Add particle layer" button (hidden at 3). Drag to reorder layers (draw order: first = back).
+- Same for **Pointer FX** if cheap to do (one extra layer max); background layers are the priority.
+- **Performance:** the existing global caps stay authoritative — 150 background particles *total across all layers*, shared object pool, per-layer `maxCount` proportionally scaled down when the combined total exceeds the cap (e.g. two 100-count layers each run at 75). Auto-degrade behavior unchanged. One engine, one canvas, one rAF — layers are just multiple emitters into the same pool.
+- Preset themes may now ship multi-layer particles (Flower: blossoms + wind streaks; Space: twinkling stars + rare comets) — update `js/presets/themes.js`, removing the earlier single-shape compromise noted in docs/03 build decisions.
+
+**Accept when:** Flower runs blossoms and wind streaks together at 60fps on a mid-range phone; a user can add fireflies as a third layer, reorder, disable one layer, and reset to preset (CR-5 override layer covers persistence).
+
+---
+
+## CR-8 — Internal views open as real pages, not stacked overlays · `ui/components.js`, `core/router.js`
+
+**Problem:** opening a widget's internal view overlays it on top of whatever was open before — previously opened panels remain visible behind it, and the atmosphere/particle background is hard to see through the pile of surfaces.
+
+**Behavior — navigation, not stacking:**
+- A widget's internal view becomes a **routed page**: opening it *navigates* (router pushes a sub-route like `#/module/page/widget/<id>`); the page content beneath unmounts/hides completely — **never** rendered behind the new view. Back (header arrow, hardware/browser back, swipe-back) pops the route and re-renders the page. Deep links and refresh land correctly because it's a real route.
+- Only **one** content surface exists at a time. Lightweight pickers opened *from* a view (link picker, icon picker) may still overlay that one view, but must never accumulate: opening a second picker replaces the first.
+- **See the background:** the routed view's container uses the same translucent surface treatment as widget cards (`surface` with its existing alpha/backdrop-blur) over a **transparent page background** — the atmosphere and particle canvases stay fully visible around and through it. No opaque full-bleed backdrops anywhere in the view chrome.
+- **Relation to CR-1:** the "Open panels as" setting now controls the *visual arrangement* of the routed view (full page / left / right / bottom sheet) but all four placements are routes with the same replace-not-stack and transparent-background rules. In side/bottom placements, the area outside the panel shows the live page dimmed by a light scrim (~20%), not the stale previous overlay.
+
+**Accept when:** opening Skill → its settings → a link picker then pressing back twice returns cleanly to the page; at no point is an older surface visible behind the current one; the atmosphere is clearly visible behind every open view in all four placement modes.
+
+---
+
+## CR-9 — Per-widget theme must apply to the widget's internal view · `fx/themes.js`, `ui/components.js`
+
+**Problem:** setting a theme on a widget only restyles its card ("the button") on the page — its internal view/pages still render in the inherited theme. The custom theme should follow the widget inside.
+
+**Behavior:**
+- Theme scoping (docs/03: scoped CSS variables on a wrapper) must wrap **both** render targets: the card on the page *and* the routed internal view from CR-8 (the view container gets the same scoped-variable wrapper, since it no longer inherits the page's DOM position).
+- While a widget's internal view is open, that widget is the **deepest active scope**: its theme's colors apply to the whole view, and per docs/03 scope-chain rules its atmosphere/particles/pointer FX (if its theme defines any) take over the global canvases for as long as the view is open, reverting on back. (This is the existing "deepest non-inherit wins" rule — it now must actually engage on view open/close.)
+- Same fix for Page-level themes: entering a page with a theme override swaps scope correctly (verify, since the same root cause likely affects it).
+- Nested widgets inside an internal view inherit the widget's theme unless they carry their own override (normal chain).
+
+**Accept when:** giving a Skill widget the Space theme makes its card *and* its opened internal view fully Space-themed (colors + constellations atmosphere + star particles), reverting to the page's theme on back; works in all CR-1 placements.
+
+---
+
 ## Order of work
 
-CR-3 (bug, small) → CR-6 (signature visual, user-facing) → CR-1 (touches all surfaces; do before new modules add more panels) → CR-2 → CR-5 → CR-4 (broad visual pass last, after CR-5's override plumbing exists, since the editor and override layer interact). Then resume the Phase 7 sequence in docs/10. Mark each CR done here (`✅ + date`) when its acceptance criteria pass on a 360px viewport and desktop.
+~~CR-3 → CR-6 → CR-1 → CR-2 → CR-5 → CR-4~~ ✅ all complete 2026-06-10.
+
+**Round 2:** CR-8 first (routing rework — CR-9 depends on its view container, and it touches every surface) → CR-9 (scoped theming into views) → CR-7 (particle layers; independent, do anytime). Then resume the Phase 7 sequence in docs/10 (next up: Study Guide → Infinite Canvas → World Builder → D&D Character → D&D DM). Mark each CR done here (`✅ + date`) when its acceptance criteria pass on a 360px viewport and desktop.
