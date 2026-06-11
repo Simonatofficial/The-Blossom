@@ -8,11 +8,12 @@ import { router } from '../core/router.js';
 import { registry } from '../widgets/registry.js';
 import { makeCtx, engineHooks, openWidgetSettings, removeWidget } from '../widgets/base.js';
 import { icon } from '../ui/icons.js';
-import { el, toast, confirmDialog, openDrawer, popMenu, emptyState } from '../ui/components.js';
+import { el, toast, confirmDialog, openDrawer, popMenu, emptyState, panelPlacement, closeStrayPanels } from '../ui/components.js';
 import { applyScopedTheme, applyEffects, getTheme, activeTheme } from '../fx/themes.js';
 import { openWidgetGallery } from '../ui/picker.js';
 
 let host = null;
+let viewCtl = null; // the routed internal view (CR-8) — at most one
 const cardEls = new Map(); // widgetId -> card element
 const ctx = makeCtx();
 
@@ -23,6 +24,8 @@ export function initEngine(hostEl) {
   engineHooks.renderPage = renderPage;
   engineHooks.refreshCard = refreshCard;
 
+  // navigation never leaves stale overlays behind (CR-8)
+  events.on('route:changed', closeStrayPanels);
   events.on('route:changed', renderPage);
   events.on('page:changed', renderPage);
   events.on('widget:added', renderPage);
@@ -90,6 +93,64 @@ export function renderPage() {
     scope.appendChild(add);
   }
   host.appendChild(scope);
+  syncRoutedView();
+}
+
+/* ---------- routed internal views (CR-8): the /w/<id> sub-route owns the
+   view's lifecycle — open on enter, close on leave, replace-not-stack ---------- */
+
+function syncRoutedView() {
+  const { widgetId } = router.current();
+  const widget = widgetId ? store.get('widgets', widgetId) : null;
+  if (viewCtl && viewCtl.widgetId !== (widget?.id || null)) {
+    const ctl = viewCtl;
+    viewCtl = null; // cleared first so onClose doesn't re-route
+    ctl.close();
+  }
+  // full placement: the page must never sit behind the view (CR-8);
+  // side/sheet placements keep the live page visible under a light scrim
+  host.classList.toggle('behind-view', !!widget && panelPlacement() === 'full');
+  if (widget && !viewCtl) mountRoutedView(widget);
+}
+
+function mountRoutedView(widget) {
+  const def = registry.get(widget.type);
+  if (!def?.internal) return;
+
+  // breadcrumb chain: Page › parents › widget (docs/04)
+  const crumbs = [];
+  let p = widget;
+  let guard = 0;
+  while (p && guard++ < 30) {
+    crumbs.unshift(p.name);
+    p = p.parentWidgetId ? store.get('widgets', p.parentWidgetId) : null;
+  }
+  const pageRec = store.get('pages', topLevelOf(widget)?.pageId);
+  if (pageRec) crumbs.unshift(pageRec.name);
+
+  const ctl = openDrawer({
+    title: widget.name,
+    iconName: def.icon,
+    crumbs: crumbs.slice(0, -1),
+    routed: true,
+    actions: [{ iconName: 'settings', label: 'Widget settings', fn: () => openWidgetSettings(widget) }],
+    onClose: () => {
+      host.classList.remove('behind-view');
+      if (viewCtl === ctl) {
+        viewCtl = null;
+        router.closeWidget(); // user closed the surface → pop the route
+      }
+      refreshCard(widget.id, true);
+    }
+  });
+  ctl.widgetId = widget.id;
+  viewCtl = ctl;
+
+  try { def.renderFull(ctl.body, widget, ctx); }
+  catch (err) {
+    console.error(`[engine] renderFull failed for ${widget.type}`, err);
+    ctl.body.innerHTML = '<p class="soft">This view had trouble blooming.</p>';
+  }
 }
 
 function refreshCard(widgetId, structural = false) {
@@ -251,36 +312,12 @@ function enableDrag(handle, widget, card) {
   });
 }
 
-/* ---------- internal views (open through the shared panel — CR-1) ---------- */
+/* ---------- internal views are ROUTES (CR-8): opening one navigates ---------- */
 
 export function openInternal(widget) {
   const def = registry.get(widget.type);
   if (!def?.internal) return;
-
-  // breadcrumb chain: Page › parents › widget (docs/04)
-  const crumbs = [];
-  let p = widget;
-  let guard = 0;
-  while (p && guard++ < 30) {
-    crumbs.unshift(p.name);
-    p = p.parentWidgetId ? store.get('widgets', p.parentWidgetId) : null;
-  }
-  const pageRec = store.get('pages', topLevelOf(widget)?.pageId);
-  if (pageRec) crumbs.unshift(pageRec.name);
-
-  const panel = openDrawer({
-    title: widget.name,
-    iconName: def.icon,
-    crumbs: crumbs.slice(0, -1),
-    actions: [{ iconName: 'settings', label: 'Widget settings', fn: () => openWidgetSettings(widget) }],
-    onClose: () => refreshCard(widget.id, true)
-  });
-
-  try { def.renderFull(panel.body, widget, ctx); }
-  catch (err) {
-    console.error(`[engine] renderFull failed for ${widget.type}`, err);
-    panel.body.innerHTML = '<p class="soft">This view had trouble blooming.</p>';
-  }
+  router.openWidget(widget.id); // route change mounts the view (syncRoutedView)
 }
 
 function topLevelOf(widget) {

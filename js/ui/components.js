@@ -79,16 +79,24 @@ export function panelPlacement() {
 
 /**
  * Open a panel. Placement follows Settings → Appearance unless overridden.
+ * `routed: true` marks a widget's routed internal view (CR-8): it gets the
+ * light scrim (live page stays visible behind it), and any overlay opened
+ * above it REPLACES the previous overlay instead of stacking.
  * @param {{title: string, iconName?: string, onClose?: () => void,
  *          placement?: 'full'|'left'|'right'|'sheet',
- *          crumbs?: string[],
+ *          crumbs?: string[], routed?: boolean,
  *          actions?: {iconName: string, label: string, fn: () => void}[]}} opts
  * @returns {{body: HTMLElement, close: () => void, setTitle: (t: string) => void}}
  */
-export function openPanel({ title, iconName = 'flower', onClose = null, placement = null, crumbs = null, actions = [] }) {
+export function openPanel({ title, iconName = 'flower', onClose = null, placement = null, crumbs = null, routed = false, actions = [] }) {
   const place = placement || panelPlacement();
+  // CR-8 replace-not-stack: above a routed view, one overlay at most
+  if (!routed && drawerStack.some(c => c.routed)) {
+    const top = drawerStack[drawerStack.length - 1];
+    if (!top.routed) top.close();
+  }
   const nested = drawerStack.length > 0; // stacked opens get a back affordance
-  const back = el('<div class="drawer-backdrop"></div>');
+  const back = el(`<div class="drawer-backdrop${routed ? ' light' : ''}"></div>`);
   const drawer = el(`
     <div class="drawer place-${place}" role="dialog" aria-label="${title}">
       ${place === 'sheet' ? '<div class="sheet-handle" aria-hidden="true"></div>' : ''}
@@ -116,6 +124,7 @@ export function openPanel({ title, iconName = 'flower', onClose = null, placemen
   const ctl = {
     body: drawer.querySelector('.drawer-body'),
     el: drawer,
+    routed,
     setTitle(t) { drawer.querySelector('h2').textContent = t; },
     close() {
       const i = drawerStack.indexOf(ctl);
@@ -174,6 +183,11 @@ export function openPanel({ title, iconName = 'flower', onClose = null, placemen
 
 /** Back-compat alias — every existing surface routes through openPanel. */
 export const openDrawer = openPanel;
+
+/** Close every non-routed panel (navigation must not leave stale overlays). */
+export function closeStrayPanels() {
+  for (const ctl of [...drawerStack]) if (!ctl.routed) ctl.close();
+}
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && drawerStack.length) drawerStack[drawerStack.length - 1].close();

@@ -106,7 +106,7 @@ Four issues, all in the signature graph (spec updated in docs/05):
 
 ---
 
-## CR-8 — Internal views open as real pages, not stacked overlays · `ui/components.js`, `core/router.js`
+## CR-8 — Internal views open as real pages, not stacked overlays · `ui/components.js`, `core/router.js` · ✅ 2026-06-11
 
 **Problem:** opening a widget's internal view overlays it on top of whatever was open before — previously opened panels remain visible behind it, and the atmosphere/particle background is hard to see through the pile of surfaces.
 

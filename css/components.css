@@ -258,6 +258,10 @@
   transition: opacity var(--t-slow) var(--ease);
 }
 .drawer-backdrop.open { opacity: 1; }
+/* routed views (CR-8): the live page stays visible, gently dimmed */
+.drawer-backdrop.light { background: rgba(0, 0, 0, 0.18); }
+/* full-placement routed view: the page never renders behind it */
+#page-host.behind-view > * { display: none; }
 
 /* Panels (CR-1): one component, four placements. JS sets .place-* per the
    global "Open panels as" preference; destructive confirms stay dialogs. */
