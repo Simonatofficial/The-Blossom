@@ -140,6 +140,14 @@ function resolveParticleDef(spec, custom) {
   return base ? { ...base, ...(spec.overrides || {}) } : null;
 }
 
+/** CR-7: a theme's `particles` may be one spec or an array of up to three
+    layers `[{preset, overrides?, enabled}]` — first layer draws at the back. */
+export function particleLayerDefs(spec) {
+  const arr = Array.isArray(spec) ? spec : spec ? [spec] : [];
+  return arr.filter(l => l && l.enabled !== false).slice(0, 3)
+    .map(l => resolveParticleDef(l)).filter(Boolean);
+}
+
 /** Activate a theme's atmosphere, background particles, and pointer FX.
     Overrides (CR-5) are merged here, so every caller gets them for free. */
 export function applyEffects(rawTheme, force = false) {
@@ -149,8 +157,7 @@ export function applyEffects(rawTheme, force = false) {
   if (!force && key === lastFxKey) return;
   lastFxKey = key;
   setAtmosphere(theme.atmosphere || null, theme.colors);
-  const pDef = resolveParticleDef(theme.particles);
-  setBackground(pDef, pDef?.color || theme.colors.accent);
+  setBackground(particleLayerDefs(theme.particles), theme.colors.accent);
   const fxDef = resolveParticleDef(theme.pointerFx);
   setPointerFx(fxDef, fxDef?.color || theme.colors.accent);
 }

@@ -91,7 +91,8 @@ Four issues, all in the signature graph (spec updated in docs/05):
 
 ---
 
-## CR-7 — Multiple particle presets at once (particle layers) · `fx/particles.js`, `fx/themes.js`, `ui/settings.js`
+## CR-7 — Multiple particle presets at once (particle layers) · `fx/particles.js`, `fx/themes.js`, `ui/settings.js` · ✅ 2026-06-11
+*(Build note: layer reorder uses up/down chevrons instead of drag — calmer at a 3-item max; decision recorded in docs/03. Pointer FX stays single-layer — background layers were the priority.)*
 
 **Problem:** a theme can only run one background particle preset at a time. The user wants to combine them (e.g. cherry blossoms + wind streaks, stars + comets).
 
@@ -198,7 +199,7 @@ Four issues, all in the signature graph (spec updated in docs/05):
 **Round 3 (current priority):**
 1. **CR-12 first** — regression: CR-10's raster migration broke the canvas's core promise (zoom-independent draw/erase/render). Nothing else in the canvas matters until this passes its tests.
 2. **CR-11** — surface taxonomy (Pages vs Panels vs Popovers). Fold the CR-8/CR-9 work into it: CR-11 supersedes CR-8's placement behavior for widget views (they become true Pages; replace-not-stack, transparent background, and CR-9 scoped theming all still required). Do this before any new Phase 7 module adds more surfaces.
-3. CR-7 (particle layers) whenever convenient.
+3. ~~CR-7~~ ✅ 2026-06-11 (particle layers shipped).
 4. Then resume Phase 7 (World Builder → D&D Character → D&D DM).
 
 Mark each CR done here (`✅ + date`) when its acceptance criteria pass on a 360px viewport and desktop.

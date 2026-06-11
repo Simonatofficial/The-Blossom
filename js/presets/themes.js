@@ -14,7 +14,11 @@ export const PRESET_THEMES = [
       success: '#5fae72', warn: '#dd9540', glow: 'rgba(224,80,122,0.35)'
     },
     atmosphere: { preset: 'dayNight', options: {} },
-    particles: { preset: 'cherryBlossoms', overrides: {} },
+    // CR-7: layered particles — petals drift over faint wind streaks
+    particles: [
+      { preset: 'windStreaks', overrides: { maxCount: 7, color: 'rgba(255,255,255,0.22)' }, enabled: true },
+      { preset: 'cherryBlossoms', overrides: {}, enabled: true }
+    ],
     pointerFx: { preset: 'blossomBurst', overrides: {} }
   },
   {
@@ -27,7 +31,11 @@ export const PRESET_THEMES = [
       success: '#7fe0b2', warn: '#f0bd72', glow: 'rgba(183,148,255,0.45)'
     },
     atmosphere: { preset: 'constellations', options: {} },
-    particles: { preset: 'starfield', overrides: {} },
+    // CR-7: twinkling stars with rare comets passing through
+    particles: [
+      { preset: 'starfield', overrides: {} },
+      { preset: 'comets', overrides: { maxCount: 2 } }
+    ],
     pointerFx: { preset: 'starSparkle', overrides: {} }
   },
   {

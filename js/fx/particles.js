@@ -205,10 +205,10 @@ export class Layer {
     return p;
   }
 
-  tick(dt, now) {
+  tick(dt, now, clear = true) {
     const d = this.def;
     const { g, canvas } = this;
-    g.clearRect(0, 0, canvas.width, canvas.height);
+    if (clear) g.clearRect(0, 0, canvas.width, canvas.height);
     if (!d || reduced()) return false;
 
     // keep background density topped up
@@ -271,37 +271,53 @@ export class Layer {
   }
 }
 
-/* ---- public API ---- */
+/* ---- public API ----
+   CR-7: the background is up to three emitters ("particle layers") sharing
+   ONE canvas, one rAF, and one 150-particle budget — per-layer counts scale
+   down proportionally when the combined total would exceed the cap. */
 
-let bg = null, fx = null;
+let bgCanvas = null, bgList = [], fx = null;
 let unsubLoop = null;
 let lastColor = '#ffffff';
 
 function ensureLoop() {
   if (unsubLoop) return;
-  let frames = 0, slow = 0;
+  let slow = 0;
   unsubLoop = loop.add((dt, now) => {
     const t0 = performance.now();
-    const a = bg?.tick(dt, now);
+    let a = false;
+    if (bgCanvas && bgList.length) {
+      bgCanvas.getContext('2d').clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+      for (const l of bgList) a = l.tick(dt, now, false) || a; // first = back
+    }
     const b = fx?.tick(dt, now);
     // auto-degrade: >20ms for 60 consecutive frames → halve counts (docs/03)
     if (performance.now() - t0 > 20) { if (++slow >= 60) { degrade(); slow = 0; } }
     else slow = 0;
-    if (!a && !b && !bg?.def && !fx?.def) { unsubLoop(); unsubLoop = null; }
+    if (!a && !b && !bgList.some(l => l.def) && !fx?.def) { unsubLoop(); unsubLoop = null; }
   });
 }
 
 function degrade() {
   const level = Math.max(0.25, Number(localStorage.getItem('blossom:fxDegrade') || 1) / 2);
   localStorage.setItem('blossom:fxDegrade', String(level));
-  if (bg) { bg.degrade = level; if (bg.def) bg.setDef(bg.def, lastColor); }
+  for (const l of bgList) {
+    l.degrade = level;
+    if (l.def) l.setDef(l.def, l.tint || lastColor);
+  }
 }
 
 export function initParticles() {
-  bg = new Layer(document.getElementById('particle-canvas'), BG_CAP);
+  bgCanvas = document.getElementById('particle-canvas');
+  bgCanvas.width = innerWidth;
+  bgCanvas.height = innerHeight;
   fx = new Layer(document.getElementById('fx-canvas'), FX_CAP);
   fx.def = null;
-  addEventListener('resize', () => { bg.resize(); fx.resize(); });
+  addEventListener('resize', () => {
+    bgCanvas.width = innerWidth;
+    bgCanvas.height = innerHeight;
+    fx.resize();
+  });
 
   // pointer FX: click burst + distance-throttled drag trail (docs/03)
   let lastX = 0, lastY = 0, down = false;
@@ -326,12 +342,26 @@ export function initParticles() {
   document.addEventListener('pointerup', () => { down = false; }, { passive: true });
 }
 
-/** Apply the background particle definition (null to clear). */
-export function setBackground(def, color) {
+/** Apply the background particle layers (array of defs, single def, or null).
+    Counts scale so the combined total never exceeds the global cap (CR-7). */
+export function setBackground(defs, color) {
   lastColor = color || lastColor;
-  bg?.setDef(def, lastColor);
-  if (def) ensureLoop();
+  if (!bgCanvas) return;
+  const list = (Array.isArray(defs) ? defs : defs ? [defs] : []).filter(Boolean).slice(0, 3);
+  const total = list.reduce((n, d) => n + (d.maxCount || 60), 0);
+  const scale = total > BG_CAP ? BG_CAP / total : 1;
+  bgList = list.map(d => {
+    const layer = new Layer(bgCanvas, BG_CAP);
+    layer.tint = d.color || lastColor;
+    layer.setDef({ ...d, maxCount: Math.max(1, Math.round((d.maxCount || 60) * scale)) }, layer.tint);
+    return layer;
+  });
+  if (!bgList.length) bgCanvas.getContext('2d').clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+  else ensureLoop();
 }
+
+/** Live background pool sizes per layer (dev/test introspection). */
+export function bgPoolSizes() { return bgList.map(l => l.pool.length); }
 
 /** Apply the pointer-FX definition (null to clear). */
 export function setPointerFx(def, color) {

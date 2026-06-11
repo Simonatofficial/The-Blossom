@@ -213,8 +213,60 @@ function renderEffectsPanel(rerenderThemes) {
     return row;
   };
 
+  /* CR-7: particles are a LIST of up to three layers (first = back).
+     Each row: preset, on/off, adjust, reorder, remove; plus an add button. */
+  const particleRows = () => {
+    const wrap = el('<div></div>');
+    const spec = theme.particles;
+    const layers = (Array.isArray(spec) ? spec : spec ? [spec] : []).map(l => ({ overrides: {}, enabled: true, ...l }));
+    const save = (next) => { setThemeOverride(raw.id, 'particles', next.length ? next : null); reapply(); };
+
+    layers.forEach((layer, i) => {
+      const row = el(`<div class="row" style="margin-bottom:8px;flex-wrap:wrap">
+        <span style="font-size:0.86rem;min-width:84px">${i === 0 ? 'Particles' : `Layer ${i + 1}`}</span>
+        <select class="select grow" style="min-width:110px;padding:6px 9px"></select>
+        <button class="btn-icon p-adj" title="Adjust">${icon('sliders', 15)}</button>
+        <button class="btn-icon p-up" title="Move back">${icon('chevron-up', 14)}</button>
+        <button class="btn-icon p-down" title="Move forward">${icon('chevron-down', 14)}</button>
+        <button class="btn-icon p-del" title="Remove layer">${icon('x', 14)}</button>
+        <span class="p-switch"></span></div>`);
+      const sel = row.querySelector('select');
+      for (const p of PRESET_PARTICLES) sel.appendChild(new Option(p.name, p.id));
+      for (const c of store.all('themes').filter(t => t.type === 'particle')) sel.appendChild(new Option(`${c.name} (custom)`, c.id));
+      sel.value = layer.preset;
+      const next = () => layers.map(l => ({ ...l }));
+      sel.onchange = () => { const n = next(); n[i] = { ...n[i], preset: sel.value, overrides: {} }; save(n); };
+      row.querySelector('.p-switch').appendChild(switchEl(layer.enabled !== false, (on) => {
+        const n = next(); n[i].enabled = on; save(n);
+      }));
+      row.querySelector('.p-adj').onclick = async () => {
+        const { openParticleEditor } = await import('./particleeditor.js');
+        openParticleEditor(null, (rec) => {
+          const n = next(); n[i] = { preset: rec.id, overrides: {}, enabled: true }; save(n);
+        }, resolveFxDef(layer));
+      };
+      const swap = (j) => {
+        if (j < 0 || j >= layers.length) return;
+        const n = next();
+        [n[i], n[j]] = [n[j], n[i]];
+        save(n);
+      };
+      row.querySelector('.p-up').onclick = () => swap(i - 1);
+      row.querySelector('.p-down').onclick = () => swap(i + 1);
+      row.querySelector('.p-del').onclick = () => { const n = next(); n.splice(i, 1); save(n); };
+      wrap.appendChild(row);
+    });
+
+    if (layers.length < 3) {
+      const add = el(`<button class="btn-ghost btn" style="padding:4px 10px;font-size:0.8rem;margin:-2px 0 8px 84px">${icon('plus', 13)} Add particle layer</button>`);
+      add.onclick = () => save([...layers, { preset: 'fireflies', overrides: {}, enabled: true }]);
+      wrap.appendChild(add);
+    }
+    return wrap;
+  };
+
   rows.appendChild(fxRow('Atmosphere', 'atmosphere', ATMOSPHERE_PRESETS, true));
-  rows.appendChild(fxRow('Particles', 'particles', PRESET_PARTICLES, true));
+  rows.appendChild(particleRows());
   rows.appendChild(fxRow('Pointer FX', 'pointerFx', PRESET_POINTER_FX, true));
 
   if (themeOverrides(raw.id)) {
