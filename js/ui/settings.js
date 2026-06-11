@@ -13,6 +13,7 @@ import * as saves from '../core/saves.js';
 
 export function openSettings() {
   const d = openDrawer({ title: 'Settings', iconName: 'settings' });
+  renderAppearanceSection(d);
   renderThemesSection(d);
   renderCodesSection(d);
   renderSavesSection(d);
@@ -63,6 +64,29 @@ function renderTrashSection(d) {
     }
   };
   render();
+  d.body.appendChild(sec);
+}
+
+/* ---------- appearance (CR-1: panel placement) ---------- */
+
+function renderAppearanceSection(d) {
+  const sec = el('<div class="dsec"><h3>Appearance</h3><div class="field"><label>Open panels as</label><div class="a-seg"></div><div class="hint">How settings, pickers, and widget views slide in. Takes effect on the next panel.</div></div></div>');
+  const settings = store.getMeta('settings', {});
+  const current = settings.panelPlacement || (innerWidth >= 600 ? 'right' : 'sheet');
+  const segEl = el('<div class="seg"></div>');
+  for (const [value, label] of [['full', 'Full page'], ['left', 'Left'], ['right', 'Right'], ['sheet', 'Bottom sheet']]) {
+    const b = el(`<button type="button" class="${current === value ? 'active' : ''}">${label}</button>`);
+    b.onclick = () => {
+      segEl.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      const s = store.getMeta('settings', {});
+      s.panelPlacement = value;
+      store.setMeta('settings', s);
+      toast(`Panels now open as ${label.toLowerCase()}`, 'sliders');
+    };
+    segEl.appendChild(b);
+  }
+  sec.querySelector('.a-seg').appendChild(segEl);
   d.body.appendChild(sec);
 }
 

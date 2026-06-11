@@ -4,7 +4,7 @@ User-reported issues and feature requests from live testing. **Work these in pri
 
 ---
 
-## CR-1 — Panel placement setting (how things open) · `ui/components.js`, `ui/settings.js`
+## CR-1 — Panel placement setting (how things open) · `ui/components.js`, `ui/settings.js` · ✅ 2026-06-10
 
 **Problem:** internal views, settings, pickers, and editors always open the same way. The user wants to choose.
 

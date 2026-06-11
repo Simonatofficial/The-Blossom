@@ -251,25 +251,13 @@ function enableDrag(handle, widget, card) {
   });
 }
 
-/* ---------- internal views (full panel, breadcrumbs, nestable) ---------- */
-
-const internalStack = [];
+/* ---------- internal views (open through the shared panel — CR-1) ---------- */
 
 export function openInternal(widget) {
   const def = registry.get(widget.type);
   if (!def?.internal) return;
 
-  const view = el(`
-    <div class="internal-view">
-      <div class="internal-head">
-        <button class="btn-icon" aria-label="Back">${icon('arrow-left', 20)}</button>
-        <div class="crumbs"></div>
-        <button class="btn-icon" aria-label="Widget settings">${icon('settings', 18)}</button>
-      </div>
-      <div class="internal-body"></div>
-    </div>`);
-
-  // breadcrumb chain: Module › Page › parents › widget (docs/04)
+  // breadcrumb chain: Page › parents › widget (docs/04)
   const crumbs = [];
   let p = widget;
   let guard = 0;
@@ -279,32 +267,19 @@ export function openInternal(widget) {
   }
   const pageRec = store.get('pages', topLevelOf(widget)?.pageId);
   if (pageRec) crumbs.unshift(pageRec.name);
-  const crumbHost = view.querySelector('.crumbs');
-  crumbs.forEach((c, i) => {
-    const span = el(`<span class="${i === crumbs.length - 1 ? 'crumb-here' : ''}"></span>`);
-    span.textContent = c;
-    if (i) crumbHost.appendChild(el(`<span style="opacity:0.5">${icon('chevron-right', 12)}</span>`));
-    crumbHost.appendChild(span);
+
+  const panel = openDrawer({
+    title: widget.name,
+    iconName: def.icon,
+    crumbs: crumbs.slice(0, -1),
+    actions: [{ iconName: 'settings', label: 'Widget settings', fn: () => openWidgetSettings(widget) }],
+    onClose: () => refreshCard(widget.id, true)
   });
 
-  const close = () => {
-    const i = internalStack.indexOf(view);
-    if (i >= 0) internalStack.splice(i, 1);
-    view.classList.remove('open');
-    setTimeout(() => view.remove(), 260);
-    refreshCard(widget.id, true);
-  };
-  view.querySelector('[aria-label="Back"]').onclick = close;
-  view.querySelector('[aria-label="Widget settings"]').onclick = () => openWidgetSettings(widget);
-
-  document.body.appendChild(view);
-  internalStack.push(view);
-  requestAnimationFrame(() => view.classList.add('open'));
-
-  try { def.renderFull(view.querySelector('.internal-body'), widget, ctx); }
+  try { def.renderFull(panel.body, widget, ctx); }
   catch (err) {
     console.error(`[engine] renderFull failed for ${widget.type}`, err);
-    view.querySelector('.internal-body').innerHTML = '<p class="soft">This view had trouble blooming.</p>';
+    panel.body.innerHTML = '<p class="soft">This view had trouble blooming.</p>';
   }
 }
 
@@ -314,10 +289,3 @@ function topLevelOf(widget) {
   while (w?.parentWidgetId && guard++ < 30) w = store.get('widgets', w.parentWidgetId);
   return w;
 }
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && internalStack.length && !document.querySelector('.drawer')) {
-    const view = internalStack[internalStack.length - 1];
-    view.querySelector('[aria-label="Back"]').click();
-  }
-});
