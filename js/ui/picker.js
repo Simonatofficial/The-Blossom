@@ -3,6 +3,7 @@
    "+ Add widget" gallery (types + From Blossom code). */
 
 import { store } from '../core/store.js';
+import { router } from '../core/router.js';
 import { icon, iconOrEmoji } from './icons.js';
 import { el, toast, openDrawer, emptyState } from './components.js';
 import * as values from '../core/values.js';
@@ -152,35 +153,109 @@ export function openNodePicker({ onPick }) {
   showModules();
 }
 
-/* ---------- "+ Add widget" gallery ---------- */
+/* ---------- "+ Add widget" gallery + widget search (CR-2) ---------- */
+
+function widgetPath(w) {
+  let top = w;
+  let guard = 0;
+  while (top?.parentWidgetId && guard++ < 30) top = store.get('widgets', top.parentWidgetId);
+  const page = top?.pageId && store.get('pages', top.pageId);
+  const mod = page && store.all('modules').find(m => m.pages.includes(page.id));
+  return { page, mod, label: mod && page ? `${mod.name} › ${page.name}` : null };
+}
 
 /**
  * @param {{pageId?: string, parentWidgetId?: string, onCreated?: (w: object) => void}} opts
  */
 export function openWidgetGallery(opts) {
   const d = openDrawer({ title: 'Plant a widget', iconName: 'sprout' });
+  let query = '';
+  let scope = 'module'; // 'module' | 'all'
 
-  const fromCode = el(`<button class="list-item">${icon('code', 18)}<span class="li-main"><span class="li-title">From Blossom code</span><span class="li-sub">Paste a copied widget</span></span></button>`);
-  fromCode.onclick = async () => {
-    const { openCodeImport } = await import('./settings.js');
-    d.close();
-    openCodeImport({ pageId: opts.pageId });
+  const search = el('<input class="input" type="search" placeholder="Search widgets…" style="margin-bottom:8px">');
+  const scopeSeg = el('<div style="margin-bottom:12px"></div>');
+  const buildScopeSeg = () => {
+    scopeSeg.innerHTML = '';
+    const s = el('<div class="seg"></div>');
+    for (const [value, label] of [['module', 'This module'], ['all', 'Everywhere']]) {
+      const b = el(`<button type="button" class="${scope === value ? 'active' : ''}">${label}</button>`);
+      b.onclick = () => { scope = value; buildScopeSeg(); renderResults(); };
+      s.appendChild(b);
+    }
+    scopeSeg.appendChild(s);
   };
-  d.body.appendChild(fromCode);
-  d.body.appendChild(el('<hr style="border:none;border-top:1px solid var(--border);margin:10px 0">'));
+  buildScopeSeg();
+  const results = el('<div></div>');
+  search.addEventListener('input', () => { query = search.value.trim().toLowerCase(); renderResults(); });
+  d.body.append(search, scopeSeg, results);
 
-  for (const def of registry.all().sort((a, b) => a.name.localeCompare(b.name))) {
-    if (opts.parentWidgetId && def.noNest) continue;
-    const li = el(`<button class="list-item"><span style="color:var(--accent)">${icon(def.icon, 18)}</span><span class="li-main"><span class="li-title"></span><span class="li-sub"></span></span>${icon('plus', 16)}</button>`);
-    li.querySelector('.li-title').textContent = def.name;
-    li.querySelector('.li-sub').textContent = def.description || '';
-    li.onclick = async () => {
-      d.close();
-      if (def.wizard) { def.wizard(opts); return; } // e.g. Habit → COSMOS wizard (docs/06)
-      const { createWidget } = await import('../widgets/base.js');
-      const w = createWidget(def.type, opts);
-      opts.onCreated?.(w);
-    };
-    d.body.appendChild(li);
-  }
+  const matchesType = (def) =>
+    !query ||
+    def.name.toLowerCase().includes(query) ||
+    (def.description || '').toLowerCase().includes(query) ||
+    (def.keywords || []).some(k => k.includes(query));
+
+  const renderResults = () => {
+    results.innerHTML = '';
+
+    if (!query) {
+      const fromCode = el(`<button class="list-item">${icon('code', 18)}<span class="li-main"><span class="li-title">From Blossom code</span><span class="li-sub">Paste a copied widget</span></span></button>`);
+      fromCode.onclick = async () => {
+        const { openCodeImport } = await import('./settings.js');
+        d.close();
+        openCodeImport({ pageId: opts.pageId });
+      };
+      results.appendChild(fromCode);
+      results.appendChild(el('<hr style="border:none;border-top:1px solid var(--border);margin:10px 0">'));
+    }
+
+    // group 1: add new (widget types)
+    const types = registry.all()
+      .filter(def => !(opts.parentWidgetId && def.noNest) && matchesType(def))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (query) results.appendChild(el('<h3 class="soft" style="font-size:0.74rem;margin:2px 0 6px">ADD NEW</h3>'));
+    for (const def of types) {
+      const li = el(`<button class="list-item"><span style="color:var(--accent)">${icon(def.icon, 18)}</span><span class="li-main"><span class="li-title"></span><span class="li-sub"></span></span>${icon('plus', 16)}</button>`);
+      li.querySelector('.li-title').textContent = def.name;
+      li.querySelector('.li-sub').textContent = def.description || '';
+      li.onclick = async () => {
+        d.close();
+        if (def.wizard) { def.wizard(opts); return; } // e.g. Habit → COSMOS wizard (docs/06)
+        const { createWidget } = await import('../widgets/base.js');
+        const w = createWidget(def.type, opts);
+        opts.onCreated?.(w);
+      };
+      results.appendChild(li);
+    }
+    if (!types.length) {
+      results.appendChild(el('<p class="soft" style="font-size:0.85rem;padding:6px 2px">Nothing matches — try “notes” or “graph”.</p>'));
+    }
+
+    // group 2: your widgets (existing instances, navigate on tap)
+    if (query) {
+      const currentModuleId = router.current().moduleId;
+      const instances = store.all('widgets')
+        .filter(w => w.name.toLowerCase().includes(query))
+        .map(w => ({ w, path: widgetPath(w) }))
+        .filter(({ path }) => path.label && (scope === 'all' || path.mod?.id === currentModuleId))
+        .slice(0, 12);
+      if (instances.length) {
+        results.appendChild(el('<h3 class="soft" style="font-size:0.74rem;margin:12px 0 6px">YOUR WIDGETS</h3>'));
+        for (const { w, path } of instances) {
+          const def = registry.get(w.type);
+          const li = el(`<button class="list-item"><span style="color:var(--text-soft)">${icon(def?.icon || 'circle', 18)}</span><span class="li-main"><span class="li-title"></span><span class="li-sub"></span></span>${icon('chevron-right', 16)}</button>`);
+          li.querySelector('.li-title').textContent = w.name;
+          li.querySelector('.li-sub').textContent = path.label;
+          li.onclick = () => {
+            d.close();
+            router.goWidget(w.id); // lands on the page; the card glows briefly
+          };
+          results.appendChild(li);
+        }
+      }
+    }
+  };
+
+  renderResults();
+  if (innerWidth >= 600) setTimeout(() => search.focus(), 120); // autofocus on desktop only
 }

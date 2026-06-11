@@ -22,7 +22,7 @@ User-reported issues and feature requests from live testing. **Work these in pri
 
 ---
 
-## CR-2 — Widget search · `ui/components.js` (gallery), `ui/shell.js`
+## CR-2 — Widget search · `ui/components.js` (gallery), `ui/shell.js` · ✅ 2026-06-10
 
 **Problem:** no way to search for widgets.
 

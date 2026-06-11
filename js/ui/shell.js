@@ -191,6 +191,13 @@ function openModuleSwitcher() {
 
   const render = () => {
     d.body.innerHTML = '';
+    const searchRow = el(`<button class="list-item">${icon('search', 18)}<span class="li-main"><span class="li-title">Search widgets</span><span class="li-sub">Find types to add, or your widgets anywhere</span></span></button>`);
+    searchRow.onclick = async () => {
+      const { openWidgetGallery } = await import('./picker.js');
+      d.close();
+      openWidgetGallery({ pageId: router.current().pageId });
+    };
+    d.body.appendChild(searchRow);
     for (const mod of store.all('modules')) {
       const t = mod.themeOverride ? getTheme(mod.themeOverride) : null;
       const li = el(`<button class="list-item">
