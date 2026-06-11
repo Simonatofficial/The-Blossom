@@ -7,11 +7,12 @@
 
 import { registry } from './registry.js';
 import { store } from '../core/store.js';
+import { router } from '../core/router.js';
 import { icon } from '../ui/icons.js';
 import { el, toast, popMenu, promptText } from '../ui/components.js';
 import { objectsOf, createObject, todayStr } from './base.js';
 import { InfiniteSurface, SECTOR, shapePts } from './infcanvas-engine.js';
-import { RasterDoc, RTILE } from './infcanvas-raster.js';
+import { RasterDoc, RTILE, hexA } from './infcanvas-raster.js';
 import { buildToolbar, openLayerPanel } from './infcanvas-ui.js';
 import { openColorPanel } from './infcanvas-palette.js';
 import { floodFill, commitGradient, gradientStyle } from './infcanvas-tools.js';
@@ -152,7 +153,7 @@ registry.register({
     canvas.height = 220;
     host.appendChild(canvas);
     const surf = new InfiniteSurface(canvas, {
-      drawTile: (g, b, r) => doc.compose(g, r.x0, r.y0, r.x1, r.y1)
+      drawTile: (g, b, r) => doc.compose(g, r.x0, r.y0, r.x1, r.y1, b)
     });
     surf.fitTo(contentBounds(doc));
     const layers = doc.meta.layers.length;
@@ -178,10 +179,12 @@ registry.register({
     host.appendChild(wrap);
 
     const dpr = Math.min(2, devicePixelRatio || 1);
-    let fs = false;
+    // CR-11: distraction-free drawing is a routed FOCUS PAGE (/w/<id>/f),
+    // not OS fullscreen — toggling it re-navigates and remounts this view
+    const focusMode = router.current().widgetId === widget.id && router.current().focus;
     const resizeCanvas = () => {
-      if (fs) {
-        canvas.style.height = '100%';
+      if (focusMode || document.fullscreenElement) {
+        canvas.style.height = `${Math.max(200, innerHeight - 24)}px`;
         surf.resize(dpr);
         if (!canvas.width) { canvas.width = Math.round(innerWidth * dpr); canvas.height = Math.round(innerHeight * dpr); }
       } else {
@@ -197,6 +200,7 @@ registry.register({
 
     const effSize = () => state.screenScaled ? state.size / surf.scale() : state.size;
     let chase = null, lastDab = null, shape = null, grad = null, pickRing = null, exporting = false;
+    let live = null; // in-progress stroke: screen overlay only, tiles on up (CR-12 §4)
     const sketchPts = [];
     let downPt = null;
 
@@ -204,6 +208,123 @@ registry.register({
       const p = (state.tool === 'sketchy' ? effSize() * 10 : effSize()) + 2 / surf.scale();
       surf.invalidate({ x0: Math.min(x0, x1) - p, y0: Math.min(y0, y1) - p, x1: Math.max(x0, x1) + p, y1: Math.max(y0, y1) + p });
     };
+
+    /* ---------- live stroke (CR-12 §4): the in-progress stroke draws to a
+       screen-space canvas — no tile round-trips mid-stroke — and replays
+       through the real write path on pointer-up ---------- */
+
+    const brushSession = () => ({
+      tool: state.tool, color: state.color,
+      size: state.tool === 'sketchy' ? Math.max(0.6 / surf.scale(), effSize() * 0.3) : effSize(),
+      opacity: state.opacity, hardness: state.tool === 'sketchy' ? 0.95 : state.hardness,
+      strength: state.strength, band: surf.band(), pixelErase: state.eraserPixel
+    });
+
+    function startLive(wx, wy, p) {
+      const c = document.createElement('canvas');
+      c.width = canvas.width;
+      c.height = canvas.height;
+      live = { canvas: c, g: c.getContext('2d'), s: brushSession(), pts: [], webs: [], last: null, carry: 0 };
+      livePoint(wx, wy, p);
+    }
+
+    function liveDab(wx, wy, p) {
+      const { g, s } = live;
+      const [sx, sy] = surf.toScreen(wx, wy);
+      const wr = Math.max(0.5 / Math.pow(2, s.band), s.size / 2 * (s.tool === 'pixel' ? 1 : 0.35 + p));
+      const r = Math.max(0.4, wr * surf.scale());
+      g.save();
+      if (s.tool === 'pixel' || (s.tool === 'eraser' && s.pixelErase)) {
+        g.globalAlpha = s.opacity;
+        g.fillStyle = s.tool === 'eraser' ? '#000' : s.color;
+        g.fillRect(Math.round(sx - r), Math.round(sy - r), Math.max(1, Math.round(r * 2)), Math.max(1, Math.round(r * 2)));
+      } else {
+        const col = s.tool === 'eraser' ? '#000000' : s.color;
+        g.globalAlpha = s.tool === 'eraser' ? s.opacity : s.opacity * (0.5 + p * 0.5);
+        const grad2 = g.createRadialGradient(sx, sy, 0, sx, sy, r);
+        grad2.addColorStop(0, col);
+        grad2.addColorStop(Math.min(0.99, s.hardness), col);
+        grad2.addColorStop(1, hexA(col, 0));
+        g.fillStyle = grad2;
+        g.beginPath();
+        g.arc(sx, sy, r, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.restore();
+    }
+
+    /** Spacing-stamped preview point — mirrors RasterDoc.stamp's walk. */
+    function livePoint(wx, wy, p, skipWebs = false) {
+      live.pts.push([wx, wy, p]);
+      const s = live.s;
+      if (!live.last) {
+        liveDab(wx, wy, p);
+        live.last = [wx, wy, p];
+        return;
+      }
+      const [lx, ly, lp] = live.last;
+      const dist = Math.hypot(wx - lx, wy - ly);
+      if (!dist) return;
+      const spacing = Math.max(0.35 / Math.pow(2, s.band), s.size * (s.tool === 'pixel' ? 0.9 : 0.18));
+      let pos = spacing - live.carry;
+      while (pos <= dist) {
+        const t = pos / dist;
+        liveDab(lx + (wx - lx) * t, ly + (wy - ly) * t, lp + (p - lp) * t);
+        pos += spacing;
+      }
+      live.carry = dist - (pos - spacing);
+      live.last = [wx, wy, p];
+      if (s.tool === 'sketchy' && !skipWebs) {
+        for (const seg of weaveSegs(wx, wy)) {
+          live.webs.push(seg);
+          drawLiveWeb(seg);
+        }
+      }
+    }
+
+    function drawLiveWeb([xa, ya, xb, yb]) {
+      const g = live.g;
+      const [ax, ay] = surf.toScreen(xa, ya);
+      const [bx, by] = surf.toScreen(xb, yb);
+      g.save();
+      g.globalAlpha = 0.12 * state.opacity;
+      g.strokeStyle = live.s.color;
+      g.lineWidth = Math.max(0.4, live.s.size * 0.3 * surf.scale());
+      g.beginPath();
+      g.moveTo(ax, ay);
+      g.lineTo(bx, by);
+      g.stroke();
+      g.restore();
+    }
+
+    /** Wheel-zoom mid-stroke: re-project the preview (webs keep their dice). */
+    function rebuildLive() {
+      if (!live) return;
+      live.g.clearRect(0, 0, live.canvas.width, live.canvas.height);
+      const pts = live.pts;
+      live.pts = [];
+      live.last = null;
+      live.carry = 0;
+      for (const [wx, wy, p] of pts) livePoint(wx, wy, p, true);
+      for (const seg of live.webs) drawLiveWeb(seg);
+    }
+
+    /** Pointer-up: replay the recorded points through the shared write path. */
+    function commitLive() {
+      const lv = live;
+      live = null;
+      if (!lv || !lv.pts.length) return;
+      doc.begin(lv.s);
+      for (const [wx, wy, p] of lv.pts) doc.stamp(wx, wy, p);
+      for (const [xa, ya, xb, yb] of lv.webs) {
+        doc.seg(xa, ya, xb, yb, Math.max(0.4 / surf.scale(), effSize() * 0.1), 0.12 * lv.s.opacity);
+      }
+      const bbox = doc.end();
+      if (bbox) surf.invalidate(bbox);
+      surf.render();
+      doc.flush();
+      toolbar.refresh();
+    }
 
     const pickColor = (px, py) => {
       const d = surf.g.getImageData(Math.max(0, Math.min(surf.canvas.width - 1, px | 0)), Math.max(0, Math.min(surf.canvas.height - 1, py | 0)), 1, 1).data;
@@ -228,13 +349,14 @@ registry.register({
     };
 
     const surf = new InfiniteSurface(canvas, {
-      drawTile: (g, b, r) => doc.compose(g, r.x0, r.y0, r.x1, r.y1),
+      drawTile: (g, b, r) => doc.compose(g, r.x0, r.y0, r.x1, r.y1, b),
       isPan: () => state.tool === 'pan',
-      wantsTbToggle: () => fs,
+      wantsTbToggle: () => focusMode,
       onViewChange: (v) => {
         widget.config.view = { cx: v.cx, cy: v.cy, zoomExp: v.zoomExp };
         store.put('widgets', widget);
         readout.textContent = zoomLabel(surf.scale());
+        if (live) rebuildLive(); // wheel-zoom mid-stroke: re-project the preview
         text.sync();
         text.positionBar();
       },
@@ -249,14 +371,14 @@ registry.register({
         if (state.tool === 'fill' || state.tool === 'text') return; // act on the tap (up)
         chase = [wx, wy];
         lastDab = [wx, wy];
-        doc.begin({
-          tool: state.tool, color: state.color,
-          size: state.tool === 'sketchy' ? Math.max(0.6 / surf.scale(), effSize() * 0.3) : effSize(),
-          opacity: state.opacity, hardness: state.tool === 'sketchy' ? 0.95 : state.hardness,
-          strength: state.strength, band: surf.band(), pixelErase: state.eraserPixel
-        });
-        doc.stamp(wx, wy, p); // a tap paints a dab (docs/12 §2)
-        invalidateSeg(wx, wy, wx, wy);
+        if (state.tool === 'blend') {
+          // blend samples committed pixels as it goes — it writes tiles live
+          doc.begin(brushSession());
+          doc.stamp(wx, wy, p);
+          invalidateSeg(wx, wy, wx, wy);
+        } else {
+          startLive(wx, wy, p); // a tap paints a dab (docs/12 §2) — preview now, tiles on up
+        }
         surf.render();
       },
 
@@ -273,9 +395,12 @@ registry.register({
         const k = [1, 0.45, 0.3, 0.2, 0.14, 0.09][state.stabilizer] ?? 1; // pull-string stabilizer (§3a)
         chase[0] += (wx - chase[0]) * k;
         chase[1] += (wy - chase[1]) * k;
-        doc.stamp(chase[0], chase[1], p);
-        if (state.tool === 'sketchy') weave(chase[0], chase[1]);
-        invalidateSeg(lastDab[0], lastDab[1], chase[0], chase[1]);
+        if (live) {
+          livePoint(chase[0], chase[1], p);
+        } else {
+          doc.stamp(chase[0], chase[1], p); // blend's direct path
+          invalidateSeg(lastDab[0], lastDab[1], chase[0], chase[1]);
+        }
         lastDab = [...chase];
         surf.render();
       },
@@ -308,6 +433,10 @@ registry.register({
         }
         if (!chase) return;
         chase = null;
+        if (live) {
+          commitLive(); // the recorded stroke replays through the write path
+          return;
+        }
         const bbox = doc.end();
         if (bbox) { surf.invalidate(bbox); surf.render(); }
         doc.flush();
@@ -317,6 +446,7 @@ registry.register({
       toolCancel: () => {
         shape = null;
         grad = null;
+        if (live) { live = null; surf.render(); return; } // preview only — nothing to restore
         const bbox = doc.cancel();
         if (bbox) { surf.invalidate(bbox); surf.render(); }
       },
@@ -329,7 +459,8 @@ registry.register({
       // hold still inside a brush stroke → eyedropper (docs/12 §3)
       longPress: (wx, wy, px, py) => {
         if (!BRUSHES.includes(state.tool)) return false;
-        const bbox = doc.cancel();
+        if (live) live = null; // discard the preview
+        const bbox = doc.cancel(); // blend's direct path, if any
         if (bbox) surf.invalidate(bbox);
         chase = null;
         surf.render();
@@ -341,6 +472,12 @@ registry.register({
 
       drawOverlay: (g) => {
         if (exporting) return;
+        if (live) {
+          g.save();
+          if (live.s.tool === 'eraser') g.globalCompositeOperation = 'destination-out';
+          g.drawImage(live.canvas, 0, 0);
+          g.restore();
+        }
         if (grad) {
           g.save();
           g.globalAlpha = state.opacity * 0.85;
@@ -372,20 +509,23 @@ registry.register({
       }
     }, { ...widget.config.view });
 
-    /* ---------- sketchy webs: faint threads to nearby stroke points ---------- */
-    function weave(wx, wy) {
+    /* ---------- sketchy webs: faint threads to nearby stroke points.
+       The dice roll once (during preview); the commit replays the same segs. */
+    function weaveSegs(wx, wy) {
       const R = effSize() * 10;
+      const segs = [];
       let linked = 0;
       for (let i = sketchPts.length - 1; i >= 0 && linked < 3; i -= 2) {
         const q = sketchPts[i];
         const d = Math.hypot(q[0] - wx, q[1] - wy);
         if (d < R && d > effSize() * 1.5 && Math.random() < (state.strength ?? 0.5) * 0.5) {
-          doc.seg(wx, wy, q[0], q[1], Math.max(0.4 / surf.scale(), effSize() * 0.1), 0.12 * state.opacity);
+          segs.push([wx, wy, q[0], q[1]]);
           linked++;
         }
       }
       sketchPts.push([wx, wy]);
       if (sketchPts.length > 800) sketchPts.splice(0, 100);
+      return segs;
     }
 
     /* ---------- shapes (line / rect / ellipse, outline or filled) ---------- */
@@ -492,24 +632,18 @@ registry.register({
     const sel = new SelectTool(surf, doc, () => { doc.flush(); toolbar.refresh(); });
     const text = new TextLayer(box, surf, doc, widget, () => state);
 
-    /* ---------- fullscreen (docs/12 §1) ---------- */
-    const setFs = (on) => {
-      fs = on;
-      wrap.classList.toggle('ic-fs', on);
-      document.body.classList.toggle('ic-fs-open', on);
-      setTimeout(resizeCanvas, 60);
-      toolbar.refresh();
+    /* ---------- focus page (docs/12 §1, revised by CR-11) ---------- */
+    const toggleFocus = () => {
+      if (!focusMode) router.openWidget(widget.id, true); // navigate; remounts in focus
+      else router.closeWidget(); // back to the regular canvas page
     };
-    const toggleFullscreen = async () => {
-      if (!fs) {
-        setFs(true);
-        try { await wrap.requestFullscreen?.(); } catch { /* fallback: chrome-hiding alone */ }
-      } else {
-        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-        setFs(false);
-      }
+    // optional edge-to-edge: browser fullscreen as a SECONDARY control inside
+    // the focus page; Esc exits it without leaving focus
+    const toggleBrowserFs = async () => {
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      else try { await wrap.requestFullscreen?.(); } catch { /* unsupported — focus page already hides chrome */ }
     };
-    const onFsChange = () => { if (!document.fullscreenElement && fs) setFs(false); };
+    const onFsChange = () => { if (canvas.isConnected) setTimeout(resizeCanvas, 60); };
     document.addEventListener('fullscreenchange', onFsChange);
 
     const toggleToolbar = () => {
@@ -543,11 +677,11 @@ registry.register({
         text.sync();
         toolbar.refresh();
       }),
-      openColors: () => openColorPanel(state, widget, () => toolbar.refresh()),
+      openColors: (anchor) => openColorPanel(state, widget, () => toolbar.refresh(), anchor),
       fitAll: () => surf.fitTo(contentBounds(doc)),
       scale: () => surf.scale(),
-      isFullscreen: () => fs,
-      toggleFullscreen, toggleToolbar,
+      isFocus: () => focusMode,
+      toggleFocus, toggleBrowserFs, toggleToolbar,
       select: {
         setMode: (m) => { sel.mode = m; },
         active: () => sel.active(),
@@ -624,7 +758,7 @@ registry.register({
     /* keyboard (docs/12 §9): B/E/G/L/T/S/V/I tools, X swap, [ ] size, Ctrl+Z/Y */
     const onKey = (e) => {
       if (!canvas.isConnected) {
-        document.removeEventListener('keydown', onKey);
+        document.removeEventListener('keydown', onKey, true);
         document.removeEventListener('fullscreenchange', onFsChange);
         return;
       }
@@ -652,11 +786,11 @@ registry.register({
       else if (k === ']') { state.size = Math.round(state.size * 1.25 * 10) / 10; toolbar.refresh(); }
       else if (k === 'delete' || k === 'backspace') { if (sel.active()) { e.preventDefault(); toolbar.closeFlyout(); const r = sel.erase(); if (r) { surf.invalidate(r.bbox || null); surf.render(); doc.flush(); toolbar.refresh(); } } }
       else if (k === 'escape') {
-        if (fs) { e.preventDefault(); toggleFullscreen(); }
-        else if (sel.active()) { sel.deselect(); surf.render(); }
+        // consume Esc for deselect so the engine doesn't pop the page route
+        if (sel.active()) { e.stopPropagation(); sel.deselect(); surf.render(); }
       }
     };
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true); // capture: runs before the engine's Esc
 
     readout.textContent = zoomLabel(surf.scale());
     resizeCanvas();

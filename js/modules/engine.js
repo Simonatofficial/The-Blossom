@@ -8,12 +8,11 @@ import { router } from '../core/router.js';
 import { registry } from '../widgets/registry.js';
 import { makeCtx, engineHooks, openWidgetSettings, removeWidget } from '../widgets/base.js';
 import { icon } from '../ui/icons.js';
-import { el, toast, confirmDialog, openDrawer, popMenu, emptyState, panelPlacement, closeStrayPanels } from '../ui/components.js';
+import { el, toast, confirmDialog, openDrawer, popMenu, emptyState, closeStrayPanels } from '../ui/components.js';
 import { applyScopedTheme, applyEffects, getTheme, activeTheme } from '../fx/themes.js';
 import { openWidgetGallery } from '../ui/picker.js';
 
 let host = null;
-let viewCtl = null; // the routed internal view (CR-8) — at most one
 const cardEls = new Map(); // widgetId -> card element
 const ctx = makeCtx();
 
@@ -28,6 +27,12 @@ export function initEngine(hostEl) {
   events.on('route:changed', closeStrayPanels);
   events.on('route:changed', renderPage);
   events.on('page:changed', renderPage);
+  // Esc backs out of a widget page when no panel is above it (CR-11)
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || document.querySelector('.drawer.open')) return;
+    if (e.target.closest('input, textarea, select, [contenteditable]')) return;
+    if (router.current().widgetId) router.closeWidget();
+  });
   events.on('widget:added', renderPage);
   events.on('widget:removed', renderPage);
   events.on('day:rolled', renderPage);
@@ -60,12 +65,21 @@ export function initEngine(hostEl) {
 
 export function renderPage() {
   if (!host) return;
-  const { moduleId, pageId } = router.current();
-  const mod = store.get('modules', moduleId);
-  const page = store.get('pages', pageId);
+  const route = router.current();
+  const mod = store.get('modules', route.moduleId);
+  const page = store.get('pages', route.pageId);
   cardEls.clear();
   host.innerHTML = '';
+  document.body.classList.remove('focus-page');
   if (!mod || !page) return;
+
+  // CR-11: a widget's internal view is a real PAGE — when its route is
+  // active, it replaces the page content entirely (never rendered behind)
+  const viewWidget = route.widgetId ? store.get('widgets', route.widgetId) : null;
+  if (viewWidget && registry.get(viewWidget.type)?.internal) {
+    renderWidgetPage(viewWidget, page, mod, route.focus);
+    return;
+  }
 
   const scope = el('<div class="page-scope"></div>');
   applyScopedTheme(scope, page.themeOverride || mod.themeOverride || null);
@@ -93,29 +107,14 @@ export function renderPage() {
     scope.appendChild(add);
   }
   host.appendChild(scope);
-  syncRoutedView();
 }
 
-/* ---------- routed internal views (CR-8): the /w/<id> sub-route owns the
-   view's lifecycle — open on enter, close on leave, replace-not-stack ---------- */
+/* ---------- widget pages (CR-11): the /w/<id> route renders the widget's
+   internal view as a routed page in the app area — translucent surface,
+   atmosphere visible, back pops the route. /f = focus (chrome hidden). ---------- */
 
-function syncRoutedView() {
-  const { widgetId } = router.current();
-  const widget = widgetId ? store.get('widgets', widgetId) : null;
-  if (viewCtl && viewCtl.widgetId !== (widget?.id || null)) {
-    const ctl = viewCtl;
-    viewCtl = null; // cleared first so onClose doesn't re-route
-    ctl.close();
-  }
-  // full placement: the page must never sit behind the view (CR-8);
-  // side/sheet placements keep the live page visible under a light scrim
-  host.classList.toggle('behind-view', !!widget && panelPlacement() === 'full');
-  if (widget && !viewCtl) mountRoutedView(widget);
-}
-
-function mountRoutedView(widget) {
+function renderWidgetPage(widget, page, mod, focus) {
   const def = registry.get(widget.type);
-  if (!def?.internal) return;
 
   // breadcrumb chain: Page › parents › widget (docs/04)
   const crumbs = [];
@@ -125,40 +124,39 @@ function mountRoutedView(widget) {
     crumbs.unshift(p.name);
     p = p.parentWidgetId ? store.get('widgets', p.parentWidgetId) : null;
   }
-  const pageRec = store.get('pages', topLevelOf(widget)?.pageId);
-  if (pageRec) crumbs.unshift(pageRec.name);
+  const pageRec = store.get('pages', topLevelOf(widget)?.pageId) || page;
+  crumbs.unshift(pageRec.name);
 
-  // CR-9: the open view is the deepest active theme scope — its colors wrap
-  // the whole surface and its effects take over the global canvases until
-  // back (renderPage re-applies the page's effects when the route pops).
-  const mod = pageRec ? store.get('modules', pageRec.moduleId) : null;
+  // CR-9: the open view is the deepest active theme scope — colors wrap the
+  // page surface; its effects own the canvases until the route pops.
   const themeId = widget.themeOverride || pageRec?.themeOverride || mod?.themeOverride || null;
 
-  const ctl = openDrawer({
-    title: widget.name,
-    iconName: def.icon,
-    crumbs: crumbs.slice(0, -1),
-    routed: true,
-    actions: [{ iconName: 'settings', label: 'Widget settings', fn: () => openWidgetSettings(widget) }],
-    onClose: () => {
-      host.classList.remove('behind-view');
-      if (viewCtl === ctl) {
-        viewCtl = null;
-        router.closeWidget(); // user closed the surface → pop the route
-      }
-      refreshCard(widget.id, true);
-    }
-  });
-  ctl.widgetId = widget.id;
-  viewCtl = ctl;
-  if (themeId) applyScopedTheme(ctl.el, themeId);
-  applyEffects(getTheme(themeId) || activeTheme());
+  const rp = el(`<div class="routed-page${focus ? ' rp-focus' : ''}">
+    <header class="rp-head">
+      <button class="btn-icon" aria-label="Back">${icon('arrow-left', 18)}</button>
+      <span class="rp-icon">${icon(def.icon, 20)}</span>
+      <div class="grow" style="min-width:0">
+        <h2></h2>
+        <div class="rp-crumbs"></div>
+      </div>
+      <button class="btn-icon" aria-label="Widget settings" title="Widget settings">${icon('settings', 17)}</button>
+    </header>
+    <div class="rp-body"></div></div>`);
+  rp.querySelector('h2').textContent = widget.name;
+  rp.querySelector('.rp-crumbs').textContent = crumbs.slice(0, -1).join(' › ');
+  rp.querySelector('[aria-label="Back"]').onclick = () => router.closeWidget();
+  rp.querySelector('[aria-label="Widget settings"]').onclick = () => openWidgetSettings(widget);
 
-  try { def.renderFull(ctl.body, widget, ctx); }
+  applyScopedTheme(rp, themeId);
+  applyEffects(getTheme(themeId) || getTheme(pageRec?.themeOverride || mod?.themeOverride) || activeTheme());
+  if (focus) document.body.classList.add('focus-page');
+
+  try { def.renderFull(rp.querySelector('.rp-body'), widget, ctx); }
   catch (err) {
     console.error(`[engine] renderFull failed for ${widget.type}`, err);
-    ctl.body.innerHTML = '<p class="soft">This view had trouble blooming.</p>';
+    rp.querySelector('.rp-body').innerHTML = '<p class="soft">This view had trouble blooming.</p>';
   }
+  host.appendChild(rp);
 }
 
 function refreshCard(widgetId, structural = false) {

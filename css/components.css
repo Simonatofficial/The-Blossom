@@ -258,10 +258,69 @@
   transition: opacity var(--t-slow) var(--ease);
 }
 .drawer-backdrop.open { opacity: 1; }
-/* routed views (CR-8): the live page stays visible, gently dimmed */
-.drawer-backdrop.light { background: rgba(0, 0, 0, 0.18); }
-/* full-placement routed view: the page never renders behind it */
-#page-host.behind-view > * { display: none; }
+
+/* ---- widget pages (CR-11): the /w route renders IN the app area — a
+   translucent surface over the transparent page, atmosphere visible ---- */
+.routed-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100svh - 110px);
+  background: var(--surface);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  animation: rp-in 200ms var(--ease);
+}
+@keyframes rp-in { from { opacity: 0; transform: translateY(14px); } }
+.rp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.rp-head h2 { font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-head .rp-icon { color: var(--accent); display: grid; place-items: center; }
+.rp-crumbs { font-size: 0.74rem; color: var(--text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-body { flex: 1; padding: 16px 18px calc(20px + env(safe-area-inset-bottom)); min-width: 0; }
+
+/* focus page (CR-11): chrome gone, the work fills the screen */
+.routed-page.rp-focus {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  border: none;
+  border-radius: 0;
+  min-height: 100svh;
+}
+.routed-page.rp-focus .rp-head { display: none; }
+.routed-page.rp-focus .rp-body { padding: 8px; }
+body.focus-page #chrome-top, body.focus-page #tab-bar { display: none; }
+
+/* ---- popovers (CR-11): small anchored utilities — no scrim, no route ---- */
+.popover {
+  position: fixed;
+  z-index: 58;
+  max-height: min(70vh, 540px);
+  overflow-y: auto;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 140ms var(--ease), transform 140ms var(--ease);
+}
+.popover.open { opacity: 1; transform: none; }
+.popover .pop-title {
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  margin-bottom: 8px;
+}
 
 /* Panels (CR-1): one component, four placements. JS sets .place-* per the
    global "Open panels as" preference; destructive confirms stay dialogs. */

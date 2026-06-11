@@ -174,7 +174,7 @@ export class SelectTool {
     this.poly.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
     g.closePath();
     g.clip();
-    doc.composeLayer(g, doc.active().id, bb.x0, bb.y0, bb.x1, bb.y1);
+    doc.composeLayer(g, doc.active().id, bb.x0, bb.y0, bb.x1, bb.y1, band);
 
     doc.beginBatch();
     doc.rasterOp(bb, band, (og) => {
@@ -184,7 +184,7 @@ export class SelectTool {
       this.poly.forEach(([x, y], i) => i ? og.lineTo(x, y) : og.moveTo(x, y));
       og.closePath();
       og.fill();
-    }, { mask: null });
+    }, { mask: null, erase: true });
     surf.invalidate(bb);
 
     this.float = {
@@ -244,7 +244,7 @@ export class SelectTool {
     this.poly.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
     g.closePath();
     g.clip();
-    this.doc.composeLayer(g, this.doc.active().id, bb.x0, bb.y0, bb.x1, bb.y1);
+    this.doc.composeLayer(g, this.doc.active().id, bb.x0, bb.y0, bb.x1, bb.y1, this.surf.band());
     clipboard = { canvas: c, w, h };
   }
 
@@ -291,7 +291,7 @@ export class SelectTool {
       this.poly.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
       g.closePath();
       g.fill();
-    }, { mask: null });
+    }, { mask: null, erase: true });
     this.onChange();
     return { bbox: bb };
   }

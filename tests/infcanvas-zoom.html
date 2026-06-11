@@ -1,0 +1,152 @@
+<!doctype html>
+<!-- Regression tests for docs/11 CR-12: a layer is ONE logical image — the
+     zoom level is only a camera. Serve the repo root (tools/serve.ps1) and
+     open /tests/infcanvas-zoom.html. Keep permanently (CR-12 §5).
+     Bands: zoom ×1 → 0, ×0.1 → -3, ×10 → 3, ×0.001 → -10, ×100 → 7. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Infinite Canvas — zoom independence regression</title>
+<style>
+  body { font: 14px system-ui; background: #1c1722; color: #eee; padding: 20px; }
+  .pass { color: #7fae7f; } .fail { color: #e06c75; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Zoom independence (CR-12)</h1>
+<div id="log"></div>
+<script type="module">
+import { RasterDoc } from '../js/widgets/infcanvas-raster.js';
+
+let failures = 0;
+const log = (msg, ok) => {
+  const d = document.createElement('div');
+  d.className = ok ? 'pass' : 'fail';
+  d.textContent = `${ok ? 'PASS' : 'FAIL'} — ${msg}`;
+  document.getElementById('log').appendChild(d);
+  if (!ok) failures++;
+};
+
+function freshDoc() {
+  const meta = { layers: [], active: null };
+  return new RasterDoc(meta, {
+    loadTile: () => null,
+    saveTile() {},
+    tileKeys: () => [],
+    onTilesDecoded() {},
+    onMetaChange() {}
+  });
+}
+
+/** Render a world rect at a zoom scale; return ImageData + a sampler. */
+function render(doc, cx, cy, scale, size = 200) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  const half = size / 2 / scale;
+  g.setTransform(scale, 0, 0, scale, -(cx - half) * scale, -(cy - half) * scale);
+  doc.compose(g, cx - half, cy - half, cx + half, cy + half, Math.round(Math.log2(scale)));
+  const img = g.getImageData(0, 0, size, size);
+  return {
+    img,
+    alphaAt(wx, wy) { // world point → rendered alpha
+      const px = Math.round((wx - (cx - half)) * scale);
+      const py = Math.round((wy - (cy - half)) * scale);
+      if (px < 0 || py < 0 || px >= size || py >= size) return -1;
+      return img.data[(py * size + px) * 4 + 3];
+    },
+    totalAlpha() {
+      let n = 0;
+      for (let i = 3; i < img.data.length; i += 4) n += img.data[i];
+      return n;
+    }
+  };
+}
+
+function stroke(doc, band, pts, { tool = 'pen', size = 12, color = '#d8697f' } = {}) {
+  doc.begin({ tool, color, size, opacity: 1, hardness: 0.9, band });
+  for (const [x, y] of pts) doc.stamp(x, y, 0.7);
+  return doc.end();
+}
+
+/* 1 — draw at ×1, erase at ×0.1 and at ×10: pixels must be gone */
+{
+  const doc = freshDoc();
+  stroke(doc, 0, [[100, 100], [140, 100], [180, 100]]);
+  log('setup: stroke drawn at ×1 is visible', render(doc, 140, 100, 1).alphaAt(140, 100) > 0);
+  stroke(doc, -3, [[100, 100], [140, 100], [180, 100]], { tool: 'eraser', size: 60 });
+  const after = render(doc, 140, 100, 1);
+  log(`erase at ×0.1 removes content drawn at ×1 (alpha ${after.alphaAt(140, 100)})`, after.alphaAt(140, 100) === 0);
+
+  const doc2 = freshDoc();
+  stroke(doc2, 0, [[100, 100], [180, 100]]);
+  // erase a small spot while zoomed IN ten times
+  stroke(doc2, 3, [[100, 100]], { tool: 'eraser', size: 30 });
+  const r2 = render(doc2, 140, 100, 1);
+  log('erase at ×10 removes the spot', r2.alphaAt(100, 100) === 0);
+  log('…but leaves the rest of the stroke', r2.alphaAt(170, 100) > 0);
+}
+
+/* 2 — draw at ×1, zoom to ×0.001: render must not be empty */
+{
+  const doc = freshDoc();
+  stroke(doc, 0, [[0, 0], [300, 0], [300, 300], [0, 300]], { size: 40 });
+  const far = render(doc, 150, 150, 0.001);
+  log(`content survives ×0.001 (total alpha ${far.totalAlpha()})`, far.totalAlpha() > 0);
+}
+
+/* 3 — draw at ×100, view at ×1: visible and correctly placed */
+{
+  const doc = freshDoc();
+  stroke(doc, 7, [[50, 50], [50.5, 50], [51, 50]], { size: 0.5 });
+  const r = render(doc, 50, 50, 1, 100);
+  log('fine ×100 detail renders at ×1', r.totalAlpha() > 0);
+  // placement: alpha concentrates at (50,50)±2 — nothing at the far corner
+  log('…in the right place', r.alphaAt(50.5, 50) >= 0 && r.alphaAt(20, 20) === 0);
+}
+
+/* 4 — rapid band changes over one region: all strokes land, erase clears all */
+{
+  const doc = freshDoc();
+  for (const band of [0, 4, -2, 6, 1, -4]) {
+    stroke(doc, band, [[200, 200], [230, 200]], { size: 10 });
+  }
+  const r = render(doc, 215, 200, 1);
+  log('interleaved-band strokes all render', r.alphaAt(215, 200) > 0);
+  stroke(doc, -1, [[180, 180], [215, 200], [250, 220]], { tool: 'eraser', size: 120 });
+  const r2 = render(doc, 215, 200, 1);
+  log(`one coarse erase clears every band (total alpha ${r2.totalAlpha()})`, r2.totalAlpha() === 0);
+}
+
+/* 5 — fine paint over coarse promotes without shifting the coarse content */
+{
+  const doc = freshDoc();
+  stroke(doc, 0, [[100, 100], [160, 100]], { size: 16, color: '#0000ff' });
+  const before = render(doc, 130, 100, 1);
+  stroke(doc, 5, [[130, 100]], { size: 1, color: '#ff0000' }); // tiny fine dab on top
+  const after = render(doc, 130, 100, 1);
+  let drift = 0;
+  for (let i = 3; i < before.img.data.length; i += 4) {
+    if ((before.img.data[i] > 30) !== (after.img.data[i] > 30)) drift++;
+  }
+  log(`promotion keeps coarse content in place (${drift} px changed beyond the dab)`, drift < 80);
+}
+
+/* 6 — undo restores across the promoted bands as one step */
+{
+  const doc = freshDoc();
+  stroke(doc, 0, [[100, 100], [160, 100]], { size: 16 });
+  stroke(doc, 4, [[130, 100], [135, 100]], { tool: 'eraser', size: 4 });
+  doc.undo();
+  const r = render(doc, 130, 100, 1);
+  log('undoing a cross-band erase restores the stroke', r.alphaAt(132, 100) > 0);
+}
+
+document.title = failures ? `✗ ${failures} FAILURES` : '✓ all pass';
+const h = document.createElement('h2');
+h.className = failures ? 'fail' : 'pass';
+h.textContent = failures ? `${failures} failure(s)` : 'All assertions passed';
+document.body.appendChild(h);
+</script>
+</body>
+</html>

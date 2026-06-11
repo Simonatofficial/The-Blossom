@@ -43,7 +43,7 @@ export async function floodFill(surf, doc, px, py, { tolerance = 24, grow = 0, r
   src.width = RW; src.height = RH;
   const sg = src.getContext('2d', { willReadFrequently: true });
   sg.setTransform(scale, 0, 0, scale, -wx0 * scale, -wy0 * scale);
-  doc.compose(sg, rect.x0, rect.y0, rect.x1, rect.y1);
+  doc.compose(sg, rect.x0, rect.y0, rect.x1, rect.y1, surf.band());
   const img = sg.getImageData(0, 0, RW, RH);
   const d = img.data;
 
