@@ -170,7 +170,8 @@ Four issues, all in the signature graph (spec updated in docs/05):
 
 ---
 
-## CR-12 — Canvas zoom regression: drawing/erasing must be zoom-independent again · `canvas-core.js`, tile pyramid (BUG — fix before continuing CR-10)
+## CR-12 — Canvas zoom regression: drawing/erasing must be zoom-independent again · `canvas-core.js`, tile pyramid (BUG — fix before continuing CR-10) · ✅ 2026-06-11
+*(Fixed in the raster model — no vector fallback needed. Tests: `tests/infcanvas-zoom.html` (§5 cases, permanent) + `tests/infcanvas-pointer.html` both pass; implementation notes in docs/12 build decisions.)*
 
 **Problem:** the original (vector) canvas was fully zoom-independent — draw at any zoom, it rendered properly, and anything could be erased from anywhere. Since the raster-tile migration (docs/12 §0): strokes render weird while drawing, drawings **disappear when zoomed far out**, and the **eraser only works at the zoom level the stroke was drawn at**. This is a regression in the new architecture, not polish.
 
@@ -197,7 +198,7 @@ Four issues, all in the signature graph (spec updated in docs/05):
 **Round 2:** ~~CR-10~~ ✅ 2026-06-11 (canvas overhaul shipped in one release — accuracy fix, raster layers, redo, all Kleki tools; see docs/12 build notes). Remaining: CR-8 first (routing rework — CR-9 depends on its view container, and it touches every surface) → CR-9 (scoped theming into views) → CR-7 (particle layers; independent, do anytime).
 
 **Round 3 (current priority):**
-1. **CR-12 first** — regression: CR-10's raster migration broke the canvas's core promise (zoom-independent draw/erase/render). Nothing else in the canvas matters until this passes its tests.
+1. ~~CR-12~~ ✅ 2026-06-11 — zoom independence restored via cross-band write path + mip-chain rendering + live-stroke overlay; all §5 tests pass.
 2. **CR-11** — surface taxonomy (Pages vs Panels vs Popovers). Fold the CR-8/CR-9 work into it: CR-11 supersedes CR-8's placement behavior for widget views (they become true Pages; replace-not-stack, transparent background, and CR-9 scoped theming all still required). Do this before any new Phase 7 module adds more surfaces.
 3. ~~CR-7~~ ✅ 2026-06-11 (particle layers shipped).
 4. Then resume Phase 7 (World Builder → D&D Character → D&D DM).
