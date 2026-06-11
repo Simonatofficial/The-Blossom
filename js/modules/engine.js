@@ -128,6 +128,12 @@ function mountRoutedView(widget) {
   const pageRec = store.get('pages', topLevelOf(widget)?.pageId);
   if (pageRec) crumbs.unshift(pageRec.name);
 
+  // CR-9: the open view is the deepest active theme scope — its colors wrap
+  // the whole surface and its effects take over the global canvases until
+  // back (renderPage re-applies the page's effects when the route pops).
+  const mod = pageRec ? store.get('modules', pageRec.moduleId) : null;
+  const themeId = widget.themeOverride || pageRec?.themeOverride || mod?.themeOverride || null;
+
   const ctl = openDrawer({
     title: widget.name,
     iconName: def.icon,
@@ -145,6 +151,8 @@ function mountRoutedView(widget) {
   });
   ctl.widgetId = widget.id;
   viewCtl = ctl;
+  if (themeId) applyScopedTheme(ctl.el, themeId);
+  applyEffects(getTheme(themeId) || activeTheme());
 
   try { def.renderFull(ctl.body, widget, ctx); }
   catch (err) {

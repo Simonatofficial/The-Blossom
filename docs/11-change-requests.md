@@ -120,7 +120,7 @@ Four issues, all in the signature graph (spec updated in docs/05):
 
 ---
 
-## CR-9 — Per-widget theme must apply to the widget's internal view · `fx/themes.js`, `ui/components.js`
+## CR-9 — Per-widget theme must apply to the widget's internal view · `fx/themes.js`, `ui/components.js` · ✅ 2026-06-11
 
 **Problem:** setting a theme on a widget only restyles its card ("the button") on the page — its internal view/pages still render in the inherited theme. The custom theme should follow the widget inside.
 
