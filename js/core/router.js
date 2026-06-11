@@ -1,21 +1,24 @@
-/* Hash-based module/page navigation (docs/01, CR-8).
-   Hash shape: #/m/<moduleId>/<pageId>[/w/<widgetId>] — emits 'route:changed'.
-   The /w segment is a widget's internal view: a REAL route, so back/refresh/
-   deep links behave, and the view replaces the page instead of stacking. */
+/* Hash-based module/page navigation (docs/01, CR-8, CR-11).
+   Hash shape: #/m/<moduleId>/<pageId>[/w/<widgetId>[/f]] — emits
+   'route:changed'. The /w segment is a widget's internal view — a REAL page
+   per the CR-11 surface taxonomy (back/refresh/deep links behave; the page
+   beneath fully unmounts). The /f flag is the distraction-free focus page
+   (Canvas): same document, Blossom chrome hidden. */
 
 import { events } from './events.js';
 import { store } from './store.js';
 
-let current = { moduleId: null, pageId: null, widgetId: null };
+let current = { moduleId: null, pageId: null, widgetId: null, focus: false };
 let viewPushed = false; // we pushed the /w entry ourselves → back() pops it
 
 function parse() {
   const parts = location.hash.replace(/^#\/?/, '').split('/');
-  if (parts[0] !== 'm') return { moduleId: null, pageId: null, widgetId: null };
+  if (parts[0] !== 'm') return { moduleId: null, pageId: null, widgetId: null, focus: false };
   return {
     moduleId: parts[1] || null,
     pageId: parts[2] || null,
-    widgetId: parts[3] === 'w' ? parts[4] || null : null
+    widgetId: parts[3] === 'w' ? parts[4] || null : null,
+    focus: parts[3] === 'w' && parts[5] === 'f'
   };
 }
 
@@ -24,14 +27,14 @@ function resolve(route) {
   const modules = store.all('modules');
   let mod = store.get('modules', route.moduleId);
   if (!mod) mod = store.get('modules', store.getMeta('lastModule')) || modules[0];
-  if (!mod) return { moduleId: null, pageId: null, widgetId: null };
+  if (!mod) return { moduleId: null, pageId: null, widgetId: null, focus: false };
   let pageId = mod.pages.includes(route.pageId) ? route.pageId : mod.pages[0];
   const widgetId = route.widgetId && store.get('widgets', route.widgetId) ? route.widgetId : null;
-  return { moduleId: mod.id, pageId, widgetId };
+  return { moduleId: mod.id, pageId, widgetId, focus: !!widgetId && !!route.focus };
 }
 
 function same(a, b) {
-  return a.moduleId === b.moduleId && a.pageId === b.pageId && a.widgetId === b.widgetId;
+  return a.moduleId === b.moduleId && a.pageId === b.pageId && a.widgetId === b.widgetId && !a.focus === !b.focus;
 }
 
 function apply() {
@@ -70,11 +73,13 @@ export const router = {
     events.emit('route:changed', { ...current });
   },
 
-  /** Open a widget's internal view as a sub-route (CR-8). */
-  openWidget(widgetId) {
-    if (!current.moduleId || current.widgetId === widgetId) return;
+  /** Open a widget's internal view as a real page (CR-8/CR-11).
+      focus = the distraction-free variant (chrome hidden). */
+  openWidget(widgetId, focus = false) {
+    if (!current.moduleId) return;
+    if (current.widgetId === widgetId && !current.focus === !focus) return;
     viewPushed = true;
-    location.hash = `#/m/${current.moduleId}/${current.pageId}/w/${widgetId}`;
+    location.hash = `#/m/${current.moduleId}/${current.pageId}/w/${widgetId}${focus ? '/f' : ''}`;
   },
 
   /** Pop the view route (back arrow / scrim / Esc). */

@@ -6,7 +6,7 @@
 import { store } from '../core/store.js';
 import { ulid } from '../core/ids.js';
 import { icon } from '../ui/icons.js';
-import { el, toast, confirmDialog, openDrawer, popMenu, promptText } from '../ui/components.js';
+import { el, toast, confirmDialog, openPopover, openDrawer, popMenu, promptText } from '../ui/components.js';
 
 export const PRESET_PALETTES = {
   blossom: { name: 'Blossom', colors: ['#2c2230', '#ffffff', '#d8697f', '#e0a23c', '#7fae7f', '#5f8fc0', '#9a7fd1', '#e88aa0', '#67c9c9', '#c25b66'] },
@@ -30,8 +30,11 @@ function paletteOf(id) {
   return rec ? { id: rec.id, name: rec.name, colors: rec.colors, preset: false } : { id: 'blossom', ...PRESET_PALETTES.blossom, preset: true };
 }
 
-export function openColorPanel(state, widget, onPick) {
-  const d = openDrawer({ title: 'Colors', iconName: 'palette' });
+export function openColorPanel(state, widget, onPick, anchor = null) {
+  // CR-11: a mid-task utility — an anchored popover, never a panel
+  const d = anchor
+    ? openPopover(anchor, { title: 'Colors', width: 300 })
+    : openDrawer({ title: 'Colors', iconName: 'palette' });
   const cfg = widget.config;
   cfg.recent = cfg.recent || [];
   cfg.palette = cfg.palette || 'blossom';

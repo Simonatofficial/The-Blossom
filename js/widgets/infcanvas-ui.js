@@ -49,7 +49,7 @@ export function buildToolbar(state, act) {
   strip.appendChild(el('<span class="ic-gap"></span>'));
 
   const colorDot = el('<button class="ic-btn" title="Colors (X swaps last two)"><span class="ic-dot"></span></button>');
-  colorDot.onclick = () => { closeFlyout(); act.openColors(); };
+  colorDot.onclick = (e) => { closeFlyout(); act.openColors(e.currentTarget); }; // popover (CR-11)
   strip.appendChild(colorDot);
 
   const undoBtn = el(`<button class="ic-btn" title="Undo (Ctrl+Z · two-finger tap)">${icon('rotate-ccw', 16)}</button>`);
@@ -63,9 +63,16 @@ export function buildToolbar(state, act) {
   strip.appendChild(layersBtn);
   strip.appendChild(el('<span class="ic-gap"></span>'));
 
-  const fsBtn = el(`<button class="ic-btn" title="Fullscreen">${icon('expand', 16)}</button>`);
-  fsBtn.onclick = () => { closeFlyout(); act.toggleFullscreen(); };
+  // focus page toggle (CR-11: a route, not OS fullscreen)
+  const fsBtn = el(`<button class="ic-btn" title="Focus page">${icon('expand', 16)}</button>`);
+  fsBtn.onclick = () => { closeFlyout(); act.toggleFocus(); };
   strip.appendChild(fsBtn);
+  if (act.isFocus?.()) {
+    // optional edge-to-edge browser fullscreen, secondary, focus page only
+    const bfs = el(`<button class="ic-btn" title="Edge-to-edge (browser fullscreen)">${icon('monitor', 16)}</button>`);
+    bfs.onclick = () => { closeFlyout(); act.toggleBrowserFs(); };
+    strip.appendChild(bfs);
+  }
   for (const [ic, title, fn] of [
     ['maximize', 'Fit everything', act.fitAll],
     ['star', 'Bookmarks', (e) => act.bookmarks(e)],
@@ -220,8 +227,8 @@ export function buildToolbar(state, act) {
     colorDot.querySelector('.ic-dot').style.background = state.color;
     undoBtn.disabled = !act.canUndo();
     redoBtn.disabled = !act.canRedo();
-    fsBtn.innerHTML = icon(act.isFullscreen?.() ? 'shrink' : 'expand', 16);
-    fsBtn.title = act.isFullscreen?.() ? 'Exit fullscreen (Esc)' : 'Fullscreen';
+    fsBtn.innerHTML = icon(act.isFocus?.() ? 'shrink' : 'expand', 16);
+    fsBtn.title = act.isFocus?.() ? 'Exit focus (back)' : 'Focus page';
     chip.querySelector('span').textContent =
       `${TOOL_NAME[state.tool] || state.tool} · ${state.size}px · ${Math.round(state.opacity * 100)}%`;
     const pvc = chip.querySelector('canvas');

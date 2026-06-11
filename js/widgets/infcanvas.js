@@ -7,6 +7,7 @@
 
 import { registry } from './registry.js';
 import { store } from '../core/store.js';
+import { router } from '../core/router.js';
 import { icon } from '../ui/icons.js';
 import { el, toast, popMenu, promptText } from '../ui/components.js';
 import { objectsOf, createObject, todayStr } from './base.js';
@@ -178,10 +179,12 @@ registry.register({
     host.appendChild(wrap);
 
     const dpr = Math.min(2, devicePixelRatio || 1);
-    let fs = false;
+    // CR-11: distraction-free drawing is a routed FOCUS PAGE (/w/<id>/f),
+    // not OS fullscreen — toggling it re-navigates and remounts this view
+    const focusMode = router.current().widgetId === widget.id && router.current().focus;
     const resizeCanvas = () => {
-      if (fs) {
-        canvas.style.height = '100%';
+      if (focusMode || document.fullscreenElement) {
+        canvas.style.height = `${Math.max(200, innerHeight - 24)}px`;
         surf.resize(dpr);
         if (!canvas.width) { canvas.width = Math.round(innerWidth * dpr); canvas.height = Math.round(innerHeight * dpr); }
       } else {
@@ -348,7 +351,7 @@ registry.register({
     const surf = new InfiniteSurface(canvas, {
       drawTile: (g, b, r) => doc.compose(g, r.x0, r.y0, r.x1, r.y1, b),
       isPan: () => state.tool === 'pan',
-      wantsTbToggle: () => fs,
+      wantsTbToggle: () => focusMode,
       onViewChange: (v) => {
         widget.config.view = { cx: v.cx, cy: v.cy, zoomExp: v.zoomExp };
         store.put('widgets', widget);
@@ -629,24 +632,18 @@ registry.register({
     const sel = new SelectTool(surf, doc, () => { doc.flush(); toolbar.refresh(); });
     const text = new TextLayer(box, surf, doc, widget, () => state);
 
-    /* ---------- fullscreen (docs/12 §1) ---------- */
-    const setFs = (on) => {
-      fs = on;
-      wrap.classList.toggle('ic-fs', on);
-      document.body.classList.toggle('ic-fs-open', on);
-      setTimeout(resizeCanvas, 60);
-      toolbar.refresh();
+    /* ---------- focus page (docs/12 §1, revised by CR-11) ---------- */
+    const toggleFocus = () => {
+      if (!focusMode) router.openWidget(widget.id, true); // navigate; remounts in focus
+      else router.closeWidget(); // back to the regular canvas page
     };
-    const toggleFullscreen = async () => {
-      if (!fs) {
-        setFs(true);
-        try { await wrap.requestFullscreen?.(); } catch { /* fallback: chrome-hiding alone */ }
-      } else {
-        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-        setFs(false);
-      }
+    // optional edge-to-edge: browser fullscreen as a SECONDARY control inside
+    // the focus page; Esc exits it without leaving focus
+    const toggleBrowserFs = async () => {
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      else try { await wrap.requestFullscreen?.(); } catch { /* unsupported — focus page already hides chrome */ }
     };
-    const onFsChange = () => { if (!document.fullscreenElement && fs) setFs(false); };
+    const onFsChange = () => { if (canvas.isConnected) setTimeout(resizeCanvas, 60); };
     document.addEventListener('fullscreenchange', onFsChange);
 
     const toggleToolbar = () => {
@@ -680,11 +677,11 @@ registry.register({
         text.sync();
         toolbar.refresh();
       }),
-      openColors: () => openColorPanel(state, widget, () => toolbar.refresh()),
+      openColors: (anchor) => openColorPanel(state, widget, () => toolbar.refresh(), anchor),
       fitAll: () => surf.fitTo(contentBounds(doc)),
       scale: () => surf.scale(),
-      isFullscreen: () => fs,
-      toggleFullscreen, toggleToolbar,
+      isFocus: () => focusMode,
+      toggleFocus, toggleBrowserFs, toggleToolbar,
       select: {
         setMode: (m) => { sel.mode = m; },
         active: () => sel.active(),
@@ -761,7 +758,7 @@ registry.register({
     /* keyboard (docs/12 §9): B/E/G/L/T/S/V/I tools, X swap, [ ] size, Ctrl+Z/Y */
     const onKey = (e) => {
       if (!canvas.isConnected) {
-        document.removeEventListener('keydown', onKey);
+        document.removeEventListener('keydown', onKey, true);
         document.removeEventListener('fullscreenchange', onFsChange);
         return;
       }
@@ -789,11 +786,11 @@ registry.register({
       else if (k === ']') { state.size = Math.round(state.size * 1.25 * 10) / 10; toolbar.refresh(); }
       else if (k === 'delete' || k === 'backspace') { if (sel.active()) { e.preventDefault(); toolbar.closeFlyout(); const r = sel.erase(); if (r) { surf.invalidate(r.bbox || null); surf.render(); doc.flush(); toolbar.refresh(); } } }
       else if (k === 'escape') {
-        if (fs) { e.preventDefault(); toggleFullscreen(); }
-        else if (sel.active()) { sel.deselect(); surf.render(); }
+        // consume Esc for deselect so the engine doesn't pop the page route
+        if (sel.active()) { e.stopPropagation(); sel.deselect(); surf.render(); }
       }
     };
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true); // capture: runs before the engine's Esc
 
     readout.textContent = zoomLabel(surf.scale());
     resizeCanvas();

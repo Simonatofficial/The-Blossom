@@ -145,7 +145,8 @@ Four issues, all in the signature graph (spec updated in docs/05):
 
 ---
 
-## CR-11 — Surface taxonomy: Pages vs Panels vs Popovers · `core/router.js`, `ui/components.js`, app-wide audit
+## CR-11 — Surface taxonomy: Pages vs Panels vs Popovers · `core/router.js`, `ui/components.js`, app-wide audit · ✅ 2026-06-11
+*(Build notes: widget views render as `.routed-page` inside the page host — the CR-1 setting no longer touches them; the Canvas focus page is the `/w/<id>/f` route with browser fullscreen as a secondary control inside it; `openPopover(anchor, opts)` landed in ui/components.js and the canvas color panel uses it; panels are one-at-a-time globally — a second open replaces the first, including nested prompt/picker flows.)*
 
 **Problem:** the app blurs panels and pages. Opening a Notes widget overlays a panel instead of taking you to a real page; the Infinite Canvas "fullscreen" fullscreens the whole app instead of opening a bigger-canvas page; small utilities (brush color) open heavyweight overlays. We need one clear rule for how every feature opens.
 
@@ -199,7 +200,7 @@ Four issues, all in the signature graph (spec updated in docs/05):
 
 **Round 3 (current priority):**
 1. ~~CR-12~~ ✅ 2026-06-11 — zoom independence restored via cross-band write path + mip-chain rendering + live-stroke overlay; all §5 tests pass.
-2. **CR-11** — surface taxonomy (Pages vs Panels vs Popovers). Fold the CR-8/CR-9 work into it: CR-11 supersedes CR-8's placement behavior for widget views (they become true Pages; replace-not-stack, transparent background, and CR-9 scoped theming all still required). Do this before any new Phase 7 module adds more surfaces.
+2. ~~CR-11~~ ✅ 2026-06-11 — surface taxonomy implemented (widget views are true Pages; focus page route; popovers; one panel at a time).
 3. ~~CR-7~~ ✅ 2026-06-11 (particle layers shipped).
 4. Then resume Phase 7 (World Builder → D&D Character → D&D DM).
 

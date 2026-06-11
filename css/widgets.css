@@ -510,17 +510,13 @@
 .ic-tb-hidden .ic-strip { display: none; }
 .ic-tb-hidden .ic-hide-tab { left: 0; border-radius: 0 9px 9px 0; }
 
-/* true fullscreen (docs/12 §1): only canvas + toolbar remain */
-.ic-fs {
-  position: fixed !important; inset: 0; z-index: 80; background: var(--bg);
-  padding: 0; margin: 0; gap: 0;
-}
-.ic-fs .ic-canvasbox { border: none; border-radius: 0; }
-.ic-fs .ic-surface { height: 100%; }
-.ic-fs .ic-strip { position: absolute; left: 8px; top: 8px; max-height: calc(100% - 16px); overflow-y: auto; }
-.ic-fs .ic-hide-tab { left: 62px; top: 18px; }
-.ic-fs.ic-tb-hidden .ic-hide-tab { left: 0; }
-body.ic-fs-open #chrome-top, body.ic-fs-open #tab-bar { display: none; }
+/* focus page (docs/12 §1, revised by CR-11): only canvas + toolbar remain */
+.rp-focus .ic-wrap { gap: 0; height: 100%; }
+.rp-focus .ic-canvasbox { border: none; border-radius: 0; }
+.rp-focus .ic-strip { position: absolute; left: 8px; top: 8px; z-index: 7; max-height: calc(100% - 16px); overflow-y: auto; }
+.rp-focus .ic-hide-tab { left: 62px; top: 18px; position: absolute; }
+.rp-focus .ic-tb-hidden .ic-hide-tab, .rp-focus.ic-tb-hidden .ic-hide-tab { left: 0; }
+.ic-wrap:fullscreen { background: var(--bg); }
 
 /* text boxes (docs/12 §3): world-anchored, re-editable forever */
 .ic-textlayer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
@@ -551,7 +547,7 @@ body.ic-fs-open #chrome-top, body.ic-fs-open #tab-bar { display: none; }
   .ic-strip { flex-direction: row; flex-wrap: wrap; position: static; align-self: stretch; }
   .ic-flyout { left: 8px !important; right: 8px; width: auto; top: auto !important; bottom: 64px; }
   .ic-hide-tab { display: none; }
-  .ic-fs .ic-hide-tab { display: grid; left: auto; right: 8px; top: auto; bottom: 8px; border-radius: 9px; }
-  .ic-fs .ic-strip { left: 4px; right: 4px; top: auto; bottom: 4px; max-height: 40vh; }
+  .rp-focus .ic-hide-tab { display: grid; left: auto; right: 8px; top: auto; bottom: 8px; border-radius: 9px; }
+  .rp-focus .ic-strip { position: absolute; left: 4px; right: 4px; top: auto; bottom: 4px; max-height: 40vh; }
   .ic-tb-hidden .ic-strip { display: none; }
 }

@@ -78,25 +78,20 @@ export function panelPlacement() {
 }
 
 /**
- * Open a panel. Placement follows Settings → Appearance unless overridden.
- * `routed: true` marks a widget's routed internal view (CR-8): it gets the
- * light scrim (live page stays visible behind it), and any overlay opened
- * above it REPLACES the previous overlay instead of stacking.
+ * Open a panel (CR-11: app/meta surfaces and pickers — never widget content;
+ * widget views are routed PAGES). Placement follows Settings → Appearance
+ * unless overridden. One panel at a time: opening a second replaces the first.
  * @param {{title: string, iconName?: string, onClose?: () => void,
  *          placement?: 'full'|'left'|'right'|'sheet',
- *          crumbs?: string[], routed?: boolean,
+ *          crumbs?: string[],
  *          actions?: {iconName: string, label: string, fn: () => void}[]}} opts
  * @returns {{body: HTMLElement, close: () => void, setTitle: (t: string) => void}}
  */
-export function openPanel({ title, iconName = 'flower', onClose = null, placement = null, crumbs = null, routed = false, actions = [] }) {
+export function openPanel({ title, iconName = 'flower', onClose = null, placement = null, crumbs = null, actions = [] }) {
   const place = placement || panelPlacement();
-  // CR-8 replace-not-stack: above a routed view, one overlay at most
-  if (!routed && drawerStack.some(c => c.routed)) {
-    const top = drawerStack[drawerStack.length - 1];
-    if (!top.routed) top.close();
-  }
-  const nested = drawerStack.length > 0; // stacked opens get a back affordance
-  const back = el(`<div class="drawer-backdrop${routed ? ' light' : ''}"></div>`);
+  const nested = drawerStack.length > 0; // a replaced panel leaves a back affordance
+  for (const ctl of [...drawerStack]) ctl.close(); // one panel at a time (CR-11)
+  const back = el('<div class="drawer-backdrop"></div>');
   const drawer = el(`
     <div class="drawer place-${place}" role="dialog" aria-label="${title}">
       ${place === 'sheet' ? '<div class="sheet-handle" aria-hidden="true"></div>' : ''}
@@ -124,7 +119,6 @@ export function openPanel({ title, iconName = 'flower', onClose = null, placemen
   const ctl = {
     body: drawer.querySelector('.drawer-body'),
     el: drawer,
-    routed,
     setTitle(t) { drawer.querySelector('h2').textContent = t; },
     close() {
       const i = drawerStack.indexOf(ctl);
@@ -184,9 +178,51 @@ export function openPanel({ title, iconName = 'flower', onClose = null, placemen
 /** Back-compat alias — every existing surface routes through openPanel. */
 export const openDrawer = openPanel;
 
-/** Close every non-routed panel (navigation must not leave stale overlays). */
+/** Close every open panel (navigation must not leave stale overlays). */
 export function closeStrayPanels() {
-  for (const ctl of [...drawerStack]) if (!ctl.routed) ctl.close();
+  for (const ctl of [...drawerStack]) ctl.close();
+}
+
+/* ---------- popovers (CR-11): quick mid-task utilities — small, anchored,
+   no scrim, no route change, gone on tap-outside or selection ---------- */
+
+/**
+ * @param {HTMLElement} anchor the control that opened it
+ * @param {{title?: string, width?: number}} opts
+ * @returns {{body: HTMLElement, el: HTMLElement, close: () => void}}
+ */
+export function openPopover(anchor, { title = null, width = 280 } = {}) {
+  document.querySelector('.popover')?.remove();
+  const pop = el(`<div class="popover" role="dialog">${title ? '<h3 class="pop-title"></h3>' : ''}<div class="pop-body"></div></div>`);
+  if (title) pop.querySelector('.pop-title').textContent = title;
+  pop.style.width = `${Math.min(width, innerWidth - 16)}px`;
+  document.body.appendChild(pop);
+  const r = anchor.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let x = Math.min(Math.max(8, r.left), innerWidth - pw - 8);
+  let y = r.bottom + 8;
+  if (y + ph > innerHeight - 8) y = Math.max(8, r.top - ph - 8);
+  // never cover the work area's center: prefer hugging the anchor's side
+  if (r.right + pw + 8 <= innerWidth && ph > innerHeight - r.bottom - 16) {
+    x = r.right + 8;
+    y = Math.min(Math.max(8, r.top), innerHeight - ph - 8);
+  }
+  pop.style.left = `${x}px`;
+  pop.style.top = `${y}px`;
+  const ctl = {
+    el: pop,
+    body: pop.querySelector('.pop-body'),
+    close() {
+      pop.classList.remove('open');
+      setTimeout(() => pop.remove(), 140);
+      document.removeEventListener('pointerdown', onAway, true);
+    }
+  };
+  function onAway(e) { if (!pop.contains(e.target)) ctl.close(); }
+  setTimeout(() => document.addEventListener('pointerdown', onAway, true), 0);
+  requestAnimationFrame(() => pop.classList.add('open'));
+  pop.classList.add('open'); // hidden-document fallback: rAF may never fire
+  return ctl;
 }
 
 document.addEventListener('keydown', (e) => {
