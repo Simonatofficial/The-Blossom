@@ -13,11 +13,13 @@ Blend/smudge brushes, flood fill, and gradients are raster operations — pure v
 - **Layers are sparse raster tile grids.** Each layer = a map of 512px tiles (allocated only where painted), stored per sector band so the infinite world model still holds. Painting rasterizes the live stroke into the active layer's tiles at the current zoom band's native resolution; the existing tile-pyramid cache handles display at other zooms.
 - **Undo/redo** (see §4) snapshots only the tiles a stroke touched (bounded memory), not whole layers.
 - The Gallery, bookmarks, exports, and document chunking (docs/08) are unchanged. Migration: existing vector strokes are rendered once into raster tiles on first open of an old document (keep the vector data in the object as a dormant backup field — never destroy user data).
+- **Zoom-independence invariant (CR-12 — currently violated, fix first):** *a layer is one logical image; zoom is only a camera.* Every render and every edit (paint, erase, fill, transform) must hit the same logical content at any zoom: one shared write path through the tile pyramid (downsample-up, dirty-mark, lazy rebuild), cross-band resampling so erasing works on content drawn at a different zoom, never culling content to invisibility when zoomed far out, and live strokes drawn to screen then committed on pointer-up. Full fix spec + required regression tests: docs/11 CR-12. If the raster pyramid can't honestly meet this within the performance budget, revert to vector-as-source-of-truth with raster as a region cache — the original engine's behavior is the bar.
 
-## 1. True fullscreen + hideable toolbar
+## 1. Canvas focus page + hideable toolbar *(revised by CR-11)*
 
-- A **fullscreen button** on the canvas toolbar: requests browser fullscreen (Fullscreen API) *and* hides all Blossom chrome (tab bar, header) — only canvas + toolbar remain. Esc / back / the same button exits. On platforms denying the API, fall back to chrome-hiding alone.
-- In fullscreen, a **hide-toolbar toggle** (small tab at the toolbar's edge, and a two-finger double-tap shortcut): collapses the toolbar to a single translucent reveal-tab while drawing. State remembered per session.
+- The toolbar's **focus button** does **not** fullscreen the app via the Fullscreen API. It **navigates to a Canvas focus page** (a real route, per the CR-11 surface taxonomy): same document, all Blossom chrome hidden (tab bar, header), only canvas + toolbar remain. Back arrow / hardware back exits to the normal canvas page.
+- An optional **browser fullscreen** control lives *inside* the focus page (secondary, for users who want edge-to-edge); Esc exits it without leaving the focus page.
+- In the focus page, a **hide-toolbar toggle** (small tab at the toolbar's edge, and a two-finger double-tap shortcut): collapses the toolbar to a single translucent reveal-tab while drawing. State remembered per session.
 
 ## 2. Pointer accuracy + tap-to-paint (BUG — fix first)
 

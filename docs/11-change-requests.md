@@ -144,8 +144,61 @@ Four issues, all in the signature graph (spec updated in docs/05):
 
 ---
 
+## CR-11 — Surface taxonomy: Pages vs Panels vs Popovers · `core/router.js`, `ui/components.js`, app-wide audit
+
+**Problem:** the app blurs panels and pages. Opening a Notes widget overlays a panel instead of taking you to a real page; the Infinite Canvas "fullscreen" fullscreens the whole app instead of opening a bigger-canvas page; small utilities (brush color) open heavyweight overlays. We need one clear rule for how every feature opens.
+
+**The taxonomy — three surface classes, three APIs, no exceptions:**
+
+| Class | What it's for | How it opens | API |
+|---|---|---|---|
+| **Page** | Content the user works *in*: every widget's internal view (Notes, Journal, Skill, Canvas…), module pages, the Canvas focus view | **Real navigation.** Router pushes a route; previous content fully unmounts; header gets a back arrow; browser/hardware back works; refresh/deep-link lands correctly. Fills the app area. Never an overlay. | `navigate(route)` |
+| **Panel** | App/meta surfaces and pickers: settings menu, theme editor, link picker, module switcher, widget gallery, Blossom-code dialogs, layer panel | **Pop-up overlay** sliding from left / right / bottom / full-page — this is where the CR-1 "Open panels as" setting applies (it governs *panels only*, not pages). Scrim behind; scrim-tap/swipe to dismiss; one panel at a time (a second replaces the first). | `openPanel(content, opts)` |
+| **Popover** | Quick mid-task utilities: brush color & tool options in Canvas, overflow (···) menus, emoji/icon quick pick, sort/filter controls | **Small anchored menu** popping from the control that opened it. Compact (≤320px), never covers the work area's center, dismisses on tap-outside or selection. No scrim, no route change. | `openPopover(anchor, content)` (new) |
+
+**Decision rule for everything future:** *Do you go somewhere to work in it? → Page. Are you configuring or picking something app-level? → Panel. Are you adjusting something mid-task without leaving? → Popover.* Add this table to docs/03 (done) and follow it for all Phase 7+ modules.
+
+**Required reclassifications (audit and migrate):**
+- All widget internal views: panel → **Page** (this supersedes CR-8's "routed view in panel placements" — widget views no longer respect the panel-placement setting; they are always pages. CR-8's replace-not-stack, transparent-background, and CR-9 theming rules still apply to these pages).
+- Infinite Canvas fullscreen (docs/12 §1): instead of the Fullscreen API on the app, the button navigates to a **Canvas focus page** — same document, all Blossom chrome hidden, toolbar with its hide/reveal tab, back arrow exits. (Optional browser fullscreen remains as a *secondary* control inside the focus page for users who want it.)
+- Canvas color/tool/brush options: panel → **Popover** (anchored flyouts per docs/12 §9).
+- Settings, pickers, galleries, editors: stay **Panels** under the CR-1 setting.
+- Confirm dialogs: unchanged (small centered dialog).
+
+**Accept when:** opening a Notes widget changes the route and back returns to the page with nothing stacked; the panel-placement setting visibly affects settings/pickers but *not* widget opening; the Canvas focus page gives a bigger canvas without OS fullscreen; picking a brush color never spawns a panel; every surface in the app is traceable to exactly one of the three APIs.
+
+---
+
+## CR-12 — Canvas zoom regression: drawing/erasing must be zoom-independent again · `canvas-core.js`, tile pyramid (BUG — fix before continuing CR-10)
+
+**Problem:** the original (vector) canvas was fully zoom-independent — draw at any zoom, it rendered properly, and anything could be erased from anywhere. Since the raster-tile migration (docs/12 §0): strokes render weird while drawing, drawings **disappear when zoomed far out**, and the **eraser only works at the zoom level the stroke was drawn at**. This is a regression in the new architecture, not polish.
+
+**Root cause to verify:** content is being rasterized into tiles *of the zoom band it was painted in*, and (a) the pyramid above/below those bands is missing or stale, so other zooms render nothing or garbage; (b) the eraser writes only to the *current* band's tiles, so it misses content stored in other bands.
+
+**Required behavior (the invariant):** *a layer is one logical image; the zoom level is only a camera.* Every read (render) and every write (paint, erase, fill, gradient, select-transform) must hit the same logical content no matter the current zoom.
+
+**Fix spec:**
+1. **Single write path through the pyramid.** An edit at any zoom writes to the content's native-resolution tiles (the band where that region's detail lives), then propagates: downsample up the pyramid (for zoomed-out views) and mark finer/coarser levels dirty for lazy rebuild. The eraser is the same brush pipeline with destination-out compositing — by going through the shared write path it automatically erases content from any band at any zoom.
+2. **Cross-band erase/paint:** when the brush footprint at the current zoom covers regions whose native tiles live in *other* bands (drawn while zoomed differently), the operation must resample and apply to those tiles too. Practical approach: per region keep **one** native band (the finest ever painted there); coarser strokes over it resample down into that band rather than creating a parallel band.
+3. **Never disappear.** Zoomed far out, content renders from pyramid levels — below 0.5px on screen it may simplify to downsampled pixels/dots, but it must never cull to nothing. Zoomed far in, native tiles upscale (smoothing per brush type; pixel-brush tiles stay crisp/nearest-neighbor).
+4. **Live stroke rendering:** the in-progress stroke draws directly to the screen layer (no tile round-trip mid-stroke) and commits to tiles on pointer-up — this should remove the "renders all weird while drawing" artifacts.
+5. **Regression tests (required, keep permanently):** draw at zoom ×1 → erase at ×0.1 and ×10 → assert pixels gone; draw at ×1 → zoom to ×0.001 → assert non-empty render; draw at ×100 → zoom to ×1 → assert visible and correctly placed; rapid zoom while drawing → no artifacts.
+6. If after honest assessment the raster pyramid can't meet the invariant within the performance budget, **fall back to the original vector model as the source of truth** (it already worked) and treat raster tiles purely as a render/effects cache — fill/blend rasterize *regions*, not the whole document. The user's experience is the requirement; the architecture serves it.
+
+**Accept when:** all §5 tests pass and a user can draw at any zoom, see it from any zoom, and erase it from any zoom — exactly like the original engine — with blend/fill/layers still working.
+
+---
+
 ## Order of work
 
 ~~CR-3 → CR-6 → CR-1 → CR-2 → CR-5 → CR-4~~ ✅ all complete 2026-06-10.
 
-**Round 2:** ~~CR-10~~ ✅ 2026-06-11 (canvas overhaul shipped in one release — accuracy fix, raster layers, redo, all Kleki tools; see docs/12 build notes). Remaining: CR-8 first (routing rework — CR-9 depends on its view container, and it touches every surface) → CR-9 (scoped theming into views) → CR-7 (particle layers; independent, do anytime). Then resume the Phase 7 sequence in docs/10 (next up: World Builder — its WorldMap builds on the canvas engine, whose CR-10 architecture is now in place → D&D Character → D&D DM). Mark each CR done here (`✅ + date`) when its acceptance criteria pass on a 360px viewport and desktop.
+**Round 2:** ~~CR-10~~ ✅ 2026-06-11 (canvas overhaul shipped in one release — accuracy fix, raster layers, redo, all Kleki tools; see docs/12 build notes). Remaining: CR-8 first (routing rework — CR-9 depends on its view container, and it touches every surface) → CR-9 (scoped theming into views) → CR-7 (particle layers; independent, do anytime).
+
+**Round 3 (current priority):**
+1. **CR-12 first** — regression: CR-10's raster migration broke the canvas's core promise (zoom-independent draw/erase/render). Nothing else in the canvas matters until this passes its tests.
+2. **CR-11** — surface taxonomy (Pages vs Panels vs Popovers). Fold the CR-8/CR-9 work into it: CR-11 supersedes CR-8's placement behavior for widget views (they become true Pages; replace-not-stack, transparent background, and CR-9 scoped theming all still required). Do this before any new Phase 7 module adds more surfaces.
+3. CR-7 (particle layers) whenever convenient.
+4. Then resume Phase 7 (World Builder → D&D Character → D&D DM).
+
+Mark each CR done here (`✅ + date`) when its acceptance criteria pass on a 360px viewport and desktop.
