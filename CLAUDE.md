@@ -33,6 +33,7 @@ Source: https://github.com/mattpocock/skills/blob/main/skills/productivity/grill
 | `docs/09-deployment.md` | GitHub Pages publishing, manifest, service worker, Android/Windows install |
 | `docs/10-roadmap.md` | Phased build order — follow this sequence |
 | `docs/11-change-requests.md` | Active change requests from user testing — work these alongside Phase 7+ |
+| `docs/12-canvas-overhaul.md` | CR-10: full spec for the Infinite Canvas painting overhaul (Kleki parity) |
 
 ## Tech stack (non-negotiable)
 

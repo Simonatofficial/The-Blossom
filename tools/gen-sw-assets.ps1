@@ -4,7 +4,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $patterns = @('*.html', '*.css', '*.js', '*.webmanifest', '*.png', '*.svg')
 $files = Get-ChildItem -Path $root -Recurse -File -Include $patterns |
   Where-Object {
-    $_.FullName -notmatch '\\(\.git|\.claude|docs|tools)\\' -and
+    $_.FullName -notmatch '\\(\.git|\.claude|docs|tools|tests)\\' -and
     $_.Name -ne 'sw.js' -and $_.Name -ne 'sw-assets.js'
   } |
   ForEach-Object { './' + ($_.FullName.Substring($root.Length + 1) -replace '\\', '/') } |

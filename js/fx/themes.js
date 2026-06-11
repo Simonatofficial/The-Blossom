@@ -21,9 +21,9 @@ export function getTheme(id) {
   return PRESET_THEMES.find(t => t.id === id) || store.get('themes', id) || null;
 }
 
-/** @returns {object[]} all themes (presets + custom; particle defs excluded). */
+/** @returns {object[]} all themes (presets + custom; particle/palette records excluded). */
 export function allThemes() {
-  return [...PRESET_THEMES, ...store.all('themes').filter(t => t.type !== 'particle')];
+  return [...PRESET_THEMES, ...store.all('themes').filter(t => t.type !== 'particle' && t.type !== 'palette')];
 }
 
 /** Map a theme's colors to { cssVar: value } pairs. */

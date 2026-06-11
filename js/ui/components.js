@@ -155,7 +155,8 @@ export function openPanel({ title, iconName = 'flower', onClose = null, placemen
   // left/right: swipe toward the edge to close
   if (place === 'left' || place === 'right') {
     let sx = null;
-    drawer.addEventListener('pointerdown', (e) => { if (!e.target.closest('input,textarea,select,button,[contenteditable]')) sx = e.clientX; }, { passive: true });
+    // canvases own their pointer (drawing/panning must never swipe-close)
+    drawer.addEventListener('pointerdown', (e) => { if (!e.target.closest('input,textarea,select,button,[contenteditable],canvas,.range')) sx = e.clientX; }, { passive: true });
     drawer.addEventListener('pointerup', (e) => {
       if (sx == null) return;
       const dx = e.clientX - sx;

@@ -1,0 +1,99 @@
+<!doctype html>
+<!-- Regression test for docs/12 §2: marks land exactly under the pointer.
+     Serve the repo root (tools/serve.ps1) and open /tests/infcanvas-pointer.html.
+     Simulates taps at known client coordinates across zoom levels and CSS-vs-
+     backing-store scale ratios (the DPR stand-in), then asserts the painted
+     centroid sits within 1px of the pointer. All checks run synchronously. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Infinite Canvas — pointer accuracy regression</title>
+<style>
+  body { font: 14px system-ui; background: #1c1722; color: #eee; padding: 20px; }
+  .pass { color: #7fae7f; } .fail { color: #e06c75; font-weight: bold; }
+  canvas { border: 1px solid #555; display: block; margin: 12px 0; }
+</style>
+</head>
+<body>
+<h1>Pointer accuracy (docs/12 §2)</h1>
+<div id="log"></div>
+<canvas id="c" width="900" height="600" style="width:600px;height:400px"></canvas>
+<script type="module">
+import { InfiniteSurface } from '../js/widgets/infcanvas-engine.js';
+
+const log = (msg, ok) => {
+  const d = document.createElement('div');
+  d.className = ok ? 'pass' : 'fail';
+  d.textContent = `${ok ? 'PASS' : 'FAIL'} — ${msg}`;
+  document.getElementById('log').appendChild(d);
+  if (!ok) failures++;
+};
+let failures = 0;
+
+const canvas = document.getElementById('c');
+const dabs = []; // [wx, wy] painted by the fake tool
+const surf = new InfiniteSurface(canvas, {
+  drawTile(g, band, rect) {
+    for (const [wx, wy] of dabs) {
+      g.fillStyle = '#fff';
+      g.beginPath();
+      g.arc(wx, wy, 4 / surf.scale(), 0, Math.PI * 2);
+      g.fill();
+    }
+  },
+  toolDown(wx, wy) { dabs.push([wx, wy]); surf.invalidate(); surf.render(); },
+  toolMove() {}, toolUp() {}
+});
+
+function tapAt(fx, fy) {
+  const r = canvas.getBoundingClientRect();
+  const cx = r.left + r.width * fx, cy = r.top + r.height * fy;
+  const opts = { pointerId: 1, clientX: cx, clientY: cy, bubbles: true, isPrimary: true };
+  canvas.dispatchEvent(new PointerEvent('pointerdown', opts));
+  canvas.dispatchEvent(new PointerEvent('pointerup', opts));
+  // expected backing-store pixel
+  const ex = (cx - r.left) * (canvas.width / r.width);
+  const ey = (cy - r.top) * (canvas.height / r.height);
+  // centroid of painted alpha around the expectation
+  const g = canvas.getContext('2d');
+  const W = 24, x0 = Math.round(ex) - W, y0 = Math.round(ey) - W;
+  const img = g.getImageData(x0, y0, W * 2, W * 2).data;
+  let sx = 0, sy = 0, n = 0;
+  for (let y = 0; y < W * 2; y++) {
+    for (let x = 0; x < W * 2; x++) {
+      const a = img[(y * W * 2 + x) * 4 + 3];
+      if (a > 30) { sx += x * a; sy += y * a; n += a; }
+    }
+  }
+  if (!n) return { painted: false };
+  return { painted: true, err: Math.hypot(x0 + sx / n - ex, y0 + sy / n - ey) };
+}
+
+// taps must paint, and land under the pointer, at several zooms (×0.01 → ×100)
+for (const zoomExp of [-7, -3, 0, 3, 6.64]) {
+  surf.view = { cx: 12345.6, cy: -9876.5, zoomExp };
+  surf.invalidate();
+  surf.render();
+  const r1 = tapAt(0.31, 0.62);
+  log(`tap paints a dab at zoom 2^${zoomExp}`, r1.painted);
+  if (r1.painted) log(`centroid error ${r1.err.toFixed(2)}px ≤ 1 at zoom 2^${zoomExp}`, r1.err <= 1);
+}
+
+// CSS-vs-backing mismatch (DPR stand-in): squash the CSS box, tap again
+canvas.style.width = '450px';
+canvas.style.height = '300px';
+surf.view = { cx: 0, cy: 0, zoomExp: 0 };
+surf.invalidate();
+surf.render();
+const r2 = tapAt(0.7, 0.4);
+log('tap paints with 2× CSS/backing ratio', r2.painted);
+if (r2.painted) log(`centroid error ${r2.err.toFixed(2)}px ≤ 1 at 2× ratio`, r2.err <= 1);
+
+document.title = failures ? `✗ ${failures} FAILURES` : '✓ all pass';
+const h = document.createElement('h2');
+h.className = failures ? 'fail' : 'pass';
+h.textContent = failures ? `${failures} failure(s)` : 'All assertions passed';
+document.body.appendChild(h);
+</script>
+</body>
+</html>

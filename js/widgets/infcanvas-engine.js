@@ -1,10 +1,10 @@
-/* Infinite Canvas engine (docs/08 §2 — "this is the hard part; do it properly").
-   World model: strokes live in world coordinates, stored sector-relative
-   (sectors are 2^20-unit tiles) so coordinates stay precise at depth.
-   Viewport: {cx, cy, zoomExp} with scale = 2^zoomExp — effectively unbounded.
-   Rendering: a 512px tile pyramid cached per power-of-two zoom band, with an
-   LOD cutoff (strokes smaller than 0.5px on screen are skipped); pan/zoom
-   recomposes cached tiles and only the active stroke renders live. */
+/* Infinite Canvas engine (docs/08 §2 + docs/12 overhaul).
+   Owns the world model: viewport {cx, cy, zoomExp} with scale = 2^zoomExp,
+   the 512px display-tile pyramid (cached per power-of-two zoom band, LRU),
+   and navigation input (pan / pinch / wheel / undo-redo tap gestures).
+   What appears in a tile is delegated to cb.drawTile; what drawing tools do
+   with pointers is delegated to cb.toolDown/Move/Up — the engine guarantees
+   both speak the SAME screen→world transform (the docs/12 §2 accuracy fix). */
 
 export const SECTOR = 1 << 20;
 const TILE = 512;
@@ -15,11 +15,19 @@ export class InfiniteSurface {
   /**
    * @param {HTMLCanvasElement} canvas
    * @param {{
-   *   strokes: () => {sx:number, sy:number, pts:number[][], tool:string, color:string,
-   *                   size:number, opacity:number, text?:string, bbox:{x0,y0,x1,y1}, t:number}[],
-   *   onStrokeDone: (pts: number[][], state: object) => void,
-   *   onTextAt: (wx: number, wy: number) => void,
-   *   onViewChange: (view: object) => void
+   *   drawTile: (g: CanvasRenderingContext2D, band: number, rect: {x0,y0,x1,y1}) => void,
+   *   toolDown: (wx, wy, pressure, e) => void,
+   *   toolMove: (wx, wy, pressure, e) => void,
+   *   toolUp:   (wx, wy, e) => void,
+   *   toolCancel?: () => void,
+   *   drawOverlay?: (g, surf) => void,
+   *   gesture?: (name: 'undo'|'redo'|'toolbar') => void,
+   *   longPress?: (wx, wy, px, py) => boolean,
+   *   pickAt?: (wx, wy, px, py) => void,
+   *   pickEnd?: () => void,
+   *   wantsTbToggle?: () => boolean,
+   *   isPan?: () => boolean,
+   *   onViewChange?: (view) => void
    * }} cb
    */
   constructor(canvas, cb, view = null) {
@@ -27,15 +35,10 @@ export class InfiniteSurface {
     this.g = canvas.getContext('2d');
     this.cb = cb;
     this.view = view || { cx: 0, cy: 0, zoomExp: 0 };
-    this.tool = 'pen';
-    this.color = '#d8697f';
-    this.size = 4;            // world units (≈ px at ×1)
-    this.opacity = 1;
-    this.screenScaled = false; // true → brush size fixed in screen px
-    this.tiles = new Map();    // key -> {canvas, used}
-    this.active = null;        // in-progress stroke (world pts)
+    this.tiles = new Map();
     this.pointers = new Map();
     this.pinch = null;
+    this.tap = null; // multi-finger tap tracking for undo/redo gestures
     canvas.style.touchAction = 'none';
     canvas.addEventListener('pointerdown', e => this.down(e));
     canvas.addEventListener('pointermove', e => this.move(e));
@@ -43,8 +46,20 @@ export class InfiniteSurface {
     canvas.addEventListener('pointercancel', e => this.up(e));
     canvas.addEventListener('wheel', e => {
       e.preventDefault();
-      this.zoomAt(e.offsetX, e.offsetY, -e.deltaY / 480);
+      const [px, py] = this.screenPt(e);
+      this.zoomAt(px, py, -e.deltaY / 480);
     }, { passive: false });
+  }
+
+  /* docs/12 §2: THE one screen→canvas mapping every tool shares.
+     clientXY → canvas backing-store pixels via the live bounding rect, so CSS
+     stretching, DPR, panel offsets, and visual-viewport shifts all cancel. */
+  screenPt(e) {
+    const r = this.canvas.getBoundingClientRect();
+    return [
+      (e.clientX - r.left) * (this.canvas.width / r.width),
+      (e.clientY - r.top) * (this.canvas.height / r.height)
+    ];
   }
 
   scale() { return Math.pow(2, this.view.zoomExp); }
@@ -56,6 +71,12 @@ export class InfiniteSurface {
     const s = this.scale();
     return [(wx - this.view.cx) * s + this.canvas.width / 2, (wy - this.view.cy) * s + this.canvas.height / 2];
   }
+  eventWorld(e) {
+    const [px, py] = this.screenPt(e);
+    return this.toWorld(px, py);
+  }
+
+  band() { return Math.max(MIN_BAND, Math.min(MAX_BAND, Math.round(this.view.zoomExp))); }
 
   zoomAt(px, py, dz) {
     const [wx, wy] = this.toWorld(px, py);
@@ -67,38 +88,19 @@ export class InfiniteSurface {
     this.render();
   }
 
-  /* ---- tile pyramid ---- */
-
-  tileKey(b, tx, ty) { return `${b}:${tx}:${ty}`; }
+  /* ---- display tile pyramid ---- */
 
   tile(b, tx, ty) {
-    const key = this.tileKey(b, tx, ty);
+    const key = `${b}:${tx}:${ty}`;
     let t = this.tiles.get(key);
     if (t) { t.used = performance.now(); return t.canvas; }
     const c = document.createElement('canvas');
     c.width = c.height = TILE;
     const g = c.getContext('2d');
     const sb = Math.pow(2, b);
-    const wx0 = tx * TILE / sb, wy0 = ty * TILE / sb;
-    const wx1 = wx0 + TILE / sb, wy1 = wy0 + TILE / sb;
-    g.setTransform(sb, 0, 0, sb, -wx0 * sb, -wy0 * sb);
-    for (const s of this.cb.strokes()) {
-      if (s.bbox.x1 < wx0 || s.bbox.x0 > wx1 || s.bbox.y1 < wy0 || s.bbox.y0 > wy1) continue;
-      const span = Math.max(s.bbox.x1 - s.bbox.x0, s.bbox.y1 - s.bbox.y0, s.size);
-      const px = span * sb;
-      if (px < 0.5) {
-        // LOD: too small to draw — render a faint speck so distant work
-        // still reads from far out (zoom toward the stars to find it)
-        if (px < 0.02 || s.tool === 'eraser') continue;
-        g.save();
-        g.globalAlpha = 0.55;
-        g.fillStyle = s.color;
-        g.fillRect((s.bbox.x0 + s.bbox.x1) / 2 - 0.4 / sb, (s.bbox.y0 + s.bbox.y1) / 2 - 0.4 / sb, 0.8 / sb, 0.8 / sb);
-        g.restore();
-        continue;
-      }
-      drawStroke(g, s, 1 / sb);
-    }
+    const x0 = tx * TILE / sb, y0 = ty * TILE / sb;
+    g.setTransform(sb, 0, 0, sb, -x0 * sb, -y0 * sb);
+    this.cb.drawTile(g, b, { x0, y0, x1: x0 + TILE / sb, y1: y0 + TILE / sb });
     this.tiles.set(key, { canvas: c, used: performance.now() });
     if (this.tiles.size > MAX_TILES) {
       const oldest = [...this.tiles.entries()].sort((a, b2) => a[1].used - b2[1].used)[0];
@@ -107,7 +109,6 @@ export class InfiniteSurface {
     return c;
   }
 
-  /** Drop cached tiles touching a world bbox (null → everything). */
   invalidate(bbox = null) {
     if (!bbox) { this.tiles.clear(); return; }
     for (const key of [...this.tiles.keys()]) {
@@ -125,7 +126,7 @@ export class InfiniteSurface {
     const W = canvas.width, H = canvas.height;
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.clearRect(0, 0, W, H);
-    const band = Math.max(MIN_BAND, Math.min(MAX_BAND, Math.round(view.zoomExp)));
+    const band = this.band();
     const sb = Math.pow(2, band);
     const f = this.scale() / sb;
     const [wx0, wy0] = this.toWorld(0, 0);
@@ -139,37 +140,55 @@ export class InfiniteSurface {
         g.drawImage(this.tile(band, tx, ty), sx, sy, TILE * f + 0.5, TILE * f + 0.5);
       }
     }
-    if (this.active) { // live stroke on top, screen space
-      const s = this.scale();
-      g.save();
-      g.setTransform(s, 0, 0, s, W / 2 - view.cx * s, H / 2 - view.cy * s);
-      drawStroke(g, { ...this.active, sx: 0, sy: 0 }, 1 / s);
-      g.restore();
-    }
+    this.cb.drawOverlay?.(g, this); // shape previews, selection ants, cursors
   }
 
-  /* ---- input: draw, pan, pinch ---- */
-
-  effectiveSize() { return this.screenScaled ? this.size / this.scale() : this.size; }
+  /* ---- input ---- */
 
   down(e) {
-    this.canvas.setPointerCapture(e.pointerId);
-    this.pointers.set(e.pointerId, [e.offsetX, e.offsetY]);
-    if (this.pointers.size === 2) { this.active = null; this.pinch = null; return; }
-    if (this.tool === 'pan' || e.button === 1) { this.panFrom = [e.offsetX, e.offsetY]; return; }
-    const [wx, wy] = this.toWorld(e.offsetX, e.offsetY);
-    if (this.tool === 'text') { this.cb.onTextAt?.(wx, wy); return; }
-    this.active = {
-      tool: this.tool, color: this.color, opacity: this.opacity,
-      size: this.effectiveSize(),
-      pts: [[wx, wy]], anchor: [wx, wy]
-    };
+    try { this.canvas.setPointerCapture(e.pointerId); } catch { /* synthetic events */ }
+    const [px, py] = this.screenPt(e);
+    this.pointers.set(e.pointerId, [px, py]);
+    const n = this.pointers.size;
+    if (n === 1) this.tap = { t: performance.now(), max: 1, moved: false };
+    else if (this.tap) this.tap.max = Math.max(this.tap.max, n);
+    if (n === 2) {
+      // shapes use a second finger as the constrain modifier (docs/12 §3);
+      // otherwise it cancels the stroke — pinching must not paint
+      if (this.drawing && this.cb.secondFinger?.()) { this.pointers.delete(e.pointerId); return; }
+      if (this.drawing) { this.cb.toolCancel?.(); this.drawing = false; }
+      this.cancelPress();
+      this.picking = false;
+      this.pinch = null;
+      return;
+    }
+    if (this.cb.isPan?.() || e.button === 1) { this.panFrom = [px, py]; return; }
+    this.drawing = true;
+    const [wx, wy] = this.toWorld(px, py);
+    // long-press without movement hands the pointer over (eyedropper shortcut)
+    this.pressTimer = setTimeout(() => {
+      if (this.drawing && this.cb.longPress?.(wx, wy, px, py)) {
+        this.drawing = false;
+        this.picking = true;
+      }
+    }, 600);
+    this.pressAt = [px, py];
+    this.cb.toolDown?.(wx, wy, e.pressure || 0.5, e);
+  }
+
+  cancelPress() {
+    clearTimeout(this.pressTimer);
+    this.pressTimer = null;
   }
 
   move(e) {
     if (!this.pointers.has(e.pointerId)) return;
+    const [px, py] = this.screenPt(e);
     const prev = this.pointers.get(e.pointerId);
-    this.pointers.set(e.pointerId, [e.offsetX, e.offsetY]);
+    if (this.tap && Math.hypot(px - prev[0], py - prev[1]) > 9) this.tap.moved = true;
+    if (this.pressAt && Math.hypot(px - this.pressAt[0], py - this.pressAt[1]) > 7) this.cancelPress();
+    this.pointers.set(e.pointerId, [px, py]);
+    if (this.picking) { this.cb.pickAt?.(...this.toWorld(px, py), px, py); return; }
 
     if (this.pointers.size === 2) { // pinch zoom + two-finger pan
       const [a, b] = [...this.pointers.values()];
@@ -187,33 +206,60 @@ export class InfiniteSurface {
     }
     if (this.panFrom) {
       const s = this.scale();
-      this.view.cx -= (e.offsetX - prev[0]) / s;
-      this.view.cy -= (e.offsetY - prev[1]) / s;
+      this.view.cx -= (px - prev[0]) / s;
+      this.view.cy -= (py - prev[1]) / s;
       this.cb.onViewChange?.(this.view);
       this.render();
       return;
     }
-    if (!this.active) return;
-    const [wx, wy] = this.toWorld(e.offsetX, e.offsetY);
-    if (['line', 'rect', 'ellipse'].includes(this.active.tool)) {
-      this.active.pts = shapePts(this.active.tool, this.active.anchor, [wx, wy]);
-    } else {
-      const last = this.active.pts[this.active.pts.length - 1];
-      if (Math.hypot(wx - last[0], wy - last[1]) * this.scale() < 1.5) return;
-      this.active.pts.push([wx, wy]);
+    if (!this.drawing) return;
+    const [wx, wy] = this.toWorld(px, py);
+    this.cb.toolMove?.(wx, wy, e.pressure || 0.5, e);
+  }
+
+  up(e) {
+    const had = this.pointers.has(e.pointerId);
+    this.pointers.delete(e.pointerId);
+    if (!had) return;
+    this.cancelPress();
+    // Kleki gestures: clean two-finger tap = undo, three-finger tap = redo.
+    // In fullscreen a two-finger DOUBLE tap toggles the toolbar, so the undo
+    // dispatch waits one beat for a possible second tap (docs/12 §1).
+    if (this.tap && this.pointers.size === 0) {
+      const quick = performance.now() - this.tap.t < 350 && !this.tap.moved;
+      if (quick && this.tap.max === 2) {
+        if (this.cb.wantsTbToggle?.()) {
+          if (this.tapWait) {
+            clearTimeout(this.tapWait);
+            this.tapWait = null;
+            this.cb.gesture?.('toolbar');
+          } else {
+            this.tapWait = setTimeout(() => { this.tapWait = null; this.cb.gesture?.('undo'); }, 320);
+          }
+        } else this.cb.gesture?.('undo');
+      } else if (quick && this.tap.max === 3) this.cb.gesture?.('redo');
+      this.tap = null;
+    }
+    this.pinch = null;
+    this.panFrom = null;
+    if (this.picking) {
+      this.picking = false;
+      this.cb.pickEnd?.();
+    }
+    if (this.drawing) {
+      this.drawing = false;
+      const [wx, wy] = this.eventWorld(e);
+      this.cb.toolUp?.(wx, wy, e);
     }
     this.render();
   }
 
-  up(e) {
-    this.pointers.delete(e.pointerId);
-    this.pinch = null;
-    this.panFrom = null;
-    if (this.active && this.active.pts.length > 1) {
-      const { pts, tool, color, size, opacity } = this.active;
-      this.cb.onStrokeDone(pts, { tool: tool === 'marker' ? 'marker' : tool === 'eraser' ? 'eraser' : 'pen', shape: tool, color, size, opacity });
-    }
-    this.active = null;
+  /** Re-fit the backing store to the canvas's CSS box (fullscreen, rotation). */
+  resize(dpr = Math.min(2, devicePixelRatio || 1)) {
+    const r = this.canvas.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    this.canvas.width = Math.round(r.width * dpr);
+    this.canvas.height = Math.round(r.height * dpr);
     this.render();
   }
 
@@ -229,7 +275,7 @@ export class InfiniteSurface {
   }
 }
 
-/** Polyline points for the shape tools. */
+/** Polyline points for the shape tools (kept from v1). */
 export function shapePts(kind, a, b) {
   if (kind === 'line') return [a, b];
   if (kind === 'rect') return [a, [b[0], a[1]], b, [a[0], b[1]], a];
@@ -249,31 +295,4 @@ export function strokeBbox(pts, size) {
     if (x > x1) x1 = x; if (y > y1) y1 = y;
   }
   return { x0: x0 - size, y0: y0 - size, x1: x1 + size, y1: y1 + size };
-}
-
-/* Draw one stroke into a context already transformed to world space.
-   hairline = 1/scale, so line widths never collapse below one pixel. */
-function drawStroke(g, s, hairline) {
-  const ox = (s.sx || 0) * SECTOR, oy = (s.sy || 0) * SECTOR;
-  if (s.tool === 'text') {
-    g.save();
-    g.globalAlpha = s.opacity ?? 1;
-    g.fillStyle = s.color;
-    g.font = `${s.size * 6}px system-ui`;
-    g.fillText(s.text || '', ox + s.pts[0][0], oy + s.pts[0][1]);
-    g.restore();
-    return;
-  }
-  g.save();
-  if (s.tool === 'eraser') g.globalCompositeOperation = 'destination-out';
-  else if (s.tool === 'marker') { g.globalAlpha = 0.4 * (s.opacity ?? 1); }
-  else g.globalAlpha = s.opacity ?? 1;
-  g.strokeStyle = s.color;
-  g.lineWidth = Math.max(hairline, s.size * (s.tool === 'marker' ? 2 : 1) * (s.tool === 'eraser' ? 2.5 : 1));
-  g.lineCap = 'round';
-  g.lineJoin = 'round';
-  g.beginPath();
-  s.pts.forEach(([x, y], i) => i ? g.lineTo(ox + x, oy + y) : g.moveTo(ox + x, oy + y));
-  g.stroke();
-  g.restore();
 }

@@ -5,7 +5,7 @@
 import { store, SCHEMA_VERSION } from './store.js';
 import { ulid } from './ids.js';
 
-const TYPE_LABEL = { obj: 'Object', wgt: 'Widget', pg: 'Page', mod: 'Module', ws: 'Workspace' };
+const TYPE_LABEL = { obj: 'Object', wgt: 'Widget', pg: 'Page', mod: 'Module', ws: 'Workspace', thm: 'Theme / palette' };
 
 /* ---- compression + base64url ---- */
 
@@ -36,7 +36,7 @@ export async function encode(type, payload) {
 
 /** Decode a Blossom code. @returns {{type: string, payload: object}} */
 export async function decode(code) {
-  const m = code.trim().match(/^BLSM1\.(obj|wgt|pg|mod|ws)\.([A-Za-z0-9_-]+)$/);
+  const m = code.trim().match(/^BLSM1\.(obj|wgt|pg|mod|ws|thm)\.([A-Za-z0-9_-]+)$/);
   if (!m) throw new Error('Not a Blossom code.');
   const bytes = await pipe(fromB64url(m[2]), new DecompressionStream('deflate-raw'));
   return { type: m[1], payload: JSON.parse(new TextDecoder().decode(bytes)) };
@@ -63,6 +63,8 @@ export function snapshotNode(type, id) {
   const payload = { v: SCHEMA_VERSION, exportedAt: Date.now(), root: null, children: [] };
   if (type === 'obj') {
     payload.root = store.get('objects', id);
+  } else if (type === 'thm') {
+    payload.root = store.get('themes', id);
   } else if (type === 'wgt') {
     const widgets = [], objects = [];
     widgetTree(id, widgets, objects);
@@ -117,7 +119,7 @@ function deepRemap(value, idMap) {
  * @returns {{rootId: string|null, counts: object, droppedLinks: number}}
  */
 export function importNode(type, payload, target = {}) {
-  const rootStore = { obj: 'objects', wgt: 'widgets', pg: 'pages', mod: 'modules' }[type];
+  const rootStore = { obj: 'objects', wgt: 'widgets', pg: 'pages', mod: 'modules', thm: 'themes' }[type];
   let records = (payload.children || []).map(r => ({ ...r }));
   if (type !== 'ws') records.unshift({ _s: rootStore, ...payload.root });
 
@@ -175,6 +177,9 @@ export function typeLabel(type) { return TYPE_LABEL[type] || type; }
 export function describePayload(type, payload) {
   const counts = {};
   for (const rec of payload.children || []) counts[rec._s] = (counts[rec._s] || 0) + 1;
-  if (type !== 'ws') counts[{ obj: 'objects', wgt: 'widgets', pg: 'pages', mod: 'modules' }[type]] = (counts[{ obj: 'objects', wgt: 'widgets', pg: 'pages', mod: 'modules' }[type]] || 0) + 1;
+  if (type !== 'ws') {
+    const s = { obj: 'objects', wgt: 'widgets', pg: 'pages', mod: 'modules', thm: 'themes' }[type];
+    counts[s] = (counts[s] || 0) + 1;
+  }
   return counts;
 }

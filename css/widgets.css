@@ -454,3 +454,104 @@
 
 /* ---- Infinite Canvas ---- */
 .ic-surface { display: block; width: 100%; background: var(--surface-alt); cursor: crosshair; }
+
+/* ---- Infinite Canvas overhaul (CR-10): Kleki-style strip + flyout ---- */
+.ic-wrap { display: flex; gap: 8px; align-items: stretch; position: relative; }
+.ic-strip {
+  display: flex; flex-direction: column; gap: 3px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); backdrop-filter: blur(12px);
+  align-self: flex-start; position: sticky; top: 8px; z-index: 6;
+}
+.ic-btn {
+  width: 38px; height: 38px; border: none; border-radius: 10px;
+  background: transparent; color: var(--text-soft); cursor: pointer;
+  display: grid; place-items: center;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.ic-btn:hover { background: var(--accent-soft); color: var(--accent); }
+.ic-btn.on { background: var(--accent); color: var(--bg); box-shadow: 0 0 12px var(--glow); }
+.ic-btn:disabled { opacity: 0.35; pointer-events: none; }
+.ic-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); display: block; }
+.ic-gap { height: 8px; }
+.ic-flyout { position: absolute; z-index: 7; padding: 12px; width: 250px; }
+.ic-frow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 0.84rem; }
+.ic-canvasbox { position: relative; flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.ic-surface { display: block; width: 100%; background: var(--surface-alt); cursor: crosshair; }
+.ic-readout { position: absolute; right: 8px; bottom: 8px; pointer-events: none; }
+.ic-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 6px; }
+.ic-swatch { height: 38px; border-radius: 9px; border: 1px solid var(--border); cursor: pointer; }
+.ic-swatch.on { outline: 2px solid var(--accent); box-shadow: 0 0 10px var(--glow); }
+.ic-active-layer { border-color: var(--accent); box-shadow: 0 0 8px var(--glow); }
+.ic-fhead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 0.86rem; }
+.ic-fhead canvas { flex: 1; min-width: 0; border-radius: 8px; background: var(--surface-alt); }
+.ic-fseg button { padding: 4px 9px; font-size: 0.76rem; }
+.ic-ptitle { font-size: 0.74rem; margin: 10px 0 6px; }
+.ic-wheel { width: 44px; height: 38px; border: 1px solid var(--border); border-radius: 9px; background: none; padding: 2px; }
+.ic-swatch.dragging { opacity: 0.4; }
+.ic-swatch.drop { outline: 2px dashed var(--accent); }
+
+/* status chip: active tool + live stroke preview, glanceable (§9) */
+.ic-toolchip {
+  position: absolute; left: 8px; bottom: 8px; display: flex; align-items: center;
+  gap: 7px; padding: 3px 10px 3px 4px; border-radius: 999px; pointer-events: none;
+  background: var(--surface); border: 1px solid var(--border); font-size: 0.72rem;
+  color: var(--text-soft); backdrop-filter: blur(8px);
+}
+.ic-toolchip canvas { border-radius: 999px; }
+
+/* hide-toolbar tab (docs/12 §1) */
+.ic-hide-tab {
+  position: absolute; left: 54px; top: 14px; z-index: 7; width: 20px; height: 34px;
+  border: 1px solid var(--border); border-radius: 0 9px 9px 0; cursor: pointer;
+  background: var(--surface); color: var(--text-soft); opacity: 0.75;
+  display: grid; place-items: center; backdrop-filter: blur(8px);
+}
+.ic-tb-hidden .ic-strip { display: none; }
+.ic-tb-hidden .ic-hide-tab { left: 0; border-radius: 0 9px 9px 0; }
+
+/* true fullscreen (docs/12 §1): only canvas + toolbar remain */
+.ic-fs {
+  position: fixed !important; inset: 0; z-index: 80; background: var(--bg);
+  padding: 0; margin: 0; gap: 0;
+}
+.ic-fs .ic-canvasbox { border: none; border-radius: 0; }
+.ic-fs .ic-surface { height: 100%; }
+.ic-fs .ic-strip { position: absolute; left: 8px; top: 8px; max-height: calc(100% - 16px); overflow-y: auto; }
+.ic-fs .ic-hide-tab { left: 62px; top: 18px; }
+.ic-fs.ic-tb-hidden .ic-hide-tab { left: 0; }
+body.ic-fs-open #chrome-top, body.ic-fs-open #tab-bar { display: none; }
+
+/* text boxes (docs/12 §3): world-anchored, re-editable forever */
+.ic-textlayer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.ic-tbox { position: absolute; pointer-events: none; }
+.ic-textlayer.on .ic-tbox { pointer-events: auto; cursor: move; }
+.ic-tbox-content {
+  font-family: system-ui, 'Segoe UI', sans-serif; line-height: 1.35;
+  word-wrap: break-word; outline: none; min-height: 1em; white-space: pre-wrap;
+}
+.ic-tbox.sel { outline: 1.5px dashed var(--accent); outline-offset: 3px; }
+.ic-tbox.editing { cursor: text; }
+.ic-tbox.editing .ic-tbox-content { cursor: text; }
+.ic-tbox-grip {
+  display: none; position: absolute; width: 14px; height: 14px;
+  background: var(--accent); border: 2px solid var(--bg); border-radius: 50%;
+}
+.ic-tbox.sel .ic-tbox-grip { display: block; }
+.ic-tbox-grip.g-w { right: -9px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+.ic-tbox-grip.g-s { right: -9px; bottom: -9px; cursor: nwse-resize; }
+.ic-tbar {
+  position: absolute; z-index: 8; display: flex; gap: 2px; padding: 4px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; backdrop-filter: blur(10px); pointer-events: auto;
+}
+
+@media (max-width: 600px) {
+  .ic-wrap { flex-direction: column-reverse; }
+  .ic-strip { flex-direction: row; flex-wrap: wrap; position: static; align-self: stretch; }
+  .ic-flyout { left: 8px !important; right: 8px; width: auto; top: auto !important; bottom: 64px; }
+  .ic-hide-tab { display: none; }
+  .ic-fs .ic-hide-tab { display: grid; left: auto; right: 8px; top: auto; bottom: 8px; border-radius: 9px; }
+  .ic-fs .ic-strip { left: 4px; right: 4px; top: auto; bottom: 4px; max-height: 40vh; }
+  .ic-tb-hidden .ic-strip { display: none; }
+}

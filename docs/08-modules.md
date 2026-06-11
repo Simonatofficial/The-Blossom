@@ -24,6 +24,8 @@ Three pages: **Calendar · Home · Blossom**.
 
 One page (Canvas) + a Gallery page. Built on `canvas-core.js` extended with an **infinite, deep-zoom surface**.
 
+> **Overhaul in progress (CR-10):** the painting layer of this module is being rebuilt to Kleki parity — raster tile layers, blend/pixel brushes, fill/gradient, select/transform, palettes, fullscreen. **docs/12-canvas-overhaul.md supersedes this section's tool list**; the world model below (sectors, quadtree, tile pyramid, navigation) remains authoritative.
+
 **Architecture — this is the hard part; do it properly:**
 - **World model:** strokes/images live in world coordinates as vector data (points + pressure + brush params), stored in a **quadtree** keyed by world-space bounds. The viewport is `{cx, cy, zoom}` with `zoom` stored as a float64 exponent — effectively unbounded zoom in/out (use `scale = 2^zoomLevel`; at extreme depths, re-anchor world origin to the viewport center and offset stored coordinates per *sector* to dodge float precision loss — sectors are 2^20-unit tiles; a stroke's coords are relative to its sector).
 - **Rendering:** each frame, query the quadtree for shapes intersecting the viewport at a level-of-detail cutoff (skip strokes smaller than 0.5px on screen). Render visible strokes to a cached offscreen tile pyramid (like a map app): tiles of 512px at each power-of-two zoom band, invalidated when strokes change. Pan/zoom = recompose cached tiles + live-render the active stroke only. 60fps target.

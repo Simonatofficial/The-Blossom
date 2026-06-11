@@ -134,8 +134,18 @@ Four issues, all in the signature graph (spec updated in docs/05):
 
 ---
 
+## CR-10 — Infinite Canvas overhaul (Kleki-parity painting) · spec: **docs/12-canvas-overhaul.md** · ✅ 2026-06-11
+
+**Problem:** the infinite world works amazingly, but the drawing tools are too limited — "so much space and nothing to do with it." Plus two bugs: marks land above-left of the touch point (all draw tools), and taps don't paint (only drags).
+
+**Scope (full detail + acceptance criteria in docs/12):** pointer-accuracy fix + tap-to-paint; true fullscreen with hideable toolbar; redo alongside undo (50 steps); obvious selected-tool/brush state; manual pixel-size input with no upper limit; rich-text *box* tool (movable, re-editable, Notes-style formatting); palette selector with custom palettes; brush opacity + stabilizer; blend brush, pixel brush, sketchy brush; select/move/copy/paste/transform; viewport-scoped fill + gradient tool; full layer system (add/delete/reorder/opacity/visibility/blend modes); Kleki-inspired toolbar UI. Underneath: layers move to sparse raster tiles over the existing sector/zoom engine (vector originals preserved).
+
+**Accept when:** all ten acceptance criteria in docs/12 §10 pass.
+
+---
+
 ## Order of work
 
 ~~CR-3 → CR-6 → CR-1 → CR-2 → CR-5 → CR-4~~ ✅ all complete 2026-06-10.
 
-**Round 2:** CR-8 first (routing rework — CR-9 depends on its view container, and it touches every surface) → CR-9 (scoped theming into views) → CR-7 (particle layers; independent, do anytime). Then resume the Phase 7 sequence in docs/10 (next up: Study Guide → Infinite Canvas → World Builder → D&D Character → D&D DM). Mark each CR done here (`✅ + date`) when its acceptance criteria pass on a 360px viewport and desktop.
+**Round 2:** ~~CR-10~~ ✅ 2026-06-11 (canvas overhaul shipped in one release — accuracy fix, raster layers, redo, all Kleki tools; see docs/12 build notes). Remaining: CR-8 first (routing rework — CR-9 depends on its view container, and it touches every surface) → CR-9 (scoped theming into views) → CR-7 (particle layers; independent, do anytime). Then resume the Phase 7 sequence in docs/10 (next up: World Builder — its WorldMap builds on the canvas engine, whose CR-10 architecture is now in place → D&D Character → D&D DM). Mark each CR done here (`✅ + date`) when its acceptance criteria pass on a 360px viewport and desktop.
