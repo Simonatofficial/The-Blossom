@@ -63,7 +63,7 @@ User-reported issues and feature requests from live testing. **Work these in pri
 
 ---
 
-## CR-5 — Edit a preset theme's active effects (particles, pointer FX, atmosphere) · `ui/settings.js`, `fx/themes.js`
+## CR-5 — Edit a preset theme's active effects (particles, pointer FX, atmosphere) · `ui/settings.js`, `fx/themes.js` · ✅ 2026-06-10
 
 **Problem:** preset themes are take-it-or-leave-it; users want to tweak the active particles/touch effects/atmosphere without building a custom theme from scratch.
 

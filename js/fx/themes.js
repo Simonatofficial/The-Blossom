@@ -59,7 +59,7 @@ export function applyScopedTheme(el, themeId) {
 
 /** Apply the workspace theme globally and remember it. */
 export function applyGlobalTheme(themeId) {
-  const theme = getTheme(themeId) || PRESET_THEMES[1]; // fall back to Space
+  const theme = withOverrides(getTheme(themeId) || PRESET_THEMES[1]); // fall back to Space
   for (const [cssVar, val] of Object.entries(colorVars(theme.colors))) {
     document.documentElement.style.setProperty(cssVar, val);
   }
@@ -75,9 +75,54 @@ export function activeThemeId() {
   return store.getMeta('themeId') || localStorage.getItem('blossom:themeId') || 'space';
 }
 
-/** @returns {object} the active workspace theme. */
+/** @returns {object} the active workspace theme (with user overrides merged). */
 export function activeTheme() {
-  return getTheme(activeThemeId()) || PRESET_THEMES[1];
+  return withOverrides(getTheme(activeThemeId()) || PRESET_THEMES[1]);
+}
+
+/* ---- non-destructive effect overrides on any theme (CR-5).
+   Stored in meta.settings.themeOverrides[themeId]; merged at apply time —
+   presets are never mutated. ---- */
+
+/** The raw override layer for a theme, or null. */
+export function themeOverrides(themeId) {
+  return store.getMeta('settings', {})?.themeOverrides?.[themeId] || null;
+}
+
+/**
+ * Patch one override key ('atmosphere'|'particles'|'pointerFx'|'colors').
+ * Pass value `undefined` to clear the key, an object/null to set it.
+ */
+export function setThemeOverride(themeId, key, value) {
+  const s = store.getMeta('settings', {});
+  s.themeOverrides = s.themeOverrides || {};
+  const o = { ...(s.themeOverrides[themeId] || {}) };
+  if (value === undefined) delete o[key];
+  else o[key] = value;
+  if (Object.keys(o).length) s.themeOverrides[themeId] = o;
+  else delete s.themeOverrides[themeId];
+  store.setMeta('settings', s);
+}
+
+/** Clear a theme's whole override layer ("Reset to preset"). */
+export function clearThemeOverrides(themeId) {
+  const s = store.getMeta('settings', {});
+  if (s.themeOverrides) delete s.themeOverrides[themeId];
+  store.setMeta('settings', s);
+}
+
+/** Merge a theme with its override layer (non-destructive). */
+export function withOverrides(theme) {
+  if (!theme) return theme;
+  const o = themeOverrides(theme.id);
+  if (!o) return theme;
+  return {
+    ...theme,
+    atmosphere: 'atmosphere' in o ? o.atmosphere : theme.atmosphere,
+    particles: 'particles' in o ? o.particles : theme.particles,
+    pointerFx: 'pointerFx' in o ? o.pointerFx : theme.pointerFx,
+    colors: { ...theme.colors, ...(o.colors || {}) }
+  };
 }
 
 /* ---- atmosphere + particle activation (docs/03 scoping: the deepest
@@ -92,8 +137,10 @@ function resolveParticleDef(spec, custom) {
   return base ? { ...base, ...(spec.overrides || {}) } : null;
 }
 
-/** Activate a theme's atmosphere, background particles, and pointer FX. */
-export function applyEffects(theme, force = false) {
+/** Activate a theme's atmosphere, background particles, and pointer FX.
+    Overrides (CR-5) are merged here, so every caller gets them for free. */
+export function applyEffects(rawTheme, force = false) {
+  const theme = withOverrides(rawTheme);
   if (!theme) return;
   const key = JSON.stringify([theme.id, theme.atmosphere, theme.particles, theme.pointerFx]);
   if (!force && key === lastFxKey) return;

@@ -10,11 +10,11 @@ import { el, field, input, seg, openDrawer, toast, promptText } from './componen
 import { Layer, SPRITE_NAMES } from '../fx/particles.js';
 import { PRESET_PARTICLES } from '../presets/particles.js';
 
-export function openParticleEditor(existingId = null, onSaved = null) {
+export function openParticleEditor(existingId = null, onSaved = null, baseDef = null) {
   const existing = existingId && store.get('themes', existingId);
-  const def = structuredClone(existing?.def || PRESET_PARTICLES[4]); // start from cherry blossoms
+  const def = structuredClone(existing?.def || baseDef || PRESET_PARTICLES[4]); // default: cherry blossoms
   def.color = def.color || '#f5b8c4';
-  let name = existing?.name || 'My particles';
+  let name = existing?.name || (baseDef ? `${baseDef.name} (tuned)` : 'My particles');
 
   const d = openDrawer({ title: 'Particle editor', iconName: 'sparkles' });
 

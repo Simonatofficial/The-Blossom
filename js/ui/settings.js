@@ -6,8 +6,10 @@ import { events } from '../core/events.js';
 import { ulid } from '../core/ids.js';
 import { router } from '../core/router.js';
 import { icon } from './icons.js';
-import { el, toast, confirmDialog, openDrawer, popMenu, promptText, emptyState } from './components.js';
-import { allThemes, applyGlobalTheme, activeThemeId } from '../fx/themes.js';
+import { el, toast, confirmDialog, openDrawer, popMenu, promptText, emptyState, switchEl } from './components.js';
+import { allThemes, applyGlobalTheme, activeThemeId, getTheme, withOverrides, themeOverrides, setThemeOverride, clearThemeOverrides } from '../fx/themes.js';
+import { ATMOSPHERE_PRESETS } from '../fx/atmosphere.js';
+import { PRESET_PARTICLES, PRESET_POINTER_FX, getParticlePreset, getPointerFxPreset } from '../presets/particles.js';
 import * as codes from '../core/codes.js';
 import * as saves from '../core/saves.js';
 
@@ -98,9 +100,11 @@ function renderThemesSection(d) {
   const render = () => {
     list.innerHTML = '';
     for (const t of allThemes()) {
+      const customized = !!themeOverrides(t.id);
       const li = el(`<button class="list-item">
         <span style="display:flex;gap:3px">${['bg', 'accent', 'highlight'].map(k => `<span style="width:14px;height:14px;border-radius:50%;background:${t.colors[k]};border:1px solid var(--border)"></span>`).join('')}</span>
         <span class="li-main"><span class="li-title"></span></span>
+        ${customized ? '<span class="chip">customized</span>' : ''}
         ${t.custom ? `<span class="btn-icon t-edit" title="Edit">${icon('edit', 14)}</span><span class="btn-icon t-del" title="Delete">${icon('trash', 14)}</span>` : ''}
         ${activeThemeId() === t.id ? icon('check', 16) : ''}</button>`);
       li.querySelector('.li-title').textContent = t.name;
@@ -124,6 +128,7 @@ function renderThemesSection(d) {
       });
       list.appendChild(li);
     }
+    list.appendChild(renderEffectsPanel(render));
     const newBtn = el(`<button class="btn-soft-wide">${icon('plus', 15)} New theme</button>`);
     newBtn.onclick = async () => {
       const { openThemeEditor } = await import('./themeeditor.js');
@@ -139,6 +144,103 @@ function renderThemesSection(d) {
   };
   render();
   d.body.appendChild(sec);
+}
+
+/* ---------- effects on the active theme (CR-5: non-destructive overrides) ---------- */
+
+function resolveFxDef(spec) {
+  if (!spec?.preset) return null;
+  const base = getParticlePreset(spec.preset) || getPointerFxPreset(spec.preset) || store.get('themes', spec.preset)?.def;
+  return base ? { ...base, ...(spec.overrides || {}) } : null;
+}
+
+function renderEffectsPanel(rerenderThemes) {
+  const raw = getTheme(activeThemeId());
+  const theme = withOverrides(raw);
+  const reapply = () => { applyGlobalTheme(raw.id); rerenderThemes(); };
+
+  const panel = el(`<div class="panel" style="padding:12px;margin:4px 0 10px">
+    <div class="row-between" style="margin-bottom:8px">
+      <span class="soft" style="font-size:0.74rem;letter-spacing:0.06em">EFFECTS — ${raw.name.toUpperCase()}</span>
+      <span class="row e-actions"></span>
+    </div>
+    <div class="e-rows"></div></div>`);
+
+  const rows = panel.querySelector('.e-rows');
+
+  const fxRow = (label, kind, presets, allowAdjust) => {
+    const spec = theme[kind];
+    const row = el(`<div class="row" style="margin-bottom:8px;flex-wrap:wrap">
+      <span style="font-size:0.86rem;min-width:84px">${label}</span>
+      <select class="select grow" style="min-width:120px;padding:6px 9px"></select>
+      <span class="e-adjust"></span><span class="e-switch"></span></div>`);
+    const sel = row.querySelector('select');
+    sel.appendChild(new Option('None', ''));
+    for (const p of presets) sel.appendChild(new Option(p.name, p.key || p.id));
+    if (kind !== 'atmosphere') {
+      for (const c of store.all('themes').filter(t => t.type === 'particle')) sel.appendChild(new Option(`${c.name} (custom)`, c.id));
+    }
+    sel.value = spec?.preset || '';
+    sel.onchange = () => {
+      setThemeOverride(raw.id, kind, sel.value ? { preset: sel.value, [kind === 'atmosphere' ? 'options' : 'overrides']: {} } : null);
+      reapply();
+    };
+    row.querySelector('.e-switch').appendChild(switchEl(!!spec, (on) => {
+      setThemeOverride(raw.id, kind, on ? undefined : null); // on = back to the preset's own default
+      reapply();
+    }));
+    if (allowAdjust && spec) {
+      const adj = el(`<button class="btn-icon" title="Adjust">${icon('sliders', 15)}</button>`);
+      adj.onclick = async () => {
+        if (kind === 'atmosphere') {
+          const slider = el('<input type="range" class="range" min="0.25" max="3" step="0.25" style="width:110px" title="Speed">');
+          slider.value = spec.options?.speed || 1;
+          slider.onchange = () => {
+            setThemeOverride(raw.id, 'atmosphere', { ...spec, options: { ...(spec.options || {}), speed: Number(slider.value) } });
+            reapply();
+          };
+          adj.replaceWith(slider);
+        } else {
+          const { openParticleEditor } = await import('./particleeditor.js');
+          openParticleEditor(null, (rec) => {
+            setThemeOverride(raw.id, kind, { preset: rec.id, overrides: {} });
+            reapply();
+          }, resolveFxDef(spec));
+        }
+      };
+      row.querySelector('.e-adjust').appendChild(adj);
+    }
+    return row;
+  };
+
+  rows.appendChild(fxRow('Atmosphere', 'atmosphere', ATMOSPHERE_PRESETS, true));
+  rows.appendChild(fxRow('Particles', 'particles', PRESET_PARTICLES, true));
+  rows.appendChild(fxRow('Pointer FX', 'pointerFx', PRESET_POINTER_FX, true));
+
+  if (themeOverrides(raw.id)) {
+    const actions = panel.querySelector('.e-actions');
+    const reset = el(`<button class="btn-ghost btn" style="padding:4px 10px;font-size:0.8rem">${icon('rotate-ccw', 13)} Reset</button>`);
+    reset.onclick = async () => {
+      if (await confirmDialog({ title: `Reset “${raw.name}” to its preset?`, message: 'Your effect tweaks on this theme are cleared.', confirmText: 'Reset' })) {
+        clearThemeOverrides(raw.id);
+        reapply();
+      }
+    };
+    const promote = el(`<button class="btn-ghost btn" style="padding:4px 10px;font-size:0.8rem">${icon('save', 13)} Save as new</button>`);
+    promote.onclick = async () => {
+      const name = await promptText({ title: 'Save as new theme', label: 'Name', value: `${raw.name} (mine)` });
+      if (!name) return;
+      const merged = withOverrides(raw);
+      const rec = store.put('themes', { id: ulid(), name, custom: true, colors: { ...merged.colors }, atmosphere: merged.atmosphere, particles: merged.particles, pointerFx: merged.pointerFx });
+      clearThemeOverrides(raw.id);
+      applyGlobalTheme(rec.id);
+      rerenderThemes();
+      toast(`${name} saved`, 'palette');
+    };
+    actions.append(promote, reset);
+  }
+
+  return panel;
 }
 
 /* ---------- Blossom codes library (docs/02) ---------- */
