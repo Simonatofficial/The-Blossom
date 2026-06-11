@@ -27,7 +27,7 @@
   cursor: pointer;
   transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
 }
-.chrome-btn:hover { color: var(--accent); border-color: var(--accent); }
+.chrome-btn:hover { color: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px var(--glow); }
 .chrome-btn:active { transform: scale(0.94); }
 
 /* ---- page area ---- */
@@ -92,7 +92,7 @@
   height: 2px;
   border-radius: 2px;
   background: var(--accent);
-  box-shadow: 0 0 8px var(--accent);
+  box-shadow: 0 0 12px var(--glow), 0 0 3px var(--accent);
 }
 .tab .emoji-accent { line-height: 1; }
 

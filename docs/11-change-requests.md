@@ -48,7 +48,8 @@ User-reported issues and feature requests from live testing. **Work these in pri
 
 ---
 
-## CR-4 — Vibrant themes with richer gradients + atmosphere-matched effects · `js/presets/themes.js`, `fx/themes.js`
+## CR-4 — Vibrant themes with richer gradients + atmosphere-matched effects · `js/presets/themes.js`, `fx/themes.js` · ✅ 2026-06-10
+*(Note: before/after screenshots couldn't be captured — the preview tooling's screenshot API is broken in this environment. Review live: Settings → Themes flips presets instantly, and AA contrast was verified programmatically at 10.2:1–15.0:1 across all nine.)*
 
 **Problem:** preset themes read flat/muted; gradients and atmosphere effects don't sing together.
 

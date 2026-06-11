@@ -100,6 +100,10 @@ const PRESETS = {
         }
         return;
       }
+      // faint cool wash that breathes with the brightest constellation (CR-4)
+      const cool = 0.035 + 0.02 * Math.sin(now / 5200);
+      g.fillStyle = `rgba(70,84,170,${cool})`;
+      g.fillRect(0, 0, W(), H());
       for (const c of state.cons) {
         c.life += 0.016;
         if (c.life > c.ttl) Object.assign(c, state.makeCon());
@@ -148,8 +152,10 @@ const PRESETS = {
       if (o.clouds) PRESETS.clouds.tick(state, now, { speed: 0.4 }, colors);
       const base = H() - 46;
       const intensity = o.intensity ?? 1;
+      // crest pulse: saturation gently swells with the swell (CR-4 coupling)
+      const pulse = 1 + 0.2 * Math.sin(now / 2600);
       for (const b of state.bands) {
-        g.fillStyle = hexToRgba(colors.accent, b.alpha * intensity);
+        g.fillStyle = hexToRgba(colors.accent, b.alpha * intensity * pulse);
         g.beginPath();
         g.moveTo(0, H());
         for (let x = 0; x <= W(); x += 14) {

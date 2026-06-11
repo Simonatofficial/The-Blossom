@@ -21,6 +21,8 @@
   --highlight: #cdbcf5;
   --success: #7fd1a8;
   --warn: #e8b76f;
+  --glow: rgba(167, 139, 250, 0.35);
+  --bg-image: linear-gradient(var(--bg-angle), var(--bg-grad-1), var(--bg-grad-2));
 
   /* shape & motion */
   --radius: 14px;
@@ -48,7 +50,7 @@ body {
   line-height: 1.6;
   color: var(--text);
   background: var(--bg);
-  background-image: linear-gradient(var(--bg-angle), var(--bg-grad-1), var(--bg-grad-2));
+  background-image: var(--bg-image);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;

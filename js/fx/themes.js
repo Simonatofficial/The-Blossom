@@ -13,7 +13,7 @@ const VAR_MAP = {
   bg: '--bg', surface: '--surface', surfaceAlt: '--surface-alt',
   border: '--border', text: '--text', textSoft: '--text-soft',
   accent: '--accent', accentSoft: '--accent-soft', highlight: '--highlight',
-  success: '--success', warn: '--warn'
+  success: '--success', warn: '--warn', glow: '--glow'
 };
 
 /** @returns {object|null} a theme by id — presets first, then custom themes. */
@@ -33,10 +33,13 @@ export function colorVars(colors) {
     if (colors[key]) vars[cssVar] = colors[key];
   }
   if (colors.bgGradient) {
-    const [c1, c2, angle] = colors.bgGradient;
-    vars['--bg-grad-1'] = c1;
-    vars['--bg-grad-2'] = c2;
+    // CR-4: 2–4 stops, last entry is the angle (2-stop arrays stay valid)
+    const angle = colors.bgGradient[colors.bgGradient.length - 1];
+    const stops = colors.bgGradient.slice(0, -1);
+    vars['--bg-grad-1'] = stops[0];
+    vars['--bg-grad-2'] = stops[stops.length - 1];
     vars['--bg-angle'] = angle;
+    vars['--bg-image'] = `linear-gradient(${angle}, ${stops.join(', ')})`;
   }
   return vars;
 }
@@ -47,7 +50,7 @@ export function colorVars(colors) {
  * @param {string|null} themeId
  */
 export function applyScopedTheme(el, themeId) {
-  for (const cssVar of [...Object.values(VAR_MAP), '--bg-grad-1', '--bg-grad-2', '--bg-angle']) {
+  for (const cssVar of [...Object.values(VAR_MAP), '--bg-grad-1', '--bg-grad-2', '--bg-angle', '--bg-image']) {
     el.style.removeProperty(cssVar);
   }
   const theme = themeId && getTheme(themeId);

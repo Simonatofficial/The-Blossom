@@ -30,7 +30,7 @@
 }
 .widget-card.dragging { opacity: 0.55; transform: scale(0.98); }
 .widget-card.drop-before { box-shadow: -3px 0 0 var(--accent), var(--shadow-soft); }
-.widget-card.focus-glow { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 22px var(--accent-soft); }
+.widget-card.focus-glow { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 24px var(--glow); }
 
 .widget-head {
   display: flex;
@@ -297,9 +297,10 @@
   border: 1px solid var(--accent);
   color: var(--accent);
   font-weight: 700; font-size: 1.05rem;
+  box-shadow: 0 0 14px var(--glow);
 }
-.sk-bar { position: relative; height: 8px; border-radius: 6px; background: var(--surface-alt); overflow: hidden; }
-.sk-fill { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 6px; transition: width 400ms var(--ease); }
+.sk-bar { position: relative; height: 8px; border-radius: 6px; background: var(--surface-alt); overflow: visible; }
+.sk-fill { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 6px; transition: width 400ms var(--ease); box-shadow: 0 0 9px var(--glow); }
 .sk-pend { position: absolute; top: 0; bottom: 0; background: var(--accent); opacity: 0.35; border-radius: 6px; transition: width 400ms var(--ease); }
 
 /* ---- Habit widget ---- */
