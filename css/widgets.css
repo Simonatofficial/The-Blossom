@@ -451,3 +451,6 @@
 }
 .qz-cell.sel { border-color: var(--accent); box-shadow: 0 0 8px var(--glow); }
 .qz-cell.done { opacity: 0.35; pointer-events: none; }
+
+/* ---- Infinite Canvas ---- */
+.ic-surface { display: block; width: 100%; background: var(--surface-alt); cursor: crosshair; }

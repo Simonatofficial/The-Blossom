@@ -27,3 +27,4 @@ import './notebook.js';
 import './flashcards.js';
 import './quiz.js';
 import './docshelf.js';
+import './infcanvas.js';

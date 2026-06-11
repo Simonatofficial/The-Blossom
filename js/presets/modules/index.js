@@ -7,6 +7,7 @@ import { ulid } from '../../core/ids.js';
 import { registry } from '../../widgets/registry.js';
 import { BLOSSOM_PRESET } from './blossom.js';
 import { STUDY_PRESET } from './study.js';
+import { INFCANVAS_PRESET } from './infcanvas.js';
 import { SMALL_PRESETS } from './small.js';
 
 function todayStr() {
@@ -98,6 +99,7 @@ export function instantiatePreset(def) {
 export const PRESET_MODULES = [
   BLOSSOM_PRESET,
   STUDY_PRESET,
+  INFCANVAS_PRESET,
   ...SMALL_PRESETS,
   {
     key: 'starter',

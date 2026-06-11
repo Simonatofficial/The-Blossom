@@ -124,3 +124,10 @@ Each of these is ~1 page of definition JSON — cheap to ship, great for the pre
 - DocumentShelf PDFs: no vendored PDF renderer (zero-dependency rule). Images open in the inline lightbox; PDFs open in a new tab from their Blob URL - both fully offline.
 - Study widgets load eagerly with the other widget types rather than via dynamic import(): the whole app ships ~70 small SW-cached modules, so lazy-loading bought nothing measurable here. Revisit for the canvas-heavy modules.
 - Card generation harvests <mark class="key-term"> "term - definition" pairs and Q:/A: line pairs; free-form definition-sentence mining was deliberately left out (too noisy to be assistive).
+
+## Build decisions - Infinite Canvas (v1)
+
+- Core architecture per spec: world-coordinate strokes stored sector-relative (2^20-unit sectors, one IndexedDB object per touched sector = incremental saves), viewport {cx, cy, zoomExp} with scale = 2^zoomExp, 512px tile pyramid cached per power-of-two zoom band (LRU 96 tiles), LOD cutoff at 0.5px, live-render only the active stroke.
+- Sector grid + per-stroke bboxes serve as the spatial index; a recursive quadtree inside sectors is deferred until stroke counts demand it.
+- Tools v1: pan, pen, marker, eraser, line/rect/ellipse, text blocks, world-scaled brush with screen-scaled toggle, undo, fit-all, bookmarks, viewport PNG export (auto-shelved to the sibling Gallery widget). Deferred (noted, not dropped): airbrush, lasso-select, image drop-in, eyedropper, minimap.
+- Precision: rendering math is anchored to the view center in float64; comfortable to roughly 2^40 world units from origin, far beyond practical use.
