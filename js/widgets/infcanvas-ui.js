@@ -10,7 +10,6 @@ import { BLEND_MODES, hexA } from './infcanvas-raster.js';
 const TOOLS = [
   ['pan', 'move', 'Pan'],
   ['pen', 'pen', 'Pen brush (B)'],
-  ['sketchy', 'scribble', 'Sketchy brush'],
   ['blend', 'droplet', 'Blend brush'],
   ['pixel', 'grid', 'Pixel brush'],
   ['eraser', 'eraser', 'Eraser (E)'],
@@ -22,7 +21,7 @@ const TOOLS = [
   ['text', 'type', 'Text (T)']
 ];
 const TOOL_NAME = Object.fromEntries(TOOLS.map(([t, , l]) => [t, l.replace(/ \(.+\)$/, '')]));
-const BRUSHES = ['pen', 'sketchy', 'blend', 'pixel', 'eraser'];
+const BRUSHES = ['pen', 'blend', 'pixel', 'eraser'];
 
 /**
  * @param {object} state mutable tool state (tool, color, size, opacity, …)
@@ -156,7 +155,6 @@ export function buildToolbar(state, act) {
     }
     if (tool === 'pen' || tool === 'eraser') slider('Hardness', 'hardness', 0.05, 1, 0.05);
     if (tool === 'blend') slider('Strength', 'strength', 0.1, 1, 0.05);
-    if (tool === 'sketchy') slider('Web density', 'strength', 0.1, 1, 0.05);
     if (BRUSHES.includes(tool)) slider('Stabilizer', 'stabilizer', 0, 5, 1);
     if (tool === 'eraser') segRow('Mode', 'eraserPixel', [[false, 'Soft'], [true, 'Pixel']]);
 
@@ -241,7 +239,9 @@ export function buildToolbar(state, act) {
   return { el: strip, tab, chip, refresh, closeFlyout };
 }
 
-/** Live stroke preview: same dab math as the raster core, mini scale (§9). */
+/** Live stroke preview: same dab math as the raster core, mini scale (§9).
+    Mirrors the CR-13b pipeline — stamps at full alpha into a buffer, then
+    one composite at the stroke's opacity — so the chip shows the real look. */
 export function drawStrokePreview(canvas, state) {
   const g = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
@@ -255,45 +255,36 @@ export function drawStrokePreview(canvas, state) {
   if (state.tool === 'eraser') {
     g.fillStyle = 'rgba(127,127,127,0.45)';
     g.fillRect(2, H * 0.25, W - 4, H * 0.5);
-    g.globalCompositeOperation = 'destination-out';
   }
+  const buf = document.createElement('canvas');
+  buf.width = W;
+  buf.height = H;
+  const b = buf.getContext('2d');
   if (state.tool === 'pixel' || (state.tool === 'eraser' && state.eraserPixel)) {
-    g.fillStyle = state.color;
-    g.globalAlpha = state.opacity;
+    b.fillStyle = state.tool === 'eraser' ? '#000' : state.color;
     const n = Math.max(2, Math.round(size / 2));
     for (let i = 0; i < pts.length; i += 3) {
-      g.fillRect(Math.round(pts[i][0] - n / 2), Math.round(pts[i][1] - n / 2), n, n);
-    }
-  } else if (state.tool === 'sketchy') {
-    g.strokeStyle = state.color;
-    g.lineWidth = 1.2;
-    g.globalAlpha = state.opacity;
-    g.beginPath();
-    pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
-    g.stroke();
-    g.globalAlpha = 0.22 * state.opacity;
-    for (let i = 4; i < pts.length - 4; i += 5) {
-      g.beginPath();
-      g.moveTo(pts[i][0], pts[i][1]);
-      g.lineTo(pts[i - 4][0], pts[i - 4][1] + 6);
-      g.stroke();
+      b.fillRect(Math.round(pts[i][0] - n / 2), Math.round(pts[i][1] - n / 2), n, n);
     }
   } else {
     for (const [x, y, p] of pts) {
       const pr = Math.max(0.6, size / 2 * (0.35 + p * (state.tool === 'blend' ? 0.5 : 0.65)));
-      const grad = g.createRadialGradient(x, y, 0, x, y, pr);
+      const grad = b.createRadialGradient(x, y, 0, x, y, pr);
       const hard = state.tool === 'blend' ? 0.1 : (state.hardness ?? 0.85);
       const col = state.tool === 'eraser' ? '#000' : state.color;
       grad.addColorStop(0, col);
       grad.addColorStop(Math.min(0.99, hard), col);
       grad.addColorStop(1, state.tool === 'eraser' ? 'rgba(0,0,0,0)' : hexA(col, 0));
-      g.globalAlpha = (state.opacity ?? 1) * (state.tool === 'blend' ? 0.4 : 0.5 + p * 0.5);
-      g.fillStyle = grad;
-      g.beginPath();
-      g.arc(x, y, pr, 0, Math.PI * 2);
-      g.fill();
+      b.globalAlpha = state.tool === 'blend' ? 0.4 : 0.5 + p * 0.5;
+      b.fillStyle = grad;
+      b.beginPath();
+      b.arc(x, y, pr, 0, Math.PI * 2);
+      b.fill();
     }
   }
+  g.globalAlpha = state.opacity ?? 1;
+  if (state.tool === 'eraser') g.globalCompositeOperation = 'destination-out';
+  g.drawImage(buf, 0, 0);
   g.globalAlpha = 1;
   g.globalCompositeOperation = 'source-over';
 }

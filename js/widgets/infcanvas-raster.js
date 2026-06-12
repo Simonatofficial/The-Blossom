@@ -20,13 +20,20 @@ const MAX_LAYERS = 16;
 const HISTORY_CAP = 50;
 const MIN_MIP = -24; // mip levels stop at the world model's coarsest band
 
+/* CR-13a hard budgets — device-scaled, so a mid-range phone degrades
+   gracefully instead of ever crashing. ~1MB per decoded 512px tile. */
+const DEV_GB = (typeof navigator !== 'undefined' && navigator.deviceMemory) || 4;
+const TILE_CACHE_MAX = Math.max(96, Math.min(384, DEV_GB * 64));
+const HIST_BUDGET = Math.max(32, Math.min(128, DEV_GB * 16)) * 1024 * 1024;
+export const FINE_TILE_CAP = 512; // tiles one commit may rewrite outside its own band
+
 function blank() {
   const c = document.createElement('canvas');
   c.width = c.height = RTILE;
   return c;
 }
 
-function copyTile(c) {
+export function copyTile(c) {
   const d = blank();
   d.getContext('2d').drawImage(c, 0, 0);
   return d;
@@ -54,6 +61,9 @@ export class RasterDoc {
     this.missing = new Set();  // keys known to have no stored blob
     this.dirty = new Set();    // keys needing persistence
     this.decoding = new Map(); // key -> Promise (blob still inflating)
+    this.encoding = new Set(); // keys with a toBlob save in flight (don't evict)
+    this.lru = new Map();      // key -> tick of last access (CR-13a eviction)
+    this.tick = 0;
     this.mips = new Map();     // render-only downsample cache (CR-12; never persisted)
     this.occ = new Map();      // `${layerId}:${band}` -> Map(level -> Set('tx:ty'))
     this.history = [];
@@ -73,20 +83,22 @@ export class RasterDoc {
   tile(layerId, band, tx, ty, create = false) {
     const key = this.key(layerId, band, tx, ty);
     let c = this.tiles.get(key);
-    if (c) return c;
+    if (c) { this.lru.set(key, ++this.tick); return c; }
     if (!this.missing.has(key)) {
       const blob = this.io.loadTile(key);
       if (blob) {
         c = blank();
         this.tiles.set(key, c);
+        this.lru.set(key, ++this.tick);
         const job = createImageBitmap(blob).then(bmp => {
+          this.decoding.delete(key);
+          if (this.tiles.get(key) !== c) return; // deleted/evicted mid-decode
           // stroke laid down while the blob was decoding stays on top
           const g = c.getContext('2d');
           g.save();
           g.globalCompositeOperation = 'destination-over';
           g.drawImage(bmp, 0, 0);
           g.restore();
-          this.decoding.delete(key);
           this.bustMips(key); // mips built from the placeholder are stale
           this.io.onTilesDecoded();
         }).catch(() => this.decoding.delete(key));
@@ -98,6 +110,7 @@ export class RasterDoc {
     if (!create) return null;
     c = blank();
     this.tiles.set(key, c);
+    this.lru.set(key, ++this.tick);
     this.missing.delete(key);
     return c;
   }
@@ -219,7 +232,23 @@ export class RasterDoc {
       this.dirty.delete(key);
       const c = this.tiles.get(key);
       if (!c) { this.io.saveTile(key, null); continue; }
-      c.toBlob(blob => this.io.saveTile(key, blob), 'image/png');
+      this.encoding.add(key);
+      c.toBlob(blob => { this.io.saveTile(key, blob); this.encoding.delete(key); }, 'image/png');
+    }
+    this.evict();
+  }
+
+  /** CR-13a: resident decoded tiles are an LRU cache, not the document.
+      Anything persisted and idle can drop; it reloads from its blob on touch. */
+  evict() {
+    if (this.tiles.size <= TILE_CACHE_MAX) return;
+    const idle = [...this.tiles.keys()]
+      .filter(k => !this.dirty.has(k) && !this.encoding.has(k) && !this.decoding.has(k) && this.io.loadTile(k))
+      .sort((a, b) => (this.lru.get(a) || 0) - (this.lru.get(b) || 0));
+    for (const key of idle) {
+      if (this.tiles.size <= TILE_CACHE_MAX) break;
+      this.tiles.delete(key);
+      this.lru.delete(key);
     }
   }
 
@@ -283,7 +312,7 @@ export class RasterDoc {
   /* ---------- painting (docs/12 §3): spacing-based stamping ---------- */
 
   /**
-   * @param {{tool: 'pen'|'pixel'|'eraser'|'blend'|'sketchy', color: string, size: number,
+   * @param {{tool: 'pen'|'pixel'|'eraser'|'blend', color: string, size: number,
    *          opacity: number, hardness: number, strength?: number, band: number,
    *          pixelErase?: boolean}} state
    */
@@ -401,49 +430,60 @@ export class RasterDoc {
     }
   }
 
-  /** Run drawFn(g, band) world-transformed over one band's tiles in rect. */
-  writeBand(layerId, band, rect, { mask, touched, existingOnly = false, clipFiner = null } = {}, drawFn) {
+  /** Run drawFn(g, band) world-transformed over one band's tiles in rect.
+      CR-13a: existingOnly iterates the band's REAL tiles (content-bounded),
+      never the rect's tile range — at low zoom that range is astronomical.
+      Optional covers(wx0, wy0, ts) lets a stroke commit skip untouched tiles. */
+  writeBand(layerId, band, rect, { mask, touched, existingOnly = false, clipFiner = null, clipCoords = null, covers = null } = {}, drawFn) {
     const sb = Math.pow(2, band);
     const ts = RTILE / sb;
     const x0 = Math.floor(rect.x0 / ts), x1 = Math.floor(rect.x1 / ts);
     const y0 = Math.floor(rect.y0 / ts), y1 = Math.floor(rect.y1 / ts);
     if (!existingOnly && (x1 - x0 + 1) * (y1 - y0 + 1) > 4096) return; // safety net
-    const existing = existingOnly ? this.coordsOf(layerId, band) : null;
-    const finerCoords = clipFiner?.length
+    const finerCoords = clipCoords || (clipFiner?.length
       ? clipFiner.map(b => ({ b, ts: RTILE / Math.pow(2, b), set: this.coordsOf(layerId, b) }))
-      : null;
-    for (let ty = y0; ty <= y1; ty++) {
-      for (let tx = x0; tx <= x1; tx++) {
-        if (existing && !existing.has(`${tx}:${ty}`)) continue;
-        const key = this.key(layerId, band, tx, ty);
-        const fresh = !existing && !this.tiles.has(key) && !this.io.loadTile(key);
-        const c = this.tile(layerId, band, tx, ty, true);
-        if (touched && !touched.has(key)) touched.set(key, copyTile(c));
-        if (fresh) this.occAdd(layerId, band, tx, ty);
-        const g = c.getContext('2d');
-        g.save();
-        g.transform(sb, 0, 0, sb, -tx * RTILE, -ty * RTILE); // world space
-        this.clipMask(g, mask);
-        if (finerCoords) {
-          // paint only where no finer band owns the pixels (evenodd hole-punch)
-          g.beginPath();
-          g.rect(tx * ts, ty * ts, ts, ts);
-          let holes = false;
-          for (const f of finerCoords) {
-            for (const coord of f.set) {
-              const [fx, fy] = coord.split(':').map(Number);
-              const rx = fx * f.ts, ry = fy * f.ts;
-              if (rx + f.ts <= tx * ts || rx >= (tx + 1) * ts || ry + f.ts <= ty * ts || ry >= (ty + 1) * ts) continue;
-              g.rect(rx, ry, f.ts, f.ts);
-              holes = true;
-            }
+      : null);
+    const paintOne = (tx, ty, exists) => {
+      if (covers && !covers(tx * ts, ty * ts, ts)) return;
+      const key = this.key(layerId, band, tx, ty);
+      const fresh = !exists && !this.tiles.has(key) && !this.io.loadTile(key);
+      const c = this.tile(layerId, band, tx, ty, true);
+      if (touched && !touched.has(key)) touched.set(key, copyTile(c));
+      if (fresh) this.occAdd(layerId, band, tx, ty);
+      const g = c.getContext('2d');
+      g.save();
+      g.transform(sb, 0, 0, sb, -tx * RTILE, -ty * RTILE); // world space
+      this.clipMask(g, mask);
+      if (finerCoords) {
+        // paint only where no finer band owns the pixels (evenodd hole-punch)
+        g.beginPath();
+        g.rect(tx * ts, ty * ts, ts, ts);
+        let holes = false;
+        for (const f of finerCoords) {
+          for (const coord of f.set) {
+            const [fx, fy] = coord.split(':').map(Number);
+            const rx = fx * f.ts, ry = fy * f.ts;
+            if (rx + f.ts <= tx * ts || rx >= (tx + 1) * ts || ry + f.ts <= ty * ts || ry >= (ty + 1) * ts) continue;
+            g.rect(rx, ry, f.ts, f.ts);
+            holes = true;
           }
-          if (holes) g.clip('evenodd');
         }
-        drawFn(g, band);
-        g.restore();
-        this.dirty.add(key);
-        this.bustMips(key);
+        if (holes) g.clip('evenodd');
+      }
+      drawFn(g, band);
+      g.restore();
+      this.dirty.add(key);
+      this.bustMips(key);
+    };
+    if (existingOnly) {
+      for (const coord of this.coordsOf(layerId, band)) {
+        const [tx, ty] = coord.split(':').map(Number);
+        if (tx < x0 || tx > x1 || ty < y0 || ty > y1) continue;
+        paintOne(tx, ty, true);
+      }
+    } else {
+      for (let ty = y0; ty <= y1; ty++) {
+        for (let tx = x0; tx <= x1; tx++) paintOne(tx, ty, false);
       }
     }
   }
@@ -476,46 +516,19 @@ export class RasterDoc {
       : wb;
     if (s.tool === 'blend') this.mixStep(layer.id, wx, wy);
     this.applyWrite(wb, s.band, { layerId: layer.id, mask: s.mask, touched: s.touched, erase: s.tool === 'eraser' },
-      (g, band) => this.drawDab(g, band, wx, wy, wr, pressure));
-  }
-
-  /** Sketchy web thread (world coords) through the same write path. */
-  seg(xa, ya, xb, yb, width, alpha) {
-    const s = this.session;
-    if (!s) return;
-    const pad = width;
-    const wb = {
-      x0: Math.min(xa, xb) - pad, y0: Math.min(ya, yb) - pad,
-      x1: Math.max(xa, xb) + pad, y1: Math.max(ya, yb) + pad
-    };
-    if ((wb.x1 - wb.x0) * Math.pow(2, s.band) / RTILE > 8) return; // webs stay local
-    s.bbox = s.bbox
-      ? { x0: Math.min(s.bbox.x0, wb.x0), y0: Math.min(s.bbox.y0, wb.y0), x1: Math.max(s.bbox.x1, wb.x1), y1: Math.max(s.bbox.y1, wb.y1) }
-      : wb;
-    this.applyWrite(wb, s.band, { layerId: this.active().id, mask: s.mask, touched: s.touched }, (g) => {
-      g.globalAlpha = alpha;
-      g.strokeStyle = s.color;
-      g.lineWidth = Math.max(0.4 / Math.pow(2, s.band), width);
-      g.lineCap = 'round';
-      g.beginPath();
-      g.moveTo(xa, ya);
-      g.lineTo(xb, yb);
-      g.stroke();
-    });
+      (g, band) => this.drawDab(s, g, band, wx, wy, wr, pressure));
   }
 
   /** Advance the blend brush's carried color (sampled once per dab). */
   mixStep(layerId, wx, wy) {
     const s = this.session;
-    const under = this.sampleColor(layerId, wx, wy);
-    if (!s.mix) s.mix = under[3] > 0 ? under : hexRgb(s.color);
-    const k = (s.strength ?? 0.5) * 0.6;
-    s.mix = s.mix.map((v, i) => i < 3 ? v + (under[i] - v) * (1 - k) * (under[3] || 0) : 1);
+    s.mix = advanceMix(s.mix, this.sampleColor(layerId, wx, wy), s.strength, s.color);
   }
 
-  /** One dab in WORLD coordinates (g is world-transformed by writeBand). */
-  drawDab(g, band, wx, wy, wr, pressure) {
-    const s = this.session;
+  /** One dab in WORLD coordinates (g is world-transformed by the caller).
+      s is passed explicitly so the stroke-buffer commit (CR-13b) can stamp
+      with the same math outside a live session. */
+  drawDab(s, g, band, wx, wy, wr, pressure) {
     if (s.tool === 'eraser' && !s.pixelErase) {
       g.globalCompositeOperation = 'destination-out';
       g.globalAlpha = s.opacity;
@@ -544,7 +557,7 @@ export class RasterDoc {
       g.beginPath();
       g.arc(wx, wy, wr, 0, Math.PI * 2);
       g.fill();
-    } else { // pen / sketchy: hardness-controlled soft stamp, pressure in size+alpha
+    } else { // pen: hardness-controlled soft stamp, pressure in size+alpha
       g.globalAlpha = s.opacity * (0.5 + pressure * 0.5);
       const grad = g.createRadialGradient(wx, wy, 0, wx, wy, wr);
       grad.addColorStop(0, s.color);
@@ -615,11 +628,31 @@ export class RasterDoc {
     }, { layerId, mask, erase: op === 'destination-out' });
   }
 
-  /* ---------- history (docs/12 §4): 50 steps, tile snapshots ---------- */
+  /* ---------- history (docs/12 §4): 50 steps, tile snapshots,
+     byte-budgeted so huge strokes can't balloon memory (CR-13a) ---------- */
+
+  entryBytes(entry) {
+    if (entry.kind === 'tiles') {
+      let n = 0;
+      for (const t of entry.tiles) {
+        for (const img of [t.before, t.after]) {
+          n += img instanceof Blob ? img.size : (img ? RTILE * RTILE * 4 : 0);
+        }
+      }
+      return n;
+    }
+    if (entry.kind === 'multi') return entry.parts.reduce((n, p) => n + this.entryBytes(p), 0);
+    return 1024;
+  }
 
   push(entry) {
+    entry.bytes = entry.bytes ?? this.entryBytes(entry);
     this.history.push(entry);
     if (this.history.length > HISTORY_CAP) this.history.shift();
+    let bytes = this.history.reduce((n, e) => n + (e.bytes || 0), 0);
+    while (bytes > HIST_BUDGET && this.history.length > 1) {
+      bytes -= this.history.shift().bytes || 0;
+    }
     this.redoStack = [];
     this.io.onMetaChange();
   }
@@ -629,7 +662,18 @@ export class RasterDoc {
       const layers = new Set();
       for (const t of entry.tiles) {
         const img = useBefore ? t.before : t.after;
-        if (img) {
+        if (img instanceof Blob) {
+          // CR-13a: bulk-deleted tiles snapshot as their stored blob (cheap);
+          // restoring decodes lazily, like a fresh load
+          const c = this.tile(...t.key.split(':').map((v, i) => i ? Number(v) : v), true);
+          c.getContext('2d').clearRect(0, 0, RTILE, RTILE);
+          createImageBitmap(img).then(bmp => {
+            if (this.tiles.get(t.key) !== c) return;
+            c.getContext('2d').drawImage(bmp, 0, 0);
+            this.bustMips(t.key);
+            this.io.onTilesDecoded();
+          }).catch(() => {});
+        } else if (img) {
           const c = this.tile(...t.key.split(':').map((v, i) => i ? Number(v) : v), true);
           const g = c.getContext('2d');
           g.clearRect(0, 0, RTILE, RTILE);
@@ -803,6 +847,14 @@ export class RasterDoc {
     this.bustLayer(id);
     if (tiles.length) this.push({ kind: 'tiles', tiles });
   }
+}
+
+/** Blend-brush carry: mix the held color toward what's under the dab.
+    Shared by the live session (mixStep) and the preview/commit replay. */
+export function advanceMix(mix, under, strength, color) {
+  if (!mix) return under[3] > 0 ? under : hexRgb(color);
+  const k = (strength ?? 0.5) * 0.6;
+  return mix.map((v, i) => i < 3 ? v + (under[i] - v) * (1 - k) * (under[3] || 0) : 1);
 }
 
 /* ---- color helpers ---- */

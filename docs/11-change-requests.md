@@ -192,6 +192,48 @@ Four issues, all in the signature graph (spec updated in docs/05):
 
 ---
 
+## CR-13 — Canvas: zoomed-out drawing lags then crashes + low-opacity strokes look like circle trails + remove Sketchy brush · `canvas-core.js` (BUG — fix immediately) · ✅ 2026-06-11
+*(Build notes: root cause verified — per-dab `applyWrite` iterated the brush rect's tile range at finer-band resolution (billions of loop steps at low zoom) and allocated/decoded a canvas per existing fine tile. Fixed by the whole-stroke buffer commit in `infcanvas-commit.js` — full spec of the shipped pipeline in docs/12 build decisions. The stroke buffer fixes 13b for pen/pixel/blend/eraser in the Infinite Canvas AND the small Canvas widget. Tests: `tests/infcanvas-perf.html` (permanent) — ×0.001 screen-wide stroke commits in ~20ms with 10 tiles; CR-12 zoom + pointer suites still pass.)*
+
+### 13a. Drawing while zoomed out becomes incredibly laggy and crashes the system
+
+**Symptom:** at low zoom, strokes stutter, then the whole app (sometimes the device/browser) locks up and crashes.
+
+**Likely cause (verify first):** a world-scaled brush at low zoom covers an enormous world area; the CR-12 write path then rasterizes/resamples into native-resolution (fine-band) tiles across that whole footprint — unbounded tile allocation, unbounded memory.
+
+**Fix requirements:**
+1. **Cost must scale with screen pixels, not world area.** A stroke is rasterized at the band matching the *current* zoom (the resolution at which the user can actually see it). It must never allocate or rewrite tiles at bands finer than the current view — finer bands get the result via the pyramid (mark dirty, regenerate lazily *when zoomed in*, not eagerly).
+2. **Hard budgets, graceful degradation, never a crash:** cap tiles touched per stroke commit (e.g. 512) and total resident tile memory (device-scaled, e.g. 256MB); commits are chunked across frames (async, with the live-stroke overlay covering until done); if a single operation would exceed budget, complete it at a coarser band and toast softly ("Big stroke — saved at view resolution"). An allocation failure must abort the operation cleanly with state intact, never take down the app.
+3. **Profile then test:** add a perf regression test — full-screen-width stroke at zoom ×0.001 commits in <100ms and bounded memory; pan/zoom immediately after stays at 60fps.
+
+### 13b. Low-opacity strokes render as a trail of overlapping circles
+
+**Symptom:** semi-transparent lines look like strings of stamped circles, not smooth lines.
+
+**Cause:** each brush stamp is composited onto the layer individually, so overlapping stamps multiply opacity. **Fix (the standard Kleki/Procreate approach):** render the entire in-progress stroke into an offscreen **stroke buffer** at full alpha, then composite the buffer onto the layer **once, at the stroke's opacity**, on pointer-up. Stamps overlapping *within* one stroke never darken each other; two separate strokes still build up as expected. Applies to pen, pixel, blend, and eraser (eraser: buffer as a mask, applied destination-out once).
+
+### 13c. Remove the Sketchy brush
+
+Delete the Sketchy brush entirely — tool button, options, renderer, registry entry, and its row in docs/12 §3 (already removed). No data migration needed (existing sketchy marks are already flattened pixels; they stay as-is).
+
+**Accept when:** a huge zoomed-out scribble commits smoothly with stable memory; a 30%-opacity stroke is a uniform smooth line at every zoom; Sketchy is gone from the toolbar; all CR-12 zoom-independence tests still pass.
+
+---
+
+## CR-14 — World Builder Atlas & stamps: custom brushes, text boxes, pointer tool, editable POIs · `WorldMap`, stamp library (FEATURE — fold into the in-progress Atlas build)
+
+The Atlas (docs/08 §5) is still being built — make sure it lands **with** these; they are now part of its spec (docs/08 updated to match):
+
+1. **Custom world brushes & structure stamps (imports).** A user stamp library, "My Stamps," fed three ways: **(a)** import an image file (PNG/JPG, transparent PNG respected); **(b)** send a drawing from the small **Canvas widget**; **(c)** send a **selection from the Infinite Canvas** (the CR-10 select tool gets a "Save as stamp" action — also add it to the Canvas widget). Stamps get a name, category (terrain brush / structure / decoration / token), default size, and optional theme-tint toggle. Managed in a Stamps panel: rename, recolor/tint, recategorize, resize default, delete, reorder; exportable/importable as Blossom codes. Custom stamps appear alongside built-ins in the Features stamp tool, and any stamp can also act as a **pattern brush** (scatter mode: density/jitter/rotation sliders) for painting forests, ruins, dune fields, etc.
+2. **Text boxes, same as Infinite Canvas.** The Atlas text/label tool uses the identical rich text-box objects from docs/12 §3 (movable, resizable, re-editable forever, Notes-style formatting), *plus* the map-specific options it already has (curve along a path, zoom-band visibility).
+3. **Pointer (select) tool — the default tool.** A normal mouse/tap mode for *using* the map rather than painting it: hover/tap highlights interactive things (stamps, structures, labels, pins/POIs); tap selects (selection ring + name chip); selected objects get move/scale/rotate handles, an Edit action (opens the right editor for what it is), duplicate, and delete. The map opens in pointer mode; painting tools are opt-in. Esc/tap-empty deselects.
+4. **POIs/pins are fully customizable.** Per-pin: **color** (palette + wheel), **symbol** (the SVG icon set, an emoji, *or any stamp from My Stamps*), **size** (S/M/L or numeric), **name + label visibility** (always / on-hover / zoom-band), link target, and notes. Pin styles can be saved as reusable **pin presets** ("Capital city", "Dungeon", "Quest giver"). Default pin set gets several shapes/colors out of the box so they never feel limiting.
+5. **Stamps everywhere in World Builder.** The same My Stamps library is available across the module's widgets: Pinboard cards, CivProfile banners/crests, Character tokens/portrait frames, Timeline event icons, and LoreWiki article headers — one library, one picker component (a Popover, per CR-11).
+
+**Accept when:** an image imported as a stamp can be painted in scatter mode on the map, used as a pin symbol, and placed on a Pinboard card; a Canvas-widget drawing and an Infinite Canvas selection both arrive in My Stamps; the pointer tool selects and edits a stamp, a label, and a pin; a pin's color/symbol/size/name are all editable and savable as a preset; Atlas text is re-editable rich text boxes.
+
+---
+
 ## Order of work
 
 ~~CR-3 → CR-6 → CR-1 → CR-2 → CR-5 → CR-4~~ ✅ all complete 2026-06-10.
@@ -203,5 +245,10 @@ Four issues, all in the signature graph (spec updated in docs/05):
 2. ~~CR-11~~ ✅ 2026-06-11 — surface taxonomy implemented (widget views are true Pages; focus page route; popovers; one panel at a time).
 3. ~~CR-7~~ ✅ 2026-06-11 (particle layers shipped).
 4. Then resume Phase 7 (World Builder → D&D Character → D&D DM).
+
+**Round 4 (current priority):**
+1. ~~CR-13~~ ✅ 2026-06-11 — stroke-buffer commit pipeline; budgets + chunking; Sketchy removed; perf tests permanent.
+2. **CR-14** — fold into the in-progress World Builder Atlas build (don't ship Atlas without the pointer tool, editable pins, text boxes, and the stamp library; the Infinite Canvas/Canvas "Save as stamp" hooks can ship with it).
+3. Then continue Phase 7 (finish World Builder → D&D Character → D&D DM).
 
 Mark each CR done here (`✅ + date`) when its acceptance criteria pass on a 360px viewport and desktop.

@@ -183,7 +183,7 @@ export class DrawingSurface {
         layerImages.set(layer, img);
       }
       if (img?.complete && img.naturalWidth) g.drawImage(img, 0, 0, this.doc.w, this.doc.h);
-      for (const s of layer.strokes) drawStroke(g, s);
+      for (const s of layer.strokes) drawStroke(g, s, this.doc.w, this.doc.h);
       c.dirty = false;
     }
     return c.canvas;
@@ -200,7 +200,7 @@ export class DrawingSurface {
     for (const layer of this.doc.layers) {
       if (!layer.visible) continue;
       g.drawImage(this.layerCanvas(layer), 0, 0);
-      if (this.current && layer.id === this.activeLayer) drawStroke(g, this.current);
+      if (this.current && layer.id === this.activeLayer) drawStroke(g, this.current, this.doc.w, this.doc.h);
     }
     g.restore();
   }
@@ -222,22 +222,34 @@ export class DrawingSurface {
   }
 }
 
-function drawStroke(g, s) {
+/* CR-13b: segments stamp a shared buffer at full alpha; the whole stroke
+   composites once at its opacity, so joints never double-darken. */
+let scratch = null;
+
+function drawStroke(g, s, w, h) {
+  if (!scratch || scratch.width !== w || scratch.height !== h) {
+    scratch = document.createElement('canvas');
+    scratch.width = w;
+    scratch.height = h;
+  }
+  const b = scratch.getContext('2d');
+  b.clearRect(0, 0, w, h);
+  b.strokeStyle = s.color;
+  b.lineCap = 'round';
+  b.lineJoin = 'round';
+  for (let i = 1; i < s.pts.length; i++) {
+    const [x0, y0, p0] = s.pts[i - 1];
+    const [x1, y1, p1] = s.pts[i];
+    b.lineWidth = Math.max(0.5, s.size * ((p0 + p1) / 2) * (s.tool === 'marker' ? 2 : 1.4));
+    b.beginPath();
+    b.moveTo(x0, y0);
+    b.lineTo(x1, y1);
+    b.stroke();
+  }
   g.save();
   if (s.tool === 'eraser') g.globalCompositeOperation = 'destination-out';
   else if (s.tool === 'marker') { g.globalAlpha = 0.35 * s.opacity; g.globalCompositeOperation = 'multiply'; }
   else g.globalAlpha = s.opacity;
-  g.strokeStyle = s.color;
-  g.lineCap = 'round';
-  g.lineJoin = 'round';
-  for (let i = 1; i < s.pts.length; i++) {
-    const [x0, y0, p0] = s.pts[i - 1];
-    const [x1, y1, p1] = s.pts[i];
-    g.lineWidth = Math.max(0.5, s.size * ((p0 + p1) / 2) * (s.tool === 'marker' ? 2 : 1.4));
-    g.beginPath();
-    g.moveTo(x0, y0);
-    g.lineTo(x1, y1);
-    g.stroke();
-  }
+  g.drawImage(scratch, 0, 0);
   g.restore();
 }
