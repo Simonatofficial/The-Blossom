@@ -220,7 +220,8 @@ Delete the Sketchy brush entirely — tool button, options, renderer, registry e
 
 ---
 
-## CR-14 — World Builder Atlas & stamps: custom brushes, text boxes, pointer tool, editable POIs · `WorldMap`, stamp library (FEATURE — fold into the in-progress Atlas build)
+## CR-14 — World Builder Atlas & stamps: custom brushes, text boxes, pointer tool, editable POIs · `WorldMap`, stamp library (FEATURE — fold into the in-progress Atlas build) · ✅ 2026-06-11
+*(Build notes: shipped with the Atlas. `wb-stamps.js` = the library (records in the themes store as data-URL PNGs → Blossom codes work via the existing `thm` type), picker popover, manager panel, file import; `worldmap-objects.js` = pointer tool + map text boxes (curve renders plain text along an arc; visibility band in screen px); `worldmap-pins.js` = pin rendering/editor/presets (six varied defaults). "Save as stamp" landed on the Infinite Canvas select tool and the Canvas widget toolbar. Scatter mode rasterizes into the terrain tiles (one undo per drag). Stamps available in Pinboard, CivProfile crests, Character tokens, Timeline event icons, LoreWiki headers. Decisions recorded in docs/08.)*
 
 The Atlas (docs/08 §5) is still being built — make sure it lands **with** these; they are now part of its spec (docs/08 updated to match):
 
@@ -248,7 +249,7 @@ The Atlas (docs/08 §5) is still being built — make sure it lands **with** the
 
 **Round 4 (current priority):**
 1. ~~CR-13~~ ✅ 2026-06-11 — stroke-buffer commit pipeline; budgets + chunking; Sketchy removed; perf tests permanent.
-2. **CR-14** — fold into the in-progress World Builder Atlas build (don't ship Atlas without the pointer tool, editable pins, text boxes, and the stamp library; the Infinite Canvas/Canvas "Save as stamp" hooks can ship with it).
-3. Then continue Phase 7 (finish World Builder → D&D Character → D&D DM).
+2. ~~CR-14~~ ✅ 2026-06-11 — shipped with the World Builder module (stamps library + pointer tool + editable pins + rich text labels + save-as-stamp hooks).
+3. Then continue Phase 7 (D&D Character → D&D DM).
 
 Mark each CR done here (`✅ + date`) when its acceptance criteria pass on a 360px viewport and desktop.

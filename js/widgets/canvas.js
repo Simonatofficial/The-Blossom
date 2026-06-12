@@ -107,6 +107,18 @@ registry.register({
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     }));
+    bar.appendChild(tb(icon('sparkles', 15), 'Save as stamp (My Stamps)', async () => {
+      // transparent composite (no paper fill) so stamps keep their cutout
+      const c = document.createElement('canvas');
+      c.width = surface.doc.w;
+      c.height = surface.doc.h;
+      const g = c.getContext('2d');
+      for (const layer of surface.doc.layers) {
+        if (layer.visible) g.drawImage(surface.layerCanvas(layer), 0, 0);
+      }
+      const { toStampDataUrl, promptNewStamp } = await import('./wb-stamps.js');
+      promptNewStamp({ img: toStampDataUrl(c, c.width, c.height), suggestedName: obj.data.name || 'Drawing' });
+    }));
     bar.appendChild(tb(icon('image', 15), 'Import image as layer', () => {
       const fileIn = el('<input type="file" accept="image/*" class="hidden">');
       document.body.appendChild(fileIn);

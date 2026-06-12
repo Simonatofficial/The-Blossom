@@ -77,8 +77,11 @@ Module-specific widgets: WorldMap, LoreWiki, CivProfile, TimelineWidget, Pinboar
 - **WorldMap** builds on the Infinite Canvas core (same zoom/sector engine) with map-specific layers:
   1. *Terrain paint* — brush with terrain styles (ocean, coast, plains, forest, mountain, desert, tundra, swamp): each is a textured stamp brush (pre-made seamless pattern fills, theme-tintable).
   2. *Landmass tools* — coastline pen (smoothed closed paths with auto sea-shading), continent/island generator: "stamp a landmass" with size + roughness sliders (procedural blob via midpoint-displaced polygon), then hand-edit vertices.
-  3. *Features* — stamp library (mountains, trees, cities, towers, ports… as SVG stamps that scale with zoom band), rivers (tapered stroke tool snapping downhill-ish), region borders (dashed paths with fill tint), labels (curved text along paths, zoom-band visibility: continent names show zoomed out, village names only zoomed in).
-  4. *Pins* — the Milanote half: any map point can hold a **pin** linking to a Lore article, Civilization, Character, or free note/image. Pins cluster at low zoom; tap pin → side panel preview → "open" navigates to the linked object.
+  3. *Features* — stamp library (mountains, trees, cities, towers, ports… as SVG stamps that scale with zoom band), rivers (tapered stroke tool snapping downhill-ish), region borders (dashed paths with fill tint), labels — **rich text-box objects identical to the Infinite Canvas text tool (docs/12 §3: movable, resizable, re-editable forever, Notes-style formatting)** plus map options (curve along a path; zoom-band visibility: continent names show zoomed out, village names only zoomed in).
+  4. *Pins (POIs)* — the Milanote half: any map point can hold a **pin** linking to a Lore article, Civilization, Character, or free note/image. **Fully customizable (CR-14):** per-pin color, symbol (SVG icon, emoji, or any custom stamp), size, name + label visibility (always/hover/zoom-band); styles savable as reusable pin presets ("Capital", "Dungeon"…); a varied default set so pins never feel limiting. Pins cluster at low zoom; tap pin → side panel preview → "open" navigates to the linked object.
+  5. *Pointer tool (default, CR-14)* — a normal select/click mode for using the map rather than painting it: hover/tap highlights interactive objects (stamps, structures, labels, pins); tap selects with a ring + name chip and move/scale/rotate handles, Edit, duplicate, delete. The map opens in pointer mode; paint tools are opt-in.
+  6. *Custom brushes & stamps — "My Stamps" (CR-14)* — user-imported stamps from **(a)** image files, **(b)** Canvas-widget drawings, **(c)** Infinite Canvas selections ("Save as stamp" on the select tool). Each has a name, category (terrain/structure/decoration/token), default size, optional theme tint; managed (rename, tint, resize, delete, reorder) and shareable as Blossom codes. Usable as single stamps **or pattern brushes** (scatter mode: density/jitter/rotation) for painting forests, ruins, dunes.
+- **My Stamps is module-wide:** the same library + picker (a Popover, CR-11) serves Pinboard cards, CivProfile banners/crests, Character tokens, Timeline event icons, and LoreWiki headers.
 - Multiple maps per world (overworld, regions, cities, dungeons) with parent/child links ("this city pin opens the city map").
 
 ### Lore — LoreWiki
@@ -126,6 +129,16 @@ Each of these is ~1 page of definition JSON — cheap to ship, great for the pre
 - DocumentShelf PDFs: no vendored PDF renderer (zero-dependency rule). Images open in the inline lightbox; PDFs open in a new tab from their Blob URL - both fully offline.
 - Study widgets load eagerly with the other widget types rather than via dynamic import(): the whole app ships ~70 small SW-cached modules, so lazy-loading bought nothing measurable here. Revisit for the canvas-heavy modules.
 - Card generation harvests <mark class="key-term"> "term - definition" pairs and Q:/A: line pairs; free-form definition-sentence mining was deliberately left out (too noisy to be assistive).
+
+## Build decisions - World Builder (v1, with CR-14)
+
+- **My Stamps** live in the THEMES store as `type:'stamp'` records with the image as a **PNG data URL** (≤320px longest side) — JSON-safe, so they ride the existing `thm` Blossom-code path with zero changes. Pin presets are `type:'pinpreset'` records the same way. `allThemes()` excludes both from theme pickers.
+- **Stamp tint** is a cached source-atop wash (55%) of the accent color, applied at draw time — the stored image is never modified.
+- **Scatter mode** rasterizes jittered stamps into the map's raster tiles (same `rasterOp` path as terrain), so scattered forests erase with the terrain eraser and batch into one undo step per drag. Placed (non-scatter) stamps stay live objects with move/scale/rotate.
+- **Pointer tool**: dragging empty map pans (a pointer is for *using* the map); pins use screen-px sizing (constant size at every zoom, like map UI), features use world sizing. Selection chrome = dashed ring + scale handle (+ rotate knob on features) + a floating action bar (name chip · Edit · Open-link · Duplicate · Delete).
+- **Labels** are the shared Infinite Canvas text boxes via a `MapTextLayer` subclass: per-box visibility band (`vis.min/max` in on-screen px, default 9–110) and **curve** (−100…100): curved labels render their plain text along a circular arc on the canvas overlay; rich formatting applies while straight or editing. Old `mlabel` objects migrate to text boxes once on open.
+- **Pin label visibility** "By zoom" shows the name from ~one band out of the zoom where the pin was placed, and closer.
+- Stamp pickers across Pinboard cards, civ crests, character tokens, timeline event icons, and lore headers all use the one `openStampPicker` popover (CR-11).
 
 ## Build decisions - Infinite Canvas (v1)
 

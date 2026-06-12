@@ -226,6 +226,27 @@ export class SelectTool {
 
   /* ---------- actions ---------- */
 
+  /** The selection's pixels as a canvas, without touching the clipboard
+      (CR-14 "Save as stamp"). @returns {{canvas, w, h}|null} */
+  snapshot() {
+    if (!this.active()) return null;
+    if (this.float) return { canvas: this.float.canvas, w: this.float.w, h: this.float.h };
+    const bb = this.bboxOf(this.poly);
+    const w = bb.x1 - bb.x0, h = bb.y1 - bb.y0;
+    const es = Math.min(Math.pow(2, this.surf.band()), 4096 / w, 4096 / h);
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.ceil(w * es));
+    c.height = Math.max(1, Math.ceil(h * es));
+    const g = c.getContext('2d');
+    g.setTransform(es, 0, 0, es, -bb.x0 * es, -bb.y0 * es);
+    g.beginPath();
+    this.poly.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
+    g.closePath();
+    g.clip();
+    this.doc.composeLayer(g, this.doc.active().id, bb.x0, bb.y0, bb.x1, bb.y1, this.surf.band());
+    return { canvas: c, w, h };
+  }
+
   copy() {
     if (!this.active()) return;
     if (this.float) {

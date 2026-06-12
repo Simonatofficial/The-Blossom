@@ -186,6 +186,7 @@ export function buildToolbar(state, act) {
       sBtn('copy', 'Copy', () => act.select.copy());
       sBtn('download', 'Paste', () => act.select.paste(), false);
       sBtn('plus', 'Duplicate', () => act.select.duplicate());
+      sBtn('sparkles', 'Save as stamp (My Stamps)', () => act.select.saveStamp());
       sBtn('flip-h', 'Flip horizontal', () => act.select.flip('h'));
       sBtn('flip-v', 'Flip vertical', () => act.select.flip('v'));
       sBtn('trash', 'Delete selection', () => act.select.del());

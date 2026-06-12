@@ -633,6 +633,12 @@ registry.register({
         active: () => sel.active(),
         hasClipboard: () => sel.hasClipboard(),
         copy: () => { sel.copy(); toast('Selection copied', 'copy'); },
+        saveStamp: async () => {
+          const snap = sel.snapshot();
+          if (!snap) return;
+          const { toStampDataUrl, promptNewStamp } = await import('./wb-stamps.js');
+          promptNewStamp({ img: toStampDataUrl(snap.canvas, snap.canvas.width, snap.canvas.height), suggestedName: widget.name });
+        },
         paste: () => { sel.paste(); surf.render(); },
         duplicate: () => { sel.duplicate(); surf.render(); },
         flip: (ax) => { sel.flip(ax); surf.render(); },
