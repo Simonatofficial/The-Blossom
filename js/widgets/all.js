@@ -34,3 +34,7 @@ import './civprofile.js';
 import './wtimeline.js';
 import './worldmap.js';
 import './pinboard.js';
+import './dndsheet.js';
+import './spellbook.js';
+import './dndinventory.js';
+import './levelplanner.js';
