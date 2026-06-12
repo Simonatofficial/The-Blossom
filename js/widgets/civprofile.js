@@ -9,6 +9,7 @@ import { icon } from '../ui/icons.js';
 import { el, toast, confirmDialog, popMenu, seg } from '../ui/components.js';
 import { objectsOf, createObject, saveObject } from './base.js';
 import { watchWikilinks, wireWikilinks, openEntryPicker, openEntry, onWbOpen, resolveEntry, fmtWorldYear, siblingWidgets } from './wb-shared.js';
+import { getStamp, openStampPicker } from './wb-stamps.js';
 
 const civs = (w) => objectsOf(w.id, 'civ');
 const KINDS = ['Kingdom', 'Empire', 'City', 'Village', 'Tribe', 'Order'];
@@ -85,15 +86,33 @@ registry.register({
 
       const head = el(`<div class="row" style="gap:8px;margin-bottom:6px">
         <button class="btn-icon" title="All civilizations">${icon('arrow-left', 17)}</button>
+        <span class="wc-portrait civ-crest" style="width:44px;height:44px"></span>
         <div class="grow"><input class="input" style="font-weight:650"><input class="input" placeholder="motto" style="margin-top:4px;font-size:0.84rem;padding:5px 10px"></div>
         <button class="btn-icon" title="More">${icon('more', 16)}</button></div>`);
       head.querySelector('[title="All civilizations"]').onclick = showList;
+      const crestEl = head.querySelector('.civ-crest');
+      const renderCrest = () => {
+        const s = c.data.crestId && getStamp(c.data.crestId);
+        if (s) {
+          crestEl.innerHTML = '<img alt="" style="width:100%;height:100%;object-fit:contain;border-radius:inherit">';
+          crestEl.querySelector('img').src = s.img;
+        } else crestEl.innerHTML = icon('shield', 20);
+      };
+      renderCrest();
       const [nameIn, mottoIn] = head.querySelectorAll('input');
       nameIn.value = c.data.name;
       mottoIn.value = c.data.motto || '';
       nameIn.onchange = () => { c.data.name = nameIn.value.trim() || 'Unnamed'; save(); };
       mottoIn.onchange = () => { c.data.motto = mottoIn.value; save(); };
       head.querySelector('[title="More"]').onclick = (e) => popMenu(e.currentTarget, [
+        { label: 'Crest from My Stamps', iconName: 'sparkles', fn: () => {
+          openStampPicker(head.querySelector('[title="More"]'), { title: 'Banner crest', onPick: (s) => {
+            c.data.crestId = s.id;
+            save();
+            renderCrest();
+          } });
+        } },
+        ...(c.data.crestId ? [{ label: 'Remove crest', iconName: 'x', fn: () => { delete c.data.crestId; save(); renderCrest(); } }] : []),
         { label: 'Delete civilization', iconName: 'trash', danger: true, fn: async () => {
           if (await confirmDialog({ title: `Let “${c.data.name}” fall?`, message: 'It rests in the trash for 30 days.' })) {
             store.trash('objects', c.id);

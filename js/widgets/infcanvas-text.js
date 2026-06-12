@@ -54,7 +54,8 @@ export class TextLayer {
       const r = this.surf.canvas.getBoundingClientRect();
       const k = r.width / this.surf.canvas.width; // backing px -> CSS px
       const hidden = !layer || !layer.visible || fs * k < 3 || fs * k > 2400 ||
-        px * k > r.width + 600 || py * k > r.height + 600 || px < -((w + 600) / k) || py * k < -600;
+        px * k > r.width + 600 || py * k > r.height + 600 || px < -((w + 600) / k) || py * k < -600 ||
+        !!this.hideBox?.(o, fs * k); // subclass hook (map zoom-band visibility, curves)
       box.style.display = hidden ? 'none' : '';
       if (hidden) continue;
       box.style.left = `${px * k}px`;

@@ -13,11 +13,13 @@ Blend/smudge brushes, flood fill, and gradients are raster operations — pure v
 - **Layers are sparse raster tile grids.** Each layer = a map of 512px tiles (allocated only where painted), stored per sector band so the infinite world model still holds. Painting rasterizes the live stroke into the active layer's tiles at the current zoom band's native resolution; the existing tile-pyramid cache handles display at other zooms.
 - **Undo/redo** (see §4) snapshots only the tiles a stroke touched (bounded memory), not whole layers.
 - The Gallery, bookmarks, exports, and document chunking (docs/08) are unchanged. Migration: existing vector strokes are rendered once into raster tiles on first open of an old document (keep the vector data in the object as a dormant backup field — never destroy user data).
+- **Zoom-independence invariant (CR-12 — currently violated, fix first):** *a layer is one logical image; zoom is only a camera.* Every render and every edit (paint, erase, fill, transform) must hit the same logical content at any zoom: one shared write path through the tile pyramid (downsample-up, dirty-mark, lazy rebuild), cross-band resampling so erasing works on content drawn at a different zoom, never culling content to invisibility when zoomed far out, and live strokes drawn to screen then committed on pointer-up. Full fix spec + required regression tests: docs/11 CR-12. If the raster pyramid can't honestly meet this within the performance budget, revert to vector-as-source-of-truth with raster as a region cache — the original engine's behavior is the bar.
 
-## 1. True fullscreen + hideable toolbar
+## 1. Canvas focus page + hideable toolbar *(revised by CR-11)*
 
-- A **fullscreen button** on the canvas toolbar: requests browser fullscreen (Fullscreen API) *and* hides all Blossom chrome (tab bar, header) — only canvas + toolbar remain. Esc / back / the same button exits. On platforms denying the API, fall back to chrome-hiding alone.
-- In fullscreen, a **hide-toolbar toggle** (small tab at the toolbar's edge, and a two-finger double-tap shortcut): collapses the toolbar to a single translucent reveal-tab while drawing. State remembered per session.
+- The toolbar's **focus button** does **not** fullscreen the app via the Fullscreen API. It **navigates to a Canvas focus page** (a real route, per the CR-11 surface taxonomy): same document, all Blossom chrome hidden (tab bar, header), only canvas + toolbar remain. Back arrow / hardware back exits to the normal canvas page.
+- An optional **browser fullscreen** control lives *inside* the focus page (secondary, for users who want edge-to-edge); Esc exits it without leaving the focus page.
+- In the focus page, a **hide-toolbar toggle** (small tab at the toolbar's edge, and a two-finger double-tap shortcut): collapses the toolbar to a single translucent reveal-tab while drawing. State remembered per session.
 
 ## 2. Pointer accuracy + tap-to-paint (BUG — fix first)
 
@@ -26,14 +28,17 @@ Blend/smudge brushes, flood fill, and gradients are raster operations — pure v
 
 ## 3. Tools (Kleki-parity toolset)
 
-All tools share: color from the active palette, **opacity slider (0–100%)**, size control (§5), and the stabilizer where relevant (§3a).
+All tools share: color from the active palette, **opacity slider (0–100%)**, size control (§5), and the stabilizer where relevant (§3a). *(Sketchy brush removed per CR-13c.)*
+
+**Stroke opacity compositing (CR-13b — required):** brushes stamp into an offscreen **stroke buffer** at full alpha; the buffer is composited onto the layer once, at the stroke's opacity, on pointer-up. Overlapping stamps within one stroke must never darken each other (no "trail of circles"). Eraser uses the buffer as a one-shot destination-out mask.
+
+**Rasterization cost rule (CR-13a — required):** stroke commits scale with *screen* pixels, never world area — write at the current zoom's band, let the pyramid serve other bands lazily, cap tiles per commit and total tile memory, chunk commits across frames, and degrade gracefully (coarser band + soft toast) instead of ever crashing.
 
 | Tool | Spec |
 |---|---|
 | **Pen brush** | Current brush, upgraded: pressure-sensitive size/opacity (PointerEvent pressure), hardness option, spacing-based stamping so fast strokes don't gap. |
 | **Blend brush** | Smudge/mix: picks up color under the stamp and mixes it forward along the stroke (Kleki's blend). Strength slider. |
 | **Pixel brush** | Hard 1px–N square stamps, no anti-aliasing, snaps to the pixel grid of the current zoom band — for pixel art. Eraser gets a matching pixel mode. |
-| **Sketchy brush** | (Kleki signature) strokes connect to nearby existing stroke points with faint web lines. |
 | **Eraser** | Opacity + hardness; erases on the active layer only. |
 | **Line / Circle / Rectangle** | Live preview while dragging; Shift/second-finger = constrain (perfect circle/square, 45° lines); filled or outline toggle; obey accuracy fix + tap-to-place. |
 | **Fill** | Flood fill, scoped for an infinite canvas (§6). Tolerance slider + "grow" (expand fill N px under edges, Kleki-style). |
@@ -110,6 +115,8 @@ Flood fill cannot fill unbounded space. Behavior:
 Implemented across `infcanvas-engine/raster/tools/select/text/palette/ui/infcanvas.js`. Where the spec was silent, these cozy defaults were chosen:
 
 - **Pointer regression test** lives at `tests/infcanvas-pointer.html` (standalone page, no framework — open it under `tools/serve.ps1`). Asserts the painted centroid is ≤1px from the tap at zooms 2^-7…2^6.64 and at a 2× CSS/backing-store ratio. The `tests/` folder is excluded from the SW cache.
+- **Zoom independence (CR-12, fixed 2026-06-11):** every edit flows through `RasterDoc.applyWrite()` — content in coarser bands under the edit is *promoted* (moved, pixel-aligned, nearest-neighbour) into the write band, content in finer bands is written directly via a world-space transform, and band-w tiles cover fresh areas with an even-odd clip so nothing double-draws. Regions thereby converge to one native band (the finest ever painted). Rendering far out goes through a lazily built, write-invalidated **mip chain** (`mipTile` + per-band occupancy index) instead of the old skip-the-band guard; each mip level draws its sources twice so the 2× minification fade cancels and distant work simplifies to firm specks instead of vanishing. Live strokes draw to a screen-space overlay and replay through the write path on pointer-up. Permanent tests: `tests/infcanvas-zoom.html`.
+- **Stroke commits (CR-13, fixed 2026-06-11):** brush strokes (pen, pixel, blend, eraser) no longer replay dab-by-dab through `applyWrite` — `infcanvas-commit.js · commitStroke()` renders the recorded points into one **stroke buffer at full alpha** (world-space, at the stroke's zoom band, capped at 4096px — coarsened with a soft "saved at view resolution" toast if a mid-stroke zoom outgrew it) and composites it **once at the stroke's opacity** (eraser: one destination-out pass; eraser stamps are full-alpha masks — pressure shapes size only). The live overlay stamps full alpha too and is drawn at the stroke's opacity, so preview == result. Costs scale with screen pixels: `writeBand` iterates a band's *real* tiles instead of the rect's tile range (the CR-13a freeze), an 8×8 alpha probe skips uncovered tiles (probe source rects must be clamped to the buffer — out-of-range `drawImage` silently draws nothing), fine-band work is capped at 512 tiles/commit and chunked across frames behind the held overlay, and a full-cover erase of a finer tile becomes a **deletion whose undo snapshot is its stored blob** (no decode, no pixel copies — `swap()` re-decodes lazily). Hard memory rails: resident decoded tiles are an LRU cache (device-scaled, ~`deviceMemory×64` tiles) evicted after flush, and history is byte-budgeted (~`deviceMemory×16` MB) on top of the 50-step cap; any commit failure restores every touched tile and aborts clean. The blend brush rides the same buffer: its color carry is recorded per point during the preview (sampling committed pixels) and replayed deterministically. The small Canvas widget got the same 13b fix (segments stamp a scratch buffer at full alpha; one composite per stroke). Permanent tests: `tests/infcanvas-perf.html`.
 - **Layer delete is undoable** by being meta-only: tiles stay put and are vacuumed on the *next* document open, when no history step can resurrect them. Same vacuum removes orphaned text boxes.
 - **Merge down** composites the upper layer's tiles per zoom band into the lower layer (opacity + blend applied per-tile against that band's content — an approximation of full-stack compositing that keeps the infinite model). Text boxes on the merged layer are *not* rasterized; they move to the surviving layer as part of the same undo step (merging never bakes text).
 - **Selection** lift → transform → drop batches into **one** history step; undoing while a selection floats commits then undoes, which reads as "cancel the move". After a transform, the mask polygon is the transformed outline (exact for lassos too).

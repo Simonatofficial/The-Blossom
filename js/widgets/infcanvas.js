@@ -12,7 +12,8 @@ import { icon } from '../ui/icons.js';
 import { el, toast, popMenu, promptText } from '../ui/components.js';
 import { objectsOf, createObject, todayStr } from './base.js';
 import { InfiniteSurface, SECTOR, shapePts } from './infcanvas-engine.js';
-import { RasterDoc, RTILE, hexA } from './infcanvas-raster.js';
+import { RasterDoc, RTILE, hexA, advanceMix } from './infcanvas-raster.js';
+import { commitStroke } from './infcanvas-commit.js';
 import { buildToolbar, openLayerPanel } from './infcanvas-ui.js';
 import { openColorPanel } from './infcanvas-palette.js';
 import { floodFill, commitGradient, gradientStyle } from './infcanvas-tools.js';
@@ -20,7 +21,7 @@ import { SelectTool } from './infcanvas-select.js';
 import { TextLayer } from './infcanvas-text.js';
 
 const docs = new Map(); // widgetId -> {doc, hooks} (history survives view close)
-const BRUSHES = ['pen', 'sketchy', 'blend', 'pixel', 'eraser'];
+const BRUSHES = ['pen', 'blend', 'pixel', 'eraser'];
 let toolbarHidden = false; // remembered per session (docs/12 §1)
 
 function openDoc(widget) {
@@ -168,6 +169,7 @@ registry.register({
     doc.batch = null;
     doc.mask = null;
     const state = widget.config.brush = { ...BRUSH_DEFAULTS, ...(widget.config.brush || {}) };
+    if (state.tool === 'sketchy') state.tool = 'pen'; // brush retired (CR-13c)
     const cfg = widget.config;
 
     const wrap = el('<div class="ic-wrap"></div>');
@@ -199,52 +201,49 @@ registry.register({
     };
 
     const effSize = () => state.screenScaled ? state.size / surf.scale() : state.size;
-    let chase = null, lastDab = null, shape = null, grad = null, pickRing = null, exporting = false;
-    let live = null; // in-progress stroke: screen overlay only, tiles on up (CR-12 §4)
-    const sketchPts = [];
+    let chase = null, shape = null, grad = null, pickRing = null, exporting = false;
+    let live = null;       // in-progress stroke: screen overlay only (CR-12 §4)
+    let committing = null; // stroke mid-commit: overlay stays up, input waits (CR-13a)
     let downPt = null;
 
-    const invalidateSeg = (x0, y0, x1, y1) => {
-      const p = (state.tool === 'sketchy' ? effSize() * 10 : effSize()) + 2 / surf.scale();
-      surf.invalidate({ x0: Math.min(x0, x1) - p, y0: Math.min(y0, y1) - p, x1: Math.max(x0, x1) + p, y1: Math.max(y0, y1) + p });
-    };
-
-    /* ---------- live stroke (CR-12 §4): the in-progress stroke draws to a
-       screen-space canvas — no tile round-trips mid-stroke — and replays
-       through the real write path on pointer-up ---------- */
+    /* ---------- live stroke: the in-progress stroke stamps a screen-space
+       canvas at FULL alpha; the overlay is drawn at the stroke's opacity and
+       pointer-up composites the whole stroke onto the layer once (CR-13b) */
 
     const brushSession = () => ({
-      tool: state.tool, color: state.color,
-      size: state.tool === 'sketchy' ? Math.max(0.6 / surf.scale(), effSize() * 0.3) : effSize(),
-      opacity: state.opacity, hardness: state.tool === 'sketchy' ? 0.95 : state.hardness,
-      strength: state.strength, band: surf.band(), pixelErase: state.eraserPixel
+      tool: state.tool, color: state.color, size: effSize(),
+      opacity: state.opacity, hardness: state.hardness,
+      strength: state.strength, band: surf.band(), pixelErase: state.eraserPixel,
+      mask: doc.mask, layerId: doc.active().id
     });
 
     function startLive(wx, wy, p) {
       const c = document.createElement('canvas');
       c.width = canvas.width;
       c.height = canvas.height;
-      live = { canvas: c, g: c.getContext('2d'), s: brushSession(), pts: [], webs: [], last: null, carry: 0 };
+      live = { canvas: c, g: c.getContext('2d'), s: brushSession(), pts: [], last: null, carry: 0, mix: null };
       livePoint(wx, wy, p);
     }
 
-    function liveDab(wx, wy, p) {
+    function liveDab(wx, wy, p, mix) {
       const { g, s } = live;
       const [sx, sy] = surf.toScreen(wx, wy);
       const wr = Math.max(0.5 / Math.pow(2, s.band), s.size / 2 * (s.tool === 'pixel' ? 1 : 0.35 + p));
       const r = Math.max(0.4, wr * surf.scale());
       g.save();
       if (s.tool === 'pixel' || (s.tool === 'eraser' && s.pixelErase)) {
-        g.globalAlpha = s.opacity;
         g.fillStyle = s.tool === 'eraser' ? '#000' : s.color;
         g.fillRect(Math.round(sx - r), Math.round(sy - r), Math.max(1, Math.round(r * 2)), Math.max(1, Math.round(r * 2)));
       } else {
-        const col = s.tool === 'eraser' ? '#000000' : s.color;
-        g.globalAlpha = s.tool === 'eraser' ? s.opacity : s.opacity * (0.5 + p * 0.5);
+        const col = s.tool === 'blend' && mix
+          ? `rgb(${mix[0] | 0},${mix[1] | 0},${mix[2] | 0})`
+          : (s.tool === 'eraser' ? '#000000' : s.color);
+        // eraser masks at full alpha (pressure shapes size only, like commit)
+        g.globalAlpha = s.tool === 'blend' ? 0.35 : (s.tool === 'eraser' ? 1 : 0.5 + p * 0.5);
         const grad2 = g.createRadialGradient(sx, sy, 0, sx, sy, r);
         grad2.addColorStop(0, col);
-        grad2.addColorStop(Math.min(0.99, s.hardness), col);
-        grad2.addColorStop(1, hexA(col, 0));
+        grad2.addColorStop(Math.min(0.99, s.tool === 'blend' ? 0.1 : s.hardness), col);
+        grad2.addColorStop(1, hexA(col.startsWith('#') ? col : s.color, 0));
         g.fillStyle = grad2;
         g.beginPath();
         g.arc(sx, sy, r, 0, Math.PI * 2);
@@ -253,12 +252,18 @@ registry.register({
       g.restore();
     }
 
-    /** Spacing-stamped preview point — mirrors RasterDoc.stamp's walk. */
-    function livePoint(wx, wy, p, skipWebs = false) {
-      live.pts.push([wx, wy, p]);
+    /** Spacing-stamped preview point — mirrors the commit's walk. */
+    function livePoint(wx, wy, p) {
       const s = live.s;
+      if (s.tool === 'blend') {
+        // carry color forward from what's committed under the dab
+        live.mix = advanceMix(live.mix, doc.sampleColor(s.layerId, wx, wy), s.strength, s.color);
+        live.pts.push([wx, wy, p, live.mix]);
+      } else {
+        live.pts.push([wx, wy, p]);
+      }
       if (!live.last) {
-        liveDab(wx, wy, p);
+        liveDab(wx, wy, p, live.mix);
         live.last = [wx, wy, p];
         return;
       }
@@ -269,35 +274,14 @@ registry.register({
       let pos = spacing - live.carry;
       while (pos <= dist) {
         const t = pos / dist;
-        liveDab(lx + (wx - lx) * t, ly + (wy - ly) * t, lp + (p - lp) * t);
+        liveDab(lx + (wx - lx) * t, ly + (wy - ly) * t, lp + (p - lp) * t, live.mix);
         pos += spacing;
       }
       live.carry = dist - (pos - spacing);
       live.last = [wx, wy, p];
-      if (s.tool === 'sketchy' && !skipWebs) {
-        for (const seg of weaveSegs(wx, wy)) {
-          live.webs.push(seg);
-          drawLiveWeb(seg);
-        }
-      }
     }
 
-    function drawLiveWeb([xa, ya, xb, yb]) {
-      const g = live.g;
-      const [ax, ay] = surf.toScreen(xa, ya);
-      const [bx, by] = surf.toScreen(xb, yb);
-      g.save();
-      g.globalAlpha = 0.12 * state.opacity;
-      g.strokeStyle = live.s.color;
-      g.lineWidth = Math.max(0.4, live.s.size * 0.3 * surf.scale());
-      g.beginPath();
-      g.moveTo(ax, ay);
-      g.lineTo(bx, by);
-      g.stroke();
-      g.restore();
-    }
-
-    /** Wheel-zoom mid-stroke: re-project the preview (webs keep their dice). */
+    /** Wheel-zoom mid-stroke: re-project the preview. */
     function rebuildLive() {
       if (!live) return;
       live.g.clearRect(0, 0, live.canvas.width, live.canvas.height);
@@ -305,22 +289,23 @@ registry.register({
       live.pts = [];
       live.last = null;
       live.carry = 0;
-      for (const [wx, wy, p] of pts) livePoint(wx, wy, p, true);
-      for (const seg of live.webs) drawLiveWeb(seg);
+      live.mix = null;
+      for (const [wx, wy, p] of pts) livePoint(wx, wy, p);
     }
 
-    /** Pointer-up: replay the recorded points through the shared write path. */
-    function commitLive() {
+    /** Pointer-up: composite the whole stroke onto the layer in one pass
+        (CR-13). The overlay keeps covering until the commit lands. */
+    async function commitLive() {
       const lv = live;
       live = null;
       if (!lv || !lv.pts.length) return;
-      doc.begin(lv.s);
-      for (const [wx, wy, p] of lv.pts) doc.stamp(wx, wy, p);
-      for (const [xa, ya, xb, yb] of lv.webs) {
-        doc.seg(xa, ya, xb, yb, Math.max(0.4 / surf.scale(), effSize() * 0.1), 0.12 * lv.s.opacity);
+      committing = lv;
+      const res = await commitStroke(doc, lv.s, lv.pts);
+      committing = null;
+      if (res) {
+        surf.invalidate(res.bbox);
+        if (res.degraded) toast('Big stroke — saved at view resolution.', 'info');
       }
-      const bbox = doc.end();
-      if (bbox) surf.invalidate(bbox);
       surf.render();
       doc.flush();
       toolbar.refresh();
@@ -362,6 +347,7 @@ registry.register({
       },
 
       toolDown: (wx, wy, p, e) => {
+        if (committing) return; // last stroke still landing (CR-13a) — a beat
         const [px, py] = surf.screenPt(e);
         downPt = [px, py];
         if (state.tool === 'shape') { shape = { kind: state.shape, a: [wx, wy], b: [wx, wy] }; return; }
@@ -370,15 +356,7 @@ registry.register({
         if (state.tool === 'eyedropper') { applyPick(px, py, wx, wy); return; }
         if (state.tool === 'fill' || state.tool === 'text') return; // act on the tap (up)
         chase = [wx, wy];
-        lastDab = [wx, wy];
-        if (state.tool === 'blend') {
-          // blend samples committed pixels as it goes — it writes tiles live
-          doc.begin(brushSession());
-          doc.stamp(wx, wy, p);
-          invalidateSeg(wx, wy, wx, wy);
-        } else {
-          startLive(wx, wy, p); // a tap paints a dab (docs/12 §2) — preview now, tiles on up
-        }
+        startLive(wx, wy, p); // a tap paints a dab (docs/12 §2) — preview now, tiles on up
         surf.render();
       },
 
@@ -391,17 +369,11 @@ registry.register({
         if (grad) { grad.b = [wx, wy]; surf.render(); return; }
         if (state.tool === 'select') { sel.move(wx, wy); surf.render(); return; }
         if (state.tool === 'eyedropper') { const [px, py] = surf.screenPt(e); applyPick(px, py, wx, wy); return; }
-        if (!chase) return;
+        if (!chase || !live) return;
         const k = [1, 0.45, 0.3, 0.2, 0.14, 0.09][state.stabilizer] ?? 1; // pull-string stabilizer (§3a)
         chase[0] += (wx - chase[0]) * k;
         chase[1] += (wy - chase[1]) * k;
-        if (live) {
-          livePoint(chase[0], chase[1], p);
-        } else {
-          doc.stamp(chase[0], chase[1], p); // blend's direct path
-          invalidateSeg(lastDab[0], lastDab[1], chase[0], chase[1]);
-        }
-        lastDab = [...chase];
+        livePoint(chase[0], chase[1], p);
         surf.render();
       },
 
@@ -433,22 +405,13 @@ registry.register({
         }
         if (!chase) return;
         chase = null;
-        if (live) {
-          commitLive(); // the recorded stroke replays through the write path
-          return;
-        }
-        const bbox = doc.end();
-        if (bbox) { surf.invalidate(bbox); surf.render(); }
-        doc.flush();
-        toolbar.refresh();
+        commitLive(); // one compositing pass onto the layer (CR-13)
       },
 
       toolCancel: () => {
         shape = null;
         grad = null;
-        if (live) { live = null; surf.render(); return; } // preview only — nothing to restore
-        const bbox = doc.cancel();
-        if (bbox) { surf.invalidate(bbox); surf.render(); }
+        if (live) { live = null; surf.render(); } // preview only — nothing to restore
       },
       secondFinger: () => {
         if (!shape) return false;
@@ -460,8 +423,6 @@ registry.register({
       longPress: (wx, wy, px, py) => {
         if (!BRUSHES.includes(state.tool)) return false;
         if (live) live = null; // discard the preview
-        const bbox = doc.cancel(); // blend's direct path, if any
-        if (bbox) surf.invalidate(bbox);
         chase = null;
         surf.render();
         applyPick(px, py, wx, wy);
@@ -472,10 +433,14 @@ registry.register({
 
       drawOverlay: (g) => {
         if (exporting) return;
-        if (live) {
+        const lv = live || committing; // overlay covers until the commit lands
+        if (lv) {
+          // stamps are full alpha; the stroke's opacity applies exactly once
+          // here and once at commit — never per stamp (CR-13b)
           g.save();
-          if (live.s.tool === 'eraser') g.globalCompositeOperation = 'destination-out';
-          g.drawImage(live.canvas, 0, 0);
+          g.globalAlpha = lv.s.opacity;
+          if (lv.s.tool === 'eraser') g.globalCompositeOperation = 'destination-out';
+          g.drawImage(lv.canvas, 0, 0);
           g.restore();
         }
         if (grad) {
@@ -508,25 +473,6 @@ registry.register({
         name === 'undo' ? doUndo() : doRedo();
       }
     }, { ...widget.config.view });
-
-    /* ---------- sketchy webs: faint threads to nearby stroke points.
-       The dice roll once (during preview); the commit replays the same segs. */
-    function weaveSegs(wx, wy) {
-      const R = effSize() * 10;
-      const segs = [];
-      let linked = 0;
-      for (let i = sketchPts.length - 1; i >= 0 && linked < 3; i -= 2) {
-        const q = sketchPts[i];
-        const d = Math.hypot(q[0] - wx, q[1] - wy);
-        if (d < R && d > effSize() * 1.5 && Math.random() < (state.strength ?? 0.5) * 0.5) {
-          segs.push([wx, wy, q[0], q[1]]);
-          linked++;
-        }
-      }
-      sketchPts.push([wx, wy]);
-      if (sketchPts.length > 800) sketchPts.splice(0, 100);
-      return segs;
-    }
 
     /* ---------- shapes (line / rect / ellipse, outline or filled) ---------- */
     function constrain(sh, b, lock) {
@@ -623,8 +569,8 @@ registry.register({
       doc.flush();
       toolbar.refresh();
     };
-    const doUndo = () => { if (sel.float) sel.commit(); if (doc.undo()) afterHistory(); };
-    const doRedo = () => { if (doc.redo()) afterHistory(); };
+    const doUndo = () => { if (committing) return; if (sel.float) sel.commit(); if (doc.undo()) afterHistory(); };
+    const doRedo = () => { if (committing) return; if (doc.redo()) afterHistory(); };
 
     entry.hooks.decoded = () => { surf.invalidate(); surf.render(); };
     entry.hooks.meta = () => toolbar.refresh();
@@ -687,6 +633,12 @@ registry.register({
         active: () => sel.active(),
         hasClipboard: () => sel.hasClipboard(),
         copy: () => { sel.copy(); toast('Selection copied', 'copy'); },
+        saveStamp: async () => {
+          const snap = sel.snapshot();
+          if (!snap) return;
+          const { toStampDataUrl, promptNewStamp } = await import('./wb-stamps.js');
+          promptNewStamp({ img: toStampDataUrl(snap.canvas, snap.canvas.width, snap.canvas.height), suggestedName: widget.name });
+        },
         paste: () => { sel.paste(); surf.render(); },
         duplicate: () => { sel.duplicate(); surf.render(); },
         flip: (ax) => { sel.flip(ax); surf.render(); },

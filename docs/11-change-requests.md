@@ -91,7 +91,8 @@ Four issues, all in the signature graph (spec updated in docs/05):
 
 ---
 
-## CR-7 — Multiple particle presets at once (particle layers) · `fx/particles.js`, `fx/themes.js`, `ui/settings.js`
+## CR-7 — Multiple particle presets at once (particle layers) · `fx/particles.js`, `fx/themes.js`, `ui/settings.js` · ✅ 2026-06-11
+*(Build note: layer reorder uses up/down chevrons instead of drag — calmer at a 3-item max; decision recorded in docs/03. Pointer FX stays single-layer — background layers were the priority.)*
 
 **Problem:** a theme can only run one background particle preset at a time. The user wants to combine them (e.g. cherry blossoms + wind streaks, stars + comets).
 
@@ -144,8 +145,111 @@ Four issues, all in the signature graph (spec updated in docs/05):
 
 ---
 
+## CR-11 — Surface taxonomy: Pages vs Panels vs Popovers · `core/router.js`, `ui/components.js`, app-wide audit · ✅ 2026-06-11
+*(Build notes: widget views render as `.routed-page` inside the page host — the CR-1 setting no longer touches them; the Canvas focus page is the `/w/<id>/f` route with browser fullscreen as a secondary control inside it; `openPopover(anchor, opts)` landed in ui/components.js and the canvas color panel uses it; panels are one-at-a-time globally — a second open replaces the first, including nested prompt/picker flows.)*
+
+**Problem:** the app blurs panels and pages. Opening a Notes widget overlays a panel instead of taking you to a real page; the Infinite Canvas "fullscreen" fullscreens the whole app instead of opening a bigger-canvas page; small utilities (brush color) open heavyweight overlays. We need one clear rule for how every feature opens.
+
+**The taxonomy — three surface classes, three APIs, no exceptions:**
+
+| Class | What it's for | How it opens | API |
+|---|---|---|---|
+| **Page** | Content the user works *in*: every widget's internal view (Notes, Journal, Skill, Canvas…), module pages, the Canvas focus view | **Real navigation.** Router pushes a route; previous content fully unmounts; header gets a back arrow; browser/hardware back works; refresh/deep-link lands correctly. Fills the app area. Never an overlay. | `navigate(route)` |
+| **Panel** | App/meta surfaces and pickers: settings menu, theme editor, link picker, module switcher, widget gallery, Blossom-code dialogs, layer panel | **Pop-up overlay** sliding from left / right / bottom / full-page — this is where the CR-1 "Open panels as" setting applies (it governs *panels only*, not pages). Scrim behind; scrim-tap/swipe to dismiss; one panel at a time (a second replaces the first). | `openPanel(content, opts)` |
+| **Popover** | Quick mid-task utilities: brush color & tool options in Canvas, overflow (···) menus, emoji/icon quick pick, sort/filter controls | **Small anchored menu** popping from the control that opened it. Compact (≤320px), never covers the work area's center, dismisses on tap-outside or selection. No scrim, no route change. | `openPopover(anchor, content)` (new) |
+
+**Decision rule for everything future:** *Do you go somewhere to work in it? → Page. Are you configuring or picking something app-level? → Panel. Are you adjusting something mid-task without leaving? → Popover.* Add this table to docs/03 (done) and follow it for all Phase 7+ modules.
+
+**Required reclassifications (audit and migrate):**
+- All widget internal views: panel → **Page** (this supersedes CR-8's "routed view in panel placements" — widget views no longer respect the panel-placement setting; they are always pages. CR-8's replace-not-stack, transparent-background, and CR-9 theming rules still apply to these pages).
+- Infinite Canvas fullscreen (docs/12 §1): instead of the Fullscreen API on the app, the button navigates to a **Canvas focus page** — same document, all Blossom chrome hidden, toolbar with its hide/reveal tab, back arrow exits. (Optional browser fullscreen remains as a *secondary* control inside the focus page for users who want it.)
+- Canvas color/tool/brush options: panel → **Popover** (anchored flyouts per docs/12 §9).
+- Settings, pickers, galleries, editors: stay **Panels** under the CR-1 setting.
+- Confirm dialogs: unchanged (small centered dialog).
+
+**Accept when:** opening a Notes widget changes the route and back returns to the page with nothing stacked; the panel-placement setting visibly affects settings/pickers but *not* widget opening; the Canvas focus page gives a bigger canvas without OS fullscreen; picking a brush color never spawns a panel; every surface in the app is traceable to exactly one of the three APIs.
+
+---
+
+## CR-12 — Canvas zoom regression: drawing/erasing must be zoom-independent again · `canvas-core.js`, tile pyramid (BUG — fix before continuing CR-10) · ✅ 2026-06-11
+*(Fixed in the raster model — no vector fallback needed. Tests: `tests/infcanvas-zoom.html` (§5 cases, permanent) + `tests/infcanvas-pointer.html` both pass; implementation notes in docs/12 build decisions.)*
+
+**Problem:** the original (vector) canvas was fully zoom-independent — draw at any zoom, it rendered properly, and anything could be erased from anywhere. Since the raster-tile migration (docs/12 §0): strokes render weird while drawing, drawings **disappear when zoomed far out**, and the **eraser only works at the zoom level the stroke was drawn at**. This is a regression in the new architecture, not polish.
+
+**Root cause to verify:** content is being rasterized into tiles *of the zoom band it was painted in*, and (a) the pyramid above/below those bands is missing or stale, so other zooms render nothing or garbage; (b) the eraser writes only to the *current* band's tiles, so it misses content stored in other bands.
+
+**Required behavior (the invariant):** *a layer is one logical image; the zoom level is only a camera.* Every read (render) and every write (paint, erase, fill, gradient, select-transform) must hit the same logical content no matter the current zoom.
+
+**Fix spec:**
+1. **Single write path through the pyramid.** An edit at any zoom writes to the content's native-resolution tiles (the band where that region's detail lives), then propagates: downsample up the pyramid (for zoomed-out views) and mark finer/coarser levels dirty for lazy rebuild. The eraser is the same brush pipeline with destination-out compositing — by going through the shared write path it automatically erases content from any band at any zoom.
+2. **Cross-band erase/paint:** when the brush footprint at the current zoom covers regions whose native tiles live in *other* bands (drawn while zoomed differently), the operation must resample and apply to those tiles too. Practical approach: per region keep **one** native band (the finest ever painted there); coarser strokes over it resample down into that band rather than creating a parallel band.
+3. **Never disappear.** Zoomed far out, content renders from pyramid levels — below 0.5px on screen it may simplify to downsampled pixels/dots, but it must never cull to nothing. Zoomed far in, native tiles upscale (smoothing per brush type; pixel-brush tiles stay crisp/nearest-neighbor).
+4. **Live stroke rendering:** the in-progress stroke draws directly to the screen layer (no tile round-trip mid-stroke) and commits to tiles on pointer-up — this should remove the "renders all weird while drawing" artifacts.
+5. **Regression tests (required, keep permanently):** draw at zoom ×1 → erase at ×0.1 and ×10 → assert pixels gone; draw at ×1 → zoom to ×0.001 → assert non-empty render; draw at ×100 → zoom to ×1 → assert visible and correctly placed; rapid zoom while drawing → no artifacts.
+6. If after honest assessment the raster pyramid can't meet the invariant within the performance budget, **fall back to the original vector model as the source of truth** (it already worked) and treat raster tiles purely as a render/effects cache — fill/blend rasterize *regions*, not the whole document. The user's experience is the requirement; the architecture serves it.
+
+**Accept when:** all §5 tests pass and a user can draw at any zoom, see it from any zoom, and erase it from any zoom — exactly like the original engine — with blend/fill/layers still working.
+
+---
+
+## CR-13 — Canvas: zoomed-out drawing lags then crashes + low-opacity strokes look like circle trails + remove Sketchy brush · `canvas-core.js` (BUG — fix immediately) · ✅ 2026-06-11
+*(Build notes: root cause verified — per-dab `applyWrite` iterated the brush rect's tile range at finer-band resolution (billions of loop steps at low zoom) and allocated/decoded a canvas per existing fine tile. Fixed by the whole-stroke buffer commit in `infcanvas-commit.js` — full spec of the shipped pipeline in docs/12 build decisions. The stroke buffer fixes 13b for pen/pixel/blend/eraser in the Infinite Canvas AND the small Canvas widget. Tests: `tests/infcanvas-perf.html` (permanent) — ×0.001 screen-wide stroke commits in ~20ms with 10 tiles; CR-12 zoom + pointer suites still pass.)*
+
+### 13a. Drawing while zoomed out becomes incredibly laggy and crashes the system
+
+**Symptom:** at low zoom, strokes stutter, then the whole app (sometimes the device/browser) locks up and crashes.
+
+**Likely cause (verify first):** a world-scaled brush at low zoom covers an enormous world area; the CR-12 write path then rasterizes/resamples into native-resolution (fine-band) tiles across that whole footprint — unbounded tile allocation, unbounded memory.
+
+**Fix requirements:**
+1. **Cost must scale with screen pixels, not world area.** A stroke is rasterized at the band matching the *current* zoom (the resolution at which the user can actually see it). It must never allocate or rewrite tiles at bands finer than the current view — finer bands get the result via the pyramid (mark dirty, regenerate lazily *when zoomed in*, not eagerly).
+2. **Hard budgets, graceful degradation, never a crash:** cap tiles touched per stroke commit (e.g. 512) and total resident tile memory (device-scaled, e.g. 256MB); commits are chunked across frames (async, with the live-stroke overlay covering until done); if a single operation would exceed budget, complete it at a coarser band and toast softly ("Big stroke — saved at view resolution"). An allocation failure must abort the operation cleanly with state intact, never take down the app.
+3. **Profile then test:** add a perf regression test — full-screen-width stroke at zoom ×0.001 commits in <100ms and bounded memory; pan/zoom immediately after stays at 60fps.
+
+### 13b. Low-opacity strokes render as a trail of overlapping circles
+
+**Symptom:** semi-transparent lines look like strings of stamped circles, not smooth lines.
+
+**Cause:** each brush stamp is composited onto the layer individually, so overlapping stamps multiply opacity. **Fix (the standard Kleki/Procreate approach):** render the entire in-progress stroke into an offscreen **stroke buffer** at full alpha, then composite the buffer onto the layer **once, at the stroke's opacity**, on pointer-up. Stamps overlapping *within* one stroke never darken each other; two separate strokes still build up as expected. Applies to pen, pixel, blend, and eraser (eraser: buffer as a mask, applied destination-out once).
+
+### 13c. Remove the Sketchy brush
+
+Delete the Sketchy brush entirely — tool button, options, renderer, registry entry, and its row in docs/12 §3 (already removed). No data migration needed (existing sketchy marks are already flattened pixels; they stay as-is).
+
+**Accept when:** a huge zoomed-out scribble commits smoothly with stable memory; a 30%-opacity stroke is a uniform smooth line at every zoom; Sketchy is gone from the toolbar; all CR-12 zoom-independence tests still pass.
+
+---
+
+## CR-14 — World Builder Atlas & stamps: custom brushes, text boxes, pointer tool, editable POIs · `WorldMap`, stamp library (FEATURE — fold into the in-progress Atlas build) · ✅ 2026-06-11
+*(Build notes: shipped with the Atlas. `wb-stamps.js` = the library (records in the themes store as data-URL PNGs → Blossom codes work via the existing `thm` type), picker popover, manager panel, file import; `worldmap-objects.js` = pointer tool + map text boxes (curve renders plain text along an arc; visibility band in screen px); `worldmap-pins.js` = pin rendering/editor/presets (six varied defaults). "Save as stamp" landed on the Infinite Canvas select tool and the Canvas widget toolbar. Scatter mode rasterizes into the terrain tiles (one undo per drag). Stamps available in Pinboard, CivProfile crests, Character tokens, Timeline event icons, LoreWiki headers. Decisions recorded in docs/08.)*
+
+The Atlas (docs/08 §5) is still being built — make sure it lands **with** these; they are now part of its spec (docs/08 updated to match):
+
+1. **Custom world brushes & structure stamps (imports).** A user stamp library, "My Stamps," fed three ways: **(a)** import an image file (PNG/JPG, transparent PNG respected); **(b)** send a drawing from the small **Canvas widget**; **(c)** send a **selection from the Infinite Canvas** (the CR-10 select tool gets a "Save as stamp" action — also add it to the Canvas widget). Stamps get a name, category (terrain brush / structure / decoration / token), default size, and optional theme-tint toggle. Managed in a Stamps panel: rename, recolor/tint, recategorize, resize default, delete, reorder; exportable/importable as Blossom codes. Custom stamps appear alongside built-ins in the Features stamp tool, and any stamp can also act as a **pattern brush** (scatter mode: density/jitter/rotation sliders) for painting forests, ruins, dune fields, etc.
+2. **Text boxes, same as Infinite Canvas.** The Atlas text/label tool uses the identical rich text-box objects from docs/12 §3 (movable, resizable, re-editable forever, Notes-style formatting), *plus* the map-specific options it already has (curve along a path, zoom-band visibility).
+3. **Pointer (select) tool — the default tool.** A normal mouse/tap mode for *using* the map rather than painting it: hover/tap highlights interactive things (stamps, structures, labels, pins/POIs); tap selects (selection ring + name chip); selected objects get move/scale/rotate handles, an Edit action (opens the right editor for what it is), duplicate, and delete. The map opens in pointer mode; painting tools are opt-in. Esc/tap-empty deselects.
+4. **POIs/pins are fully customizable.** Per-pin: **color** (palette + wheel), **symbol** (the SVG icon set, an emoji, *or any stamp from My Stamps*), **size** (S/M/L or numeric), **name + label visibility** (always / on-hover / zoom-band), link target, and notes. Pin styles can be saved as reusable **pin presets** ("Capital city", "Dungeon", "Quest giver"). Default pin set gets several shapes/colors out of the box so they never feel limiting.
+5. **Stamps everywhere in World Builder.** The same My Stamps library is available across the module's widgets: Pinboard cards, CivProfile banners/crests, Character tokens/portrait frames, Timeline event icons, and LoreWiki article headers — one library, one picker component (a Popover, per CR-11).
+
+**Accept when:** an image imported as a stamp can be painted in scatter mode on the map, used as a pin symbol, and placed on a Pinboard card; a Canvas-widget drawing and an Infinite Canvas selection both arrive in My Stamps; the pointer tool selects and edits a stamp, a label, and a pin; a pin's color/symbol/size/name are all editable and savable as a preset; Atlas text is re-editable rich text boxes.
+
+---
+
 ## Order of work
 
 ~~CR-3 → CR-6 → CR-1 → CR-2 → CR-5 → CR-4~~ ✅ all complete 2026-06-10.
 
-**Round 2:** ~~CR-10~~ ✅ 2026-06-11 (canvas overhaul shipped in one release — accuracy fix, raster layers, redo, all Kleki tools; see docs/12 build notes). Remaining: CR-8 first (routing rework — CR-9 depends on its view container, and it touches every surface) → CR-9 (scoped theming into views) → CR-7 (particle layers; independent, do anytime). Then resume the Phase 7 sequence in docs/10 (next up: World Builder — its WorldMap builds on the canvas engine, whose CR-10 architecture is now in place → D&D Character → D&D DM). Mark each CR done here (`✅ + date`) when its acceptance criteria pass on a 360px viewport and desktop.
+**Round 2:** ~~CR-10~~ ✅ 2026-06-11 (canvas overhaul shipped in one release — accuracy fix, raster layers, redo, all Kleki tools; see docs/12 build notes). Remaining: CR-8 first (routing rework — CR-9 depends on its view container, and it touches every surface) → CR-9 (scoped theming into views) → CR-7 (particle layers; independent, do anytime).
+
+**Round 3 (current priority):**
+1. ~~CR-12~~ ✅ 2026-06-11 — zoom independence restored via cross-band write path + mip-chain rendering + live-stroke overlay; all §5 tests pass.
+2. ~~CR-11~~ ✅ 2026-06-11 — surface taxonomy implemented (widget views are true Pages; focus page route; popovers; one panel at a time).
+3. ~~CR-7~~ ✅ 2026-06-11 (particle layers shipped).
+4. Then resume Phase 7 (World Builder → D&D Character → D&D DM).
+
+**Round 4 (current priority):**
+1. ~~CR-13~~ ✅ 2026-06-11 — stroke-buffer commit pipeline; budgets + chunking; Sketchy removed; perf tests permanent.
+2. ~~CR-14~~ ✅ 2026-06-11 — shipped with the World Builder module (stamps library + pointer tool + editable pins + rich text labels + save-as-stamp hooks).
+3. Then continue Phase 7 (D&D Character → D&D DM).
+
+Mark each CR done here (`✅ + date`) when its acceptance criteria pass on a 360px viewport and desktop.

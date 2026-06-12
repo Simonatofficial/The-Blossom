@@ -8,6 +8,7 @@ import { icon } from '../ui/icons.js';
 import { el, toast, confirmDialog, input, popMenu } from '../ui/components.js';
 import { objectsOf, createObject, saveObject, fmtDate, todayStr } from './base.js';
 import { watchWikilinks, wireWikilinks, linkedRefs, openEntryPicker, openEntry, onWbOpen } from './wb-shared.js';
+import { getStamp, openStampPicker } from './wb-stamps.js';
 
 const DEFAULT_CATS = ['History', 'Religion', 'Magic', 'Cultures', 'Creatures', 'Items', 'Languages', 'Cosmology', 'Places'];
 
@@ -142,6 +143,14 @@ registry.register({
       titleIn.value = a.data.title;
       titleIn.onchange = () => { a.data.title = titleIn.value.trim() || 'Untitled'; commit(); };
       head.querySelector('[title="More"]').onclick = (e) => popMenu(e.currentTarget, [
+        { label: 'Header from My Stamps', iconName: 'sparkles', fn: () => {
+          openStampPicker(head.querySelector('[title="More"]'), { title: 'Article header', onPick: (s) => {
+            a.data.stampId = s.id;
+            commit();
+            renderHeader();
+          } });
+        } },
+        ...(a.data.stampId ? [{ label: 'Remove header', iconName: 'x', fn: () => { delete a.data.stampId; commit(); renderHeader(); } }] : []),
         { label: 'Delete article', iconName: 'trash', danger: true, fn: async () => {
           if (await confirmDialog({ title: `Delete “${a.data.title}”?`, message: 'It rests in the trash for 30 days.' })) {
             store.trash('objects', a.id);
@@ -151,6 +160,18 @@ registry.register({
         } }
       ]);
       wrap.appendChild(head);
+      const headerEl = el('<div style="text-align:center"></div>');
+      const renderHeader = () => {
+        const s = a.data.stampId && getStamp(a.data.stampId);
+        headerEl.innerHTML = '';
+        if (s) {
+          const im = el('<img alt="" style="max-height:90px;max-width:60%;margin-bottom:8px">');
+          im.src = s.img;
+          headerEl.appendChild(im);
+        }
+      };
+      renderHeader();
+      wrap.appendChild(headerEl);
 
       const meta = el('<div class="row" style="gap:6px;margin-bottom:10px;flex-wrap:wrap"><select class="select" style="width:auto;padding:5px 9px;font-size:0.82rem"></select><input class="input grow" placeholder="tags, comma separated" style="padding:5px 9px;font-size:0.82rem"></div>');
       const [catSel, tagsIn] = meta.children;

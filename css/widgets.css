@@ -541,6 +541,9 @@
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; backdrop-filter: blur(10px); pointer-events: auto;
 }
+/* WorldMap pointer-tool action bar (CR-14): name chip + edit/duplicate/delete */
+.wm-actionbar { align-items: center; }
+.wm-actionbar .chip { margin-right: 4px; }
 
 @media (max-width: 600px) {
   .ic-wrap { flex-direction: column-reverse; }

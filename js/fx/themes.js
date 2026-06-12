@@ -21,9 +21,11 @@ export function getTheme(id) {
   return PRESET_THEMES.find(t => t.id === id) || store.get('themes', id) || null;
 }
 
-/** @returns {object[]} all themes (presets + custom; particle/palette records excluded). */
+/** @returns {object[]} all themes (presets + custom; particle/palette/stamp/
+    pin-preset records share the store but are not themes). */
 export function allThemes() {
-  return [...PRESET_THEMES, ...store.all('themes').filter(t => t.type !== 'particle' && t.type !== 'palette')];
+  const NOT_THEMES = ['particle', 'palette', 'stamp', 'pinpreset'];
+  return [...PRESET_THEMES, ...store.all('themes').filter(t => !NOT_THEMES.includes(t.type))];
 }
 
 /** Map a theme's colors to { cssVar: value } pairs. */

@@ -59,6 +59,7 @@ self.SW_ASSETS = [
   './js/widgets/habit.js',
   './js/widgets/health.js',
   './js/widgets/infcanvas.js',
+  './js/widgets/infcanvas-commit.js',
   './js/widgets/infcanvas-engine.js',
   './js/widgets/infcanvas-palette.js',
   './js/widgets/infcanvas-raster.js',
@@ -84,8 +85,11 @@ self.SW_ASSETS = [
   './js/widgets/time.js',
   './js/widgets/tracker.js',
   './js/widgets/wb-shared.js',
+  './js/widgets/wb-stamps.js',
   './js/widgets/worldchars.js',
   './js/widgets/worldmap.js',
+  './js/widgets/worldmap-objects.js',
+  './js/widgets/worldmap-pins.js',
   './js/widgets/wtimeline.js',
   './manifest.webmanifest'
 ];

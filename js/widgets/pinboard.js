@@ -10,6 +10,7 @@ import { el, toast, popMenu } from '../ui/components.js';
 import { objectsOf, createObject, saveObject } from './base.js';
 import { InfiniteSurface } from './infcanvas-engine.js';
 import { openEntryPicker, openEntry, resolveEntry } from './wb-shared.js';
+import { getStamp, openStampPicker } from './wb-stamps.js';
 
 const COLORS = ['rgba(216,105,127,0.16)', 'rgba(224,162,60,0.16)', 'rgba(127,174,127,0.16)', 'rgba(95,143,192,0.16)', 'rgba(154,127,209,0.16)'];
 
@@ -114,6 +115,13 @@ registry.register({
         const entry = resolveEntry(o.data.ref);
         content.innerHTML = `${icon(entry?.iconName || 'link', 14)} <b></b>`;
         content.querySelector('b').textContent = entry?.label || '(missing)';
+      } else if (o.data.kind === 'stamp') {
+        const s = getStamp(o.data.stampId);
+        if (s) {
+          content.innerHTML = '<img alt="" style="width:100%;display:block">';
+          content.querySelector('img').src = s.img;
+          card.style.background = 'transparent';
+        } else content.textContent = '(stamp removed)';
       } else {
         content.innerHTML = o.data.html || '';
       }
@@ -157,7 +165,7 @@ registry.register({
           const now = performance.now();
           if (now - lastTap < 420) {
             if (o.data.kind === 'link') openEntry(o.data.ref, ctx);
-            else startEdit();
+            else if (o.data.kind !== 'stamp') startEdit();
           } else if (ev.button === 2 || ev.ctrlKey) {
             cardMenu(ev);
           }
@@ -169,7 +177,11 @@ registry.register({
       card.addEventListener('contextmenu', (e) => { e.preventDefault(); cardMenu(e); });
 
       const cardMenu = (e) => popMenu({ getBoundingClientRect: () => ({ left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY, width: 0, height: 0 }) }, [
-        ...(o.data.kind !== 'link' ? [{ label: 'Edit', iconName: 'edit', fn: startEdit }] : [{ label: 'Open', iconName: 'arrow-right', fn: () => openEntry(o.data.ref, ctx) }]),
+        ...(o.data.kind === 'link' ? [{ label: 'Open', iconName: 'arrow-right', fn: () => openEntry(o.data.ref, ctx) }]
+          : o.data.kind === 'stamp' ? [
+            { label: 'Bigger', iconName: 'plus', fn: () => { o.data.w *= 1.3; saveObject(o); sync(); } },
+            { label: 'Smaller', iconName: 'minus', fn: () => { o.data.w = Math.max(40, o.data.w / 1.3); saveObject(o); sync(); } }
+          ] : [{ label: 'Edit', iconName: 'edit', fn: startEdit }]),
         { label: 'Recolor', iconName: 'palette', fn: () => {
           o.data.color = COLORS[(COLORS.indexOf(o.data.color || COLORS[0]) + 1) % COLORS.length];
           card.style.background = o.data.color;
@@ -223,11 +235,18 @@ registry.register({
       sync();
       toast('Pinned to the board', 'grid');
     } });
+    const stampBtn = el(`<button class="ic-btn" title="Place a stamp from My Stamps">${icon('sparkles', 16)}</button>`);
+    stampBtn.onclick = (e) => openStampPicker(e.currentTarget, { title: 'Place a stamp', onPick: (s) => {
+      const [wx, wy] = surf.toWorld(canvas.width / 2, canvas.height / 2);
+      const o = createObject(widget.id, 'bcard', { kind: 'stamp', stampId: s.id, x: wx - 60, y: wy - 60, w: 120 });
+      mount(o);
+      sync();
+    } });
     const threadBtn = el(`<button class="ic-btn" title="Thread two cards (tap one, then another)">${icon('link', 16)}${''}</button>`);
     threadBtn.innerHTML = icon('move', 16);
     threadBtn.title = 'Thread cards together';
     threadBtn.onclick = () => setConnect(connectFrom ? null : '*pick*');
-    strip.append(noteBtn, linkBtn, threadBtn);
+    strip.append(noteBtn, linkBtn, stampBtn, threadBtn);
     wrap.prepend(strip);
 
     // connect mode that starts from the button: first tapped card becomes A
