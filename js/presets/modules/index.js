@@ -9,6 +9,7 @@ import { BLOSSOM_PRESET } from './blossom.js';
 import { STUDY_PRESET } from './study.js';
 import { INFCANVAS_PRESET } from './infcanvas.js';
 import { WORLD_PRESET } from './worldbuilder.js';
+import { DND_CHARACTER_PRESET } from './dndcharacter.js';
 import { SMALL_PRESETS } from './small.js';
 
 function todayStr() {
@@ -102,6 +103,7 @@ export const PRESET_MODULES = [
   STUDY_PRESET,
   INFCANVAS_PRESET,
   WORLD_PRESET,
+  DND_CHARACTER_PRESET,
   ...SMALL_PRESETS,
   {
     key: 'starter',

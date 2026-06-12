@@ -614,3 +614,57 @@
 .pb-card.pb-connecting { outline: 2px dashed var(--accent); outline-offset: 2px; }
 .pb-card .pb-content { outline: none; line-height: 1.35; word-wrap: break-word; }
 .pb-link .pb-content { display: flex; align-items: center; gap: 6px; color: var(--accent); }
+
+/* ---- D&D Character (docs/08 §4) ---- */
+.dnd-portrait, .dnd-card-portrait { width: 52px; height: 52px; font-size: 1.3rem; flex-shrink: 0; cursor: pointer; }
+.dnd-card-portrait { width: 40px; height: 40px; font-size: 1rem; cursor: default; }
+.dnd-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+.dnd-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 9px 4px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface-alt); cursor: pointer;
+}
+.dnd-tile.static { cursor: default; }
+.dnd-tile b { font-size: 1.15rem; }
+.dnd-tile span { font-size: 0.68rem; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+.dnd-abilities { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.dnd-ability {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface-alt); cursor: pointer;
+}
+.dnd-ability span { font-size: 0.66rem; color: var(--text-soft); letter-spacing: 0.05em; }
+.dnd-ability b { font-size: 1.2rem; color: var(--accent); }
+.dnd-ability i { font-style: normal; font-size: 0.72rem; color: var(--text-soft); }
+.dnd-skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 2px 12px; }
+.dnd-skill {
+  display: flex; align-items: center; gap: 7px; padding: 5px 8px; border-radius: 9px;
+  font-size: 0.86rem; cursor: pointer; text-align: left; background: none; border: none; color: var(--text);
+}
+.dnd-skill:hover { background: var(--surface-alt); }
+.dnd-skill i { font-style: normal; color: var(--accent); width: 14px; }
+.dnd-skill span { flex: 1; }
+.dnd-skill em { font-style: normal; font-size: 0.64rem; color: var(--text-soft); }
+.dnd-skill b { min-width: 28px; text-align: right; }
+.dnd-box { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: var(--surface-alt); }
+.dnd-box > .soft { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 6px; }
+.dnd-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.dnd-hp { margin-bottom: 10px; }
+.dnd-hp-num { font-size: 1.5rem; min-width: 110px; text-align: center; }
+.hp-bar { height: 9px; border-radius: 6px; background: var(--surface-alt); border: 1px solid var(--border); overflow: hidden; margin-top: 6px; }
+.hp-bar i { display: block; height: 100%; background: var(--success, #7fae7f); border-radius: 6px; transition: width 200ms var(--ease); }
+.hp-bar.low i { background: var(--warn, #c75d4f); }
+.dnd-pips { display: flex; gap: 4px; flex-wrap: wrap; }
+.pip {
+  width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--border);
+  background: transparent; cursor: pointer; font-size: 0.62rem; color: #fff;
+  display: inline-grid; place-items: center; padding: 0;
+}
+.pip.on { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px var(--glow); }
+.pip.bad.on { background: var(--warn, #c75d4f); border-color: var(--warn, #c75d4f); box-shadow: none; }
+.dnd-purse { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.dnd-coin { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.dnd-coin input { text-align: center; padding: 5px 4px; }
+.dnd-coin span { font-size: 0.68rem; color: var(--text-soft); text-transform: uppercase; }
+@media (max-width: 480px) {
+  .dnd-abilities { grid-template-columns: repeat(3, 1fr); }
+  .dnd-tiles { grid-template-columns: repeat(2, 1fr); }
+}

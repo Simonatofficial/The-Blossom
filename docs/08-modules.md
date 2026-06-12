@@ -130,6 +130,15 @@ Each of these is ~1 page of definition JSON — cheap to ship, great for the pre
 - Study widgets load eagerly with the other widget types rather than via dynamic import(): the whole app ships ~70 small SW-cached modules, so lazy-loading bought nothing measurable here. Revisit for the canvas-heavy modules.
 - Card generation harvests <mark class="key-term"> "term - definition" pairs and Q:/A: line pairs; free-form definition-sentence mining was deliberately left out (too noisy to be assistive).
 
+## Build decisions - D&D Character Manager (v1)
+
+- **One character per module, anchored to the Sheet.** ALL character data — the character record, items, spells, level plans — lives as objects under the module's `charsheet` widget whose `section` is `'sheet'`; the Combat and Story pages render OTHER `charsheet` instances (`config.section: 'combat'|'story'`) that resolve the anchor through the same sibling lookup World Builder uses. Copying the anchor's widget code therefore exports the whole character in one Blossom code (the DM module's Players page imports it).
+- **Rolls** toast their result ("Stealth: 27 (d20 19 +8)", nat 20/1 called out) AND land in a sibling Dice widget's history when one is on the page — the Combat page presets one.
+- **System math, user rules:** modifiers/proficiency/passives/carry capacity (STR × 15) are computed; spell slots, prepared limit, hit-die size, attacks, and resources (with short/long-rest restore flags) are user-configured, so non-RAW tables and homebrew just work. Long rest: full HP, slots and all resources restored, half hit dice back, death saves cleared. Damage chews temp HP first.
+- **Edit vs play** is a per-widget toggle on the Sheet face only; the preset opens in edit mode for setup, Combat/Story are always live.
+- Portraits reuse **My Stamps** (the picker is module-agnostic). Backstory and the session journal are plain Notes/Journal widgets on the Story page — not exported with the character code (table notes stay home).
+- Level-up lives in the **LevelPlanner**: it pre-fills from the matching plan, checks it off, and writes the Story face's level-up log with the in-app date.
+
 ## Build decisions - World Builder (v1, with CR-14)
 
 - **My Stamps** live in the THEMES store as `type:'stamp'` records with the image as a **PNG data URL** (≤320px longest side) — JSON-safe, so they ride the existing `thm` Blossom-code path with zero changes. Pin presets are `type:'pinpreset'` records the same way. `allThemes()` excludes both from theme pickers.
