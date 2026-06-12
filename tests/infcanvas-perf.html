@@ -1,0 +1,171 @@
+<!doctype html>
+<!-- Regression tests for docs/11 CR-13: zoomed-out strokes must commit in
+     bounded time/memory (13a) and low-opacity strokes must be uniform — no
+     trail of circles (13b). Serve the repo root (tools/serve.ps1) and open
+     /tests/infcanvas-perf.html. Keep permanently. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Infinite Canvas — CR-13 stroke commit regression</title>
+<style>
+  body { font: 14px system-ui; background: #1c1722; color: #eee; padding: 20px; }
+  .pass { color: #7fae7f; } .fail { color: #e06c75; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Stroke commits: bounded cost + uniform opacity (CR-13)</h1>
+<div id="log"></div>
+<script type="module">
+import { RasterDoc } from '../js/widgets/infcanvas-raster.js';
+import { commitStroke } from '../js/widgets/infcanvas-commit.js';
+
+let failures = 0;
+const log = (msg, ok) => {
+  const d = document.createElement('div');
+  d.className = ok ? 'pass' : 'fail';
+  d.textContent = `${ok ? 'PASS' : 'FAIL'} — ${msg}`;
+  document.getElementById('log').appendChild(d);
+  console.log(`${ok ? 'PASS' : 'FAIL'} — ${msg}`);
+  if (!ok) failures++;
+};
+
+function freshDoc() {
+  const blobs = new Map();
+  const meta = { layers: [], active: null };
+  const doc = new RasterDoc(meta, {
+    loadTile: (k) => blobs.get(k) || null,
+    saveTile: (k, b) => { b ? blobs.set(k, b) : blobs.delete(k); },
+    tileKeys: () => [...blobs.keys()],
+    onTilesDecoded() {},
+    onMetaChange() {}
+  });
+  doc.blobs = blobs;
+  return doc;
+}
+
+function render(doc, cx, cy, scale, size = 200) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  const half = size / 2 / scale;
+  g.setTransform(scale, 0, 0, scale, -(cx - half) * scale, -(cy - half) * scale);
+  doc.compose(g, cx - half, cy - half, cx + half, cy + half, Math.round(Math.log2(scale)));
+  const img = g.getImageData(0, 0, size, size);
+  return {
+    img,
+    alphaAt(wx, wy) {
+      const px = Math.round((wx - (cx - half)) * scale);
+      const py = Math.round((wy - (cy - half)) * scale);
+      if (px < 0 || py < 0 || px >= size || py >= size) return -1;
+      return img.data[(py * size + px) * 4 + 3];
+    },
+    totalAlpha() {
+      let n = 0;
+      for (let i = 3; i < img.data.length; i += 4) n += img.data[i];
+      return n;
+    }
+  };
+}
+
+/** A stroke through the CR-13 buffered commit pipeline (the widget's path). */
+function bufStroke(doc, band, pts, { tool = 'pen', size = 12, opacity = 1, color = '#d8697f', hardness = 0.9 } = {}) {
+  const s = {
+    tool, color, size, opacity, hardness, band,
+    strength: 0.5, pixelErase: false, mask: null, layerId: doc.active().id
+  };
+  return commitStroke(doc, s, pts.map(p => [p[0], p[1], 0.7]));
+}
+
+/* 1 — 13b: a 30%-opacity stroke is a uniform line, not stamped circles */
+{
+  const doc = freshDoc();
+  await bufStroke(doc, 0, [[40, 100], [240, 100]], { size: 16, opacity: 0.3 });
+  const r = render(doc, 140, 100, 1, 280);
+  const samples = [];
+  for (let x = 70; x <= 210; x += 7) samples.push(r.alphaAt(x, 100));
+  const min = Math.min(...samples), max = Math.max(...samples);
+  const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+  log(`30% stroke core is uniform (alpha ${min}–${max})`, max - min <= 10);
+  log(`…and lands near 30% (mean ${mean.toFixed(1)}, expect ≈76)`, Math.abs(mean - 76.5) < 18);
+}
+
+/* 2 — 13b: a stroke crossing itself does not darken at the crossing */
+{
+  const doc = freshDoc();
+  await bufStroke(doc, 0, [[60, 60], [200, 200], [200, 60], [60, 200]], { size: 14, opacity: 0.4 });
+  const r = render(doc, 130, 130, 1, 280);
+  const arm = r.alphaAt(100, 100);     // on the first diagonal
+  const cross = r.alphaAt(130, 130);   // where the diagonals meet
+  log(`self-crossing stays flat (arm ${arm}, crossing ${cross})`, Math.abs(cross - arm) <= 12);
+}
+
+/* 3 — 13b: a 50% eraser is one uniform pass, crossings included */
+{
+  const doc = freshDoc();
+  doc.rasterOp({ x0: 30, y0: 30, x1: 250, y1: 250 }, 0, (g) => {
+    g.fillStyle = '#3355ff';
+    g.fillRect(30, 30, 220, 220);
+  });
+  await bufStroke(doc, 0, [[50, 80], [230, 80], [50, 80]], { tool: 'eraser', size: 18, opacity: 0.5 });
+  const r = render(doc, 140, 140, 1, 280);
+  const a = r.alphaAt(100, 80), b = r.alphaAt(180, 80); // doubled-back path
+  log(`50% eraser leaves ≈50% once (alpha ${a}, ${b}; expect ≈127)`, Math.abs(a - 127) < 16 && Math.abs(a - b) <= 10);
+}
+
+/* 4 — 13a: full-screen-width stroke at ×0.001 commits fast, bounded tiles */
+{
+  const doc = freshDoc();
+  const t0 = performance.now();
+  const res = await bufStroke(doc, -10, [[0, 0], [2e6, 0]], { size: 1e5, opacity: 0.6 });
+  const ms = performance.now() - t0;
+  log(`×0.001 screen-wide stroke commits in ${ms.toFixed(0)}ms (<100)`, ms < 100);
+  log(`…allocating few tiles (${doc.tiles.size} resident, <64)`, doc.tiles.size < 64);
+  log('…and renders from far out', res !== null && render(doc, 1e6, 0, 0.0001).totalAlpha() > 0);
+}
+
+/* 5 — 13a: erasing detailed fine content from far out deletes, never crawls */
+{
+  const doc = freshDoc();
+  for (let y = 100; y <= 2900; y += 350) {
+    await bufStroke(doc, 0, [[100, y], [2900, y]], { size: 180 });
+  }
+  const tilesBefore = doc.tiles.size;
+  const t0 = performance.now();
+  await bufStroke(doc, -10, [[1500, 1500]], { tool: 'eraser', size: 9000, opacity: 1 });
+  const ms = performance.now() - t0;
+  const r = render(doc, 1500, 1500, 0.05, 200);
+  log(`coarse erase over ${tilesBefore} fine tiles finishes in ${ms.toFixed(0)}ms (<500)`, ms < 500);
+  log(`…and the content is gone (total alpha ${r.totalAlpha()})`, r.totalAlpha() === 0);
+  log(`…tiles were deleted, not rewritten (${doc.tiles.size} < ${tilesBefore})`, doc.tiles.size < tilesBefore);
+}
+
+/* 6 — CR-12 invariant holds through the buffered path */
+{
+  const doc = freshDoc();
+  await bufStroke(doc, 0, [[100, 100], [180, 100]], { size: 14 });
+  await bufStroke(doc, -3, [[100, 100], [180, 100]], { tool: 'eraser', size: 60 });
+  const r = render(doc, 140, 100, 1);
+  log(`buffered erase at ×0.1 clears content drawn at ×1 (alpha ${r.alphaAt(140, 100)})`, r.alphaAt(140, 100) === 0);
+  doc.undo();
+  const r2 = render(doc, 140, 100, 1);
+  log('…and one undo brings the whole stroke back', r2.alphaAt(140, 100) > 0);
+}
+
+/* 7 — a stroke too big for its band degrades to a coarser band, never fails */
+{
+  const doc = freshDoc();
+  const res = await bufStroke(doc, 0, [[0, 0], [10000, 0]], { size: 40, opacity: 0.8 });
+  log('oversized stroke commits with the degraded flag', res !== null && res.degraded === true);
+  const r = render(doc, 5000, 0, 0.02, 240);
+  log('…and still renders along its full length', r.alphaAt(1000, 0) > 0 && r.alphaAt(9000, 0) > 0);
+}
+
+document.title = failures ? `✗ ${failures} FAILURES` : '✓ all pass';
+console.log(failures ? `RESULT: ${failures} FAILURES` : 'RESULT: all pass');
+const h = document.createElement('h2');
+h.className = failures ? 'fail' : 'pass';
+h.textContent = failures ? `${failures} failure(s)` : 'All assertions passed';
+document.body.appendChild(h);
+</script>
+</body>
+</html>

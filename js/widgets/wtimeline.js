@@ -9,6 +9,7 @@ import { icon } from '../ui/icons.js';
 import { el, openPopover, openPanel, popMenu } from '../ui/components.js';
 import { objectsOf, createObject } from './base.js';
 import { worldEvents, openEntry, fmtWorldYear } from './wb-shared.js';
+import { getStamp, openStampPicker } from './wb-stamps.js';
 
 const CAT_COLORS = ['var(--accent)', 'var(--highlight)', 'var(--success)', 'var(--warn)', 'var(--text-soft)'];
 
@@ -130,6 +131,13 @@ registry.register({
         for (const ev of visible.filter(e => e.category === cat)) {
           const dot = el(`<button class="tl-event" style="left:${X(ev.year)}px;top:${top + 16}px;--c:${color}"><i></i><span></span></button>`);
           dot.querySelector('span').textContent = ev.title;
+          const stampId = ev.objId && store.get('objects', ev.objId)?.data.stampId;
+          const stamp = stampId && getStamp(stampId);
+          if (stamp) {
+            const im = el('<img alt="" style="width:18px;height:18px;object-fit:contain;position:absolute;left:-9px;top:-9px">');
+            im.src = stamp.img;
+            dot.querySelector('i').replaceWith(im);
+          }
           dot.onclick = (e) => {
             const pop = openPopover(e.currentTarget, { title: fmtWorldYear(ev.year, cfg), width: 260 });
             pop.body.appendChild(el(`<p style="font-weight:600;margin-bottom:4px"></p>`)).textContent = ev.title;
@@ -141,6 +149,14 @@ registry.register({
               row.appendChild(open);
             }
             if (ev.objId) {
+              const ic = el(`<button class="btn" style="font-size:0.8rem;padding:4px 10px">${icon('sparkles', 13)} Icon</button>`);
+              ic.onclick = (e3) => openStampPicker(e3.currentTarget, { title: 'Event icon', onPick: (s) => {
+                const o = store.get('objects', ev.objId);
+                o.data.stampId = s.id;
+                store.put('objects', o);
+                render();
+              } });
+              row.appendChild(ic);
               const del = el(`<button class="btn" style="font-size:0.8rem;padding:4px 10px;color:var(--warn)">${icon('trash', 13)} Remove</button>`);
               del.onclick = () => { store.trash('objects', ev.objId); pop.close(); render(); };
               row.appendChild(del);

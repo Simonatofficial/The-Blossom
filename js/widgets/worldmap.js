@@ -1,17 +1,21 @@
-/* WorldMap widget (docs/08 §5 Atlas): the Infinite Canvas engine carrying
-   map-specific layers — seamless terrain pattern brushes painted into raster
-   tiles, feature stamps, labels with natural zoom-band visibility (big names
-   show far out, small names close up), and pins linking to Lore/Civs/
-   Characters/other maps. Pins cluster at low zoom. */
+/* WorldMap widget (docs/08 §5 Atlas, CR-14): the Infinite Canvas engine
+   carrying map layers — terrain pattern brushes painted into raster tiles,
+   feature stamps (built-in glyphs + My Stamps, placeable or scatter-painted),
+   rich text-box labels (curve + zoom-band visibility), and fully
+   customizable pins. Opens in POINTER mode: tap to select and edit;
+   painting is opt-in. */
 
 import { registry } from './registry.js';
 import { store } from '../core/store.js';
 import { icon } from '../ui/icons.js';
-import { el, toast, openPopover, promptText, popMenu } from '../ui/components.js';
-import { objectsOf, createObject, saveObject } from './base.js';
+import { el, openPopover } from '../ui/components.js';
+import { objectsOf, createObject } from './base.js';
 import { InfiniteSurface } from './infcanvas-engine.js';
 import { RasterDoc } from './infcanvas-raster.js';
-import { openEntryPicker, openEntry, resolveEntry } from './wb-shared.js';
+import { openEntry } from './wb-shared.js';
+import { allStamps, getStamp, drawStampAt, stampImageEl, openStampPicker, openStampManager } from './wb-stamps.js';
+import { GLYPHS, drawFeature, PointerCtl, MapTextLayer } from './worldmap-objects.js';
+import { pinPresets, pinFromPreset, drawPin, openPinEditor } from './worldmap-pins.js';
 
 /* ---------- seamless terrain patterns (64px, deterministic) ---------- */
 
@@ -35,7 +39,6 @@ function terrainPattern(key) {
   const g = c.getContext('2d');
   g.fillStyle = t.base;
   g.fillRect(0, 0, 64, 64);
-  // deterministic speckle, drawn wrapped so tiles join seamlessly
   let seed = [...key].reduce((n, ch) => n * 31 + ch.charCodeAt(0), 7) >>> 0;
   const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32;
   g.fillStyle = t.deco;
@@ -44,16 +47,9 @@ function terrainPattern(key) {
     for (const dx of [-64, 0, 64]) {
       for (const dy of [-64, 0, 64]) {
         g.beginPath();
-        if (key === 'ocean' || key === 'coast') {
-          g.ellipse(x + dx, y + dy, r * 2.4, r * 0.5, 0, 0, Math.PI * 2);
-        } else if (key === 'mountain') {
-          g.moveTo(x + dx - r * 2, y + dy + r);
-          g.lineTo(x + dx, y + dy - r * 2);
-          g.lineTo(x + dx + r * 2, y + dy + r);
-          g.closePath();
-        } else {
-          g.arc(x + dx, y + dy, r, 0, Math.PI * 2);
-        }
+        if (key === 'ocean' || key === 'coast') g.ellipse(x + dx, y + dy, r * 2.4, r * 0.5, 0, 0, Math.PI * 2);
+        else if (key === 'mountain') { g.moveTo(x + dx - r * 2, y + dy + r); g.lineTo(x + dx, y + dy - r * 2); g.lineTo(x + dx + r * 2, y + dy + r); g.closePath(); }
+        else g.arc(x + dx, y + dy, r, 0, Math.PI * 2);
         g.fill();
       }
     }
@@ -62,21 +58,10 @@ function terrainPattern(key) {
   return c;
 }
 
-/* ---------- feature stamps (small vector glyphs) ---------- */
-
-const STAMPS = {
-  mountain: (g, s) => { g.beginPath(); g.moveTo(-s, s * 0.6); g.lineTo(0, -s * 0.8); g.lineTo(s, s * 0.6); g.closePath(); g.fillStyle = '#6e6a64'; g.fill(); g.beginPath(); g.moveTo(-s * 0.25, -s * 0.25); g.lineTo(0, -s * 0.8); g.lineTo(s * 0.25, -s * 0.25); g.closePath(); g.fillStyle = '#e8e6e2'; g.fill(); },
-  trees: (g, s) => { g.fillStyle = '#3c6138'; for (const [dx, dy, k] of [[-0.5, 0.3, 0.7], [0.45, 0.15, 0.85], [0, -0.3, 1]]) { g.beginPath(); g.moveTo(dx * s - s * 0.45 * k, dy * s + s * 0.5 * k); g.lineTo(dx * s, dy * s - s * 0.7 * k); g.lineTo(dx * s + s * 0.45 * k, dy * s + s * 0.5 * k); g.closePath(); g.fill(); } },
-  city: (g, s) => { g.fillStyle = '#9b8d76'; g.fillRect(-s * 0.8, -s * 0.3, s * 0.5, s * 0.9); g.fillRect(-s * 0.2, -s * 0.7, s * 0.45, s * 1.3); g.fillRect(s * 0.35, -s * 0.1, s * 0.45, s * 0.7); g.fillStyle = '#5d564a'; g.fillRect(-s * 0.2, -s * 0.7, s * 0.45, s * 0.2); },
-  tower: (g, s) => { g.fillStyle = '#8b8680'; g.fillRect(-s * 0.22, -s * 0.8, s * 0.44, s * 1.5); g.beginPath(); g.moveTo(-s * 0.35, -s * 0.8); g.lineTo(0, -s * 1.15); g.lineTo(s * 0.35, -s * 0.8); g.closePath(); g.fillStyle = '#7a4a44'; g.fill(); },
-  port: (g, s) => { g.strokeStyle = '#5d564a'; g.lineWidth = s * 0.18; g.beginPath(); g.arc(0, -s * 0.1, s * 0.55, Math.PI * 0.15, Math.PI * 0.85); g.stroke(); g.beginPath(); g.moveTo(0, -s * 0.75); g.lineTo(0, s * 0.45); g.stroke(); g.beginPath(); g.arc(0, -s * 0.75, s * 0.16, 0, Math.PI * 2); g.stroke(); },
-  village: (g, s) => { g.fillStyle = '#a8906a'; g.fillRect(-s * 0.55, -s * 0.05, s * 1.1, s * 0.6); g.beginPath(); g.moveTo(-s * 0.7, -s * 0.05); g.lineTo(0, -s * 0.65); g.lineTo(s * 0.7, -s * 0.05); g.closePath(); g.fillStyle = '#7a4a44'; g.fill(); }
-};
-
 const TOOLS = [
-  ['pan', 'move', 'Pan'],
+  ['pointer', 'move', 'Pointer — select & edit (default)'],
   ['terrain', 'map', 'Terrain brush'],
-  ['erase', 'eraser', 'Erase terrain'],
+  ['erase', 'eraser', 'Erase paint'],
   ['stamp', 'home', 'Feature stamps'],
   ['label', 'type', 'Labels'],
   ['pin', 'flag', 'Pins']
@@ -107,14 +92,35 @@ function openDoc(widget) {
   return entry;
 }
 
+/** Old plain labels become rich text boxes once (CR-14 §2). */
+function migrateLabels(widget, doc) {
+  for (const o of objectsOf(widget.id, 'mlabel')) {
+    const size = o.data.size;
+    const w = Math.max(size * 2, (o.data.text || '').length * size * 0.62);
+    createObject(widget.id, 'tbox', {
+      layerId: doc.active().id,
+      x: o.data.x - w / 2, y: o.data.y - size * 0.8, w, size,
+      color: '#f4efe6', align: 'center', html: o.data.text || '',
+      vis: { min: 9, max: 110 }
+    });
+    store.del('objects', o.id);
+  }
+}
+
 registry.register({
   type: 'worldmap',
   name: 'World Map',
   icon: 'map',
   description: 'Paint terrain, stamp features, pin your world together',
-  keywords: ['world', 'map', 'atlas', 'terrain', 'pins'],
+  keywords: ['world', 'map', 'atlas', 'terrain', 'pins', 'stamps'],
   external: true, internal: true,
-  defaultConfig: () => ({ view: { cx: 0, cy: 0, zoomExp: 0 }, raster: { layers: [], active: null }, terrain: 'plains', brushSize: 80, stampGlyph: 'mountain' }),
+  defaultConfig: () => ({
+    view: { cx: 0, cy: 0, zoomExp: 0 }, raster: { layers: [], active: null },
+    terrain: 'plains', brushSize: 80,
+    stampSel: { glyph: 'mountain' }, stampMode: 'place',
+    scatter: { density: 0.5, jitter: 0.5, rot: 0.5 },
+    pinPresetId: 'p-town'
+  }),
 
   renderCard(host, widget) {
     host.innerHTML = '';
@@ -136,7 +142,9 @@ registry.register({
     const doc = entry.doc;
     doc.session = null; doc.batch = null; doc.mask = null;
     const cfg = widget.config;
-    const state = { tool: 'pan' };
+    cfg.stampSel = cfg.stampSel || { glyph: 'mountain' };
+    cfg.scatter = cfg.scatter || { density: 0.5, jitter: 0.5, rot: 0.5 };
+    const state = { tool: 'pointer' }; // the map opens for USING, not painting
 
     const wrap = el('<div class="ic-wrap"></div>');
     const box = el('<div class="ic-canvasbox"></div>');
@@ -153,7 +161,12 @@ registry.register({
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
 
-    let strokePts = null;
+    const accent = () => getComputedStyle(box).getPropertyValue('--accent').trim() || '#d8697f';
+    const stamps = () => objectsOf(widget.id, 'stamp');
+    const pins = () => objectsOf(widget.id, 'pin');
+
+    /* ---- terrain / scatter painting into raster tiles ---- */
+    let strokeLast = null;
 
     const paintSeg = (xa, ya, xb, yb) => {
       const r = cfg.brushSize / 2;
@@ -161,15 +174,15 @@ registry.register({
       const erase = state.tool === 'erase';
       doc.rasterOp(rect, surf.band(), (g) => {
         if (erase) g.globalCompositeOperation = 'destination-out';
-        else g.fillStyle = g.createPattern(terrainPattern(cfg.terrain), 'repeat');
+        const style = erase ? '#000' : g.createPattern(terrainPattern(cfg.terrain), 'repeat');
+        g.fillStyle = style;
         g.beginPath();
         g.arc(xa, ya, r, 0, Math.PI * 2);
         g.arc(xb, yb, r, 0, Math.PI * 2);
         g.fill();
+        g.strokeStyle = style;
         g.lineWidth = r * 2;
         g.lineCap = 'round';
-        if (!erase) g.strokeStyle = g.fillStyle;
-        else g.strokeStyle = '#000';
         g.beginPath();
         g.moveTo(xa, ya);
         g.lineTo(xb, yb);
@@ -179,11 +192,52 @@ registry.register({
       surf.render();
     };
 
-    const stamps = () => objectsOf(widget.id, 'stamp');
-    const labels = () => objectsOf(widget.id, 'mlabel');
-    const pins = () => objectsOf(widget.id, 'pin');
+    /** Scatter mode (CR-14 §1): rasterize jittered stamps along the drag. */
+    let scatterCarry = 0;
+    const scatterSeg = (xa, ya, xb, yb) => {
+      const stamp = cfg.stampSel.stampId ? getStamp(cfg.stampSel.stampId) : null;
+      if (cfg.stampSel.stampId && !stamp) return;
+      const wSize = (stamp ? stamp.size : 48) / surf.scale();
+      const sc = cfg.scatter;
+      const spacing = Math.max(wSize * 0.2, wSize * (2.4 - sc.density * 2.2));
+      const dist = Math.hypot(xb - xa, yb - ya) || 0.0001;
+      const drops = [];
+      let pos = scatterCarry === 0 && strokeLast === null ? 0 : spacing - scatterCarry;
+      if (pos === 0) pos = 0.0001;
+      while (pos <= dist) {
+        const t = pos / dist;
+        const jx = (Math.random() - 0.5) * 2 * sc.jitter * wSize;
+        const jy = (Math.random() - 0.5) * 2 * sc.jitter * wSize;
+        drops.push({
+          x: xa + (xb - xa) * t + jx, y: ya + (yb - ya) * t + jy,
+          rot: (Math.random() - 0.5) * 2 * sc.rot * Math.PI,
+          k: 0.7 + Math.random() * 0.6
+        });
+        pos += spacing;
+      }
+      scatterCarry = dist - (pos - spacing);
+      if (!drops.length) return;
+      const pad = wSize;
+      const rect = {
+        x0: Math.min(...drops.map(d => d.x)) - pad, y0: Math.min(...drops.map(d => d.y)) - pad,
+        x1: Math.max(...drops.map(d => d.x)) + pad, y1: Math.max(...drops.map(d => d.y)) + pad
+      };
+      const col = accent();
+      doc.rasterOp(rect, surf.band(), (g) => {
+        for (const d of drops) {
+          g.save();
+          g.translate(d.x, d.y);
+          g.rotate(d.rot);
+          if (stamp) drawStampAt(g, stamp, wSize * d.k, col);
+          else GLYPHS[cfg.stampSel.glyph]?.(g, wSize * d.k / 2);
+          g.restore();
+        }
+      });
+      surf.invalidate(rect);
+      surf.render();
+    };
 
-    /** Pin clusters at the current zoom (48px screen buckets). */
+    /** Pin clusters at the current zoom. */
     const pinBuckets = () => {
       const buckets = new Map();
       for (const p of pins()) {
@@ -196,6 +250,24 @@ registry.register({
       return [...buckets.values()];
     };
 
+    const clusterAt = (px, py) => {
+      for (const bucket of pinBuckets()) {
+        if (bucket.length < 2) continue;
+        const cx = bucket.reduce((n, b) => n + b.sx, 0) / bucket.length;
+        const cy = bucket.reduce((n, b) => n + b.sy, 0) / bucket.length;
+        if (Math.hypot(px - cx, py - cy) < 22) return [cx, cy];
+      }
+      return null;
+    };
+
+    const clustered = () => {
+      const ids = new Set();
+      for (const bucket of pinBuckets()) {
+        if (bucket.length > 1) for (const b of bucket) ids.add(b.p.id);
+      }
+      return ids;
+    };
+
     const surf = new InfiniteSurface(canvas, {
       drawTile: (g, b, r) => doc.compose(g, r.x0, r.y0, r.x1, r.y1, b),
       isPan: () => state.tool === 'pan',
@@ -203,63 +275,74 @@ registry.register({
         cfg.view = { cx: v.cx, cy: v.cy, zoomExp: v.zoomExp };
         store.put('widgets', widget);
         readout.textContent = surf.scale() >= 1 ? `×${surf.scale().toFixed(1)}` : `×${surf.scale().toPrecision(2)}`;
+        text.sync();
+        text.positionBar();
+        ptr.positionBar();
       },
-      toolDown: (wx, wy) => {
+
+      toolDown: (wx, wy, p, e) => {
+        const [px, py] = surf.screenPt(e);
+        downPt = [px, py];
+        if (state.tool === 'pointer') {
+          const cl = clusterAt(px, py);
+          if (cl) { surf.zoomAt(cl[0], cl[1], 1.4); return; }
+          ptr.down(wx, wy, px, py);
+          surf.render();
+          return;
+        }
         if (state.tool === 'terrain' || state.tool === 'erase') {
           doc.beginBatch();
-          strokePts = [wx, wy];
+          strokeLast = [wx, wy];
           paintSeg(wx, wy, wx, wy);
+          return;
+        }
+        if (state.tool === 'stamp' && cfg.stampMode === 'scatter') {
+          doc.beginBatch();
+          scatterCarry = 0;
+          strokeLast = null;
+          scatterSeg(wx, wy, wx + 0.0001, wy);
+          strokeLast = [wx, wy];
         }
       },
-      toolMove: (wx, wy) => {
-        if (strokePts) {
-          paintSeg(strokePts[0], strokePts[1], wx, wy);
-          strokePts = [wx, wy];
-        }
+      toolMove: (wx, wy, p, e) => {
+        if (state.tool === 'pointer') { ptr.move(wx, wy, ...surf.screenPt(e)); return; }
+        if (!strokeLast) return;
+        if (state.tool === 'stamp') scatterSeg(strokeLast[0], strokeLast[1], wx, wy);
+        else paintSeg(strokeLast[0], strokeLast[1], wx, wy);
+        strokeLast = [wx, wy];
       },
-      toolUp: async (wx, wy, e) => {
-        if (strokePts) {
-          strokePts = null;
+      toolUp: (wx, wy, e) => {
+        if (state.tool === 'pointer') { ptr.up(); return; }
+        if (strokeLast) {
+          strokeLast = null;
           doc.endBatch();
           doc.flush();
           refresh();
           return;
         }
         const [px, py] = surf.screenPt(e);
-        if (state.tool === 'stamp') return tapStamp(wx, wy, px, py, e);
-        if (state.tool === 'label') return tapLabel(wx, wy, px, py, e);
-        if (state.tool === 'pin') return tapPin(wx, wy, px, py, e);
-        if (state.tool === 'pan') return tapPanPin(px, py, e); // pins are tappable while panning
+        if (!downPt || Math.hypot(px - downPt[0], py - downPt[1]) > 8) return; // placements are taps
+        if (state.tool === 'stamp') {
+          createObject(widget.id, 'stamp', {
+            x: wx, y: wy, size: (cfg.stampSel.stampId ? (getStamp(cfg.stampSel.stampId)?.size || 56) : 56) / surf.scale(),
+            ...(cfg.stampSel.stampId ? { stampId: cfg.stampSel.stampId } : { glyph: cfg.stampSel.glyph })
+          });
+          surf.render();
+          return;
+        }
+        if (state.tool === 'label') { text.createAt(wx, wy); return; }
+        if (state.tool === 'pin') {
+          const preset = pinPresets().find(pr => pr.id === cfg.pinPresetId) || pinPresets()[0];
+          const o = createObject(widget.id, 'pin', pinFromPreset(preset, wx, wy, surf.view.zoomExp));
+          surf.render();
+          ptr.select(o); // chrome + action bar — Edit is one tap away
+        }
       },
       drawOverlay: (g) => {
-        const scale = surf.scale();
-        // stamps: world-anchored glyphs, drawn at screen size, culled politely
-        for (const o of stamps()) {
-          const [sx, sy] = surf.toScreen(o.data.x, o.data.y);
-          const s = o.data.size * scale;
-          if (s < 3 || s > 600 || sx < -s || sy < -s || sx > canvas.width + s || sy > canvas.height + s) continue;
-          g.save();
-          g.translate(sx, sy);
-          STAMPS[o.data.glyph]?.(g, s / 2);
-          g.restore();
-        }
-        // labels: visible only when their world size reads comfortably —
-        // continent names appear far out, village names close in (docs/08)
-        for (const o of labels()) {
-          const px = o.data.size * scale;
-          if (px < 9 || px > 110) continue;
-          const [sx, sy] = surf.toScreen(o.data.x, o.data.y);
-          g.save();
-          g.font = `600 ${px}px system-ui`;
-          g.textAlign = 'center';
-          g.lineWidth = Math.max(2, px / 7);
-          g.strokeStyle = 'rgba(20,24,30,0.55)';
-          g.fillStyle = '#f4efe6';
-          g.strokeText(o.data.text, sx, sy);
-          g.fillText(o.data.text, sx, sy);
-          g.restore();
-        }
-        // pins, clustered at low zoom
+        const col = accent();
+        for (const o of stamps()) drawFeature(g, surf, o, col);
+        text.drawCurved(g);
+        const inCluster = clustered();
         for (const bucket of pinBuckets()) {
           if (bucket.length > 1) {
             const cx = bucket.reduce((n, b) => n + b.sx, 0) / bucket.length;
@@ -275,159 +358,109 @@ registry.register({
             g.textBaseline = 'middle';
             g.fillText(String(bucket.length), cx, cy);
             g.restore();
-          } else {
-            const { sx, sy } = bucket[0];
-            g.save();
-            g.translate(sx, sy);
-            g.beginPath(); // teardrop
-            g.arc(0, -12, 8, Math.PI * 0.85, Math.PI * 0.15);
-            g.lineTo(0, 2);
-            g.closePath();
-            g.fillStyle = 'rgba(216,105,127,0.95)';
-            g.fill();
-            g.beginPath();
-            g.arc(0, -12, 3.4, 0, Math.PI * 2);
-            g.fillStyle = '#fff';
-            g.fill();
-            g.restore();
           }
         }
+        for (const o of pins()) {
+          if (inCluster.has(o.id)) continue;
+          drawPin(g, surf, o, { hover: ptr.hover === o, selected: ptr.sel === o });
+        }
+        ptr.drawOverlay(g);
       }
     }, { ...cfg.view });
 
-    /* ---- tool taps ---- */
-    function hitObj(list, px, py, radius = 24) {
-      let best = null, bd = radius;
-      for (const o of list) {
-        const [sx, sy] = surf.toScreen(o.data.x, o.data.y);
-        const d = Math.hypot(px - sx, py - sy + (o.kind === 'pin' ? 10 : 0));
-        if (d < bd) { bd = d; best = o; }
+    let downPt = null;
+
+    /* ---- pointer controller + text layer ---- */
+    const ptr = new PointerCtl({
+      surf, widget, box,
+      stamps, pins,
+      editPin: (o) => openPinEditor(widget, o, {
+        onChange: () => { surf.render(); ptr.positionBar(); },
+        onDelete: () => { store.del('objects', o.id); ptr.deselect(); surf.render(); }
+      }),
+      openRef: (o) => openEntry(o.data.ref, ctx),
+      onChange: () => surf.render()
+    });
+
+    if (!cfg.labelsMigrated) {
+      migrateLabels(widget, doc);
+      cfg.labelsMigrated = true;
+      store.put('widgets', widget);
+    }
+    const text = new MapTextLayer(box, surf, doc, widget, () => ({ color: '#f4efe6' }));
+    text.setToolActive(true); // boxes are selectable in pointer + label modes
+
+    // hover highlight (desktop): a soft ring before you commit to a tap
+    canvas.addEventListener('pointermove', (e) => {
+      if (state.tool !== 'pointer' || e.buttons) return;
+      ptr.setHover(...surf.screenPt(e));
+    });
+    const onKey = (e) => {
+      if (!canvas.isConnected) { document.removeEventListener('keydown', onKey, true); return; }
+      if (e.key === 'Escape' && (ptr.sel || text.sel)) {
+        e.stopPropagation();
+        ptr.deselect();
+        text.select(null);
+        surf.render();
       }
-      return best;
-    }
+    };
+    document.addEventListener('keydown', onKey, true);
 
-    function tapStamp(wx, wy, px, py, e) {
-      const hit = hitObj(stamps(), px, py);
-      if (hit) {
-        return popMenu({ getBoundingClientRect: () => pointRect(e) }, [
-          { label: 'Bigger', iconName: 'plus', fn: () => { hit.data.size *= 1.4; saveObject(hit); surf.render(); } },
-          { label: 'Smaller', iconName: 'minus', fn: () => { hit.data.size /= 1.4; saveObject(hit); surf.render(); } },
-          { label: 'Remove', iconName: 'trash', danger: true, fn: () => { store.del('objects', hit.id); surf.render(); } }
-        ]);
-      }
-      createObject(widget.id, 'stamp', { x: wx, y: wy, size: 56 / surf.scale(), glyph: cfg.stampGlyph });
-      surf.render();
-    }
-
-    async function tapLabel(wx, wy, px, py, e) {
-      const hit = hitObj(labels(), px, py, 30);
-      if (hit) {
-        return popMenu({ getBoundingClientRect: () => pointRect(e) }, [
-          { label: 'Rename', iconName: 'edit', fn: async () => {
-            const t = await promptText({ title: 'Label', value: hit.data.text });
-            if (t) { hit.data.text = t; saveObject(hit); surf.render(); }
-          } },
-          { label: 'Bigger', iconName: 'plus', fn: () => { hit.data.size *= 1.4; saveObject(hit); surf.render(); } },
-          { label: 'Smaller', iconName: 'minus', fn: () => { hit.data.size /= 1.4; saveObject(hit); surf.render(); } },
-          { label: 'Remove', iconName: 'trash', danger: true, fn: () => { store.del('objects', hit.id); surf.render(); } }
-        ]);
-      }
-      const text = await promptText({ title: 'New label', label: 'Name this place' });
-      if (!text) return;
-      createObject(widget.id, 'mlabel', { x: wx, y: wy, text, size: 22 / surf.scale() });
-      surf.render();
-    }
-
-    function pinPopover(pin, e) {
-      const entry2 = resolveEntry(pin.data.ref);
-      const pop = openPopover({ getBoundingClientRect: () => pointRect(e) }, { title: entry2 ? entry2.kind : 'Pin', width: 240 });
-      pop.body.appendChild(el('<p style="font-weight:600"></p>')).textContent = entry2?.label || pin.data.note || 'Unlinked pin';
-      const row = el('<div class="row" style="gap:6px;margin-top:8px"></div>');
-      if (entry2) {
-        const open = el(`<button class="btn" style="font-size:0.8rem;padding:4px 10px">${icon('arrow-right', 13)} Open</button>`);
-        open.onclick = () => { pop.close(); openEntry(pin.data.ref, ctx); };
-        row.appendChild(open);
-      }
-      const del = el(`<button class="btn" style="font-size:0.8rem;padding:4px 10px;color:var(--warn)">${icon('trash', 13)} Remove</button>`);
-      del.onclick = () => { store.del('objects', pin.id); pop.close(); surf.render(); };
-      row.appendChild(del);
-      pop.body.appendChild(row);
-    }
-
-    function tapPin(wx, wy, px, py, e) {
-      const hit = hitObj(pins(), px, py);
-      if (hit) return pinPopover(hit, e);
-      popMenu({ getBoundingClientRect: () => pointRect(e) }, [
-        { label: 'Link an entry…', iconName: 'link', fn: () => openEntryPicker(widget, { title: 'Pin what?', onPick: (en) => {
-          createObject(widget.id, 'pin', { x: wx, y: wy, ref: { kind: en.kind, id: en.id }, note: '' });
-          surf.render();
-          toast('Pinned to the map', 'flag');
-        } }) },
-        { label: 'Free note pin', iconName: 'note', fn: async () => {
-          const note = await promptText({ title: 'Pin note', label: 'What’s here?' });
-          if (!note) return;
-          createObject(widget.id, 'pin', { x: wx, y: wy, ref: null, note });
-          surf.render();
-        } }
-      ]);
-    }
-
-    function tapPanPin(px, py, e) {
-      // panning still lets you tap pins/clusters (the Milanote half)
-      const buckets = pinBuckets();
-      for (const bucket of buckets) {
-        const cx = bucket.reduce((n, b) => n + b.sx, 0) / bucket.length;
-        const cy = bucket.reduce((n, b) => n + b.sy, 0) / bucket.length;
-        if (Math.hypot(px - cx, py - cy + (bucket.length === 1 ? 10 : 0)) > 22) continue;
-        if (bucket.length === 1) return pinPopover(bucket[0].p, e);
-        surf.zoomAt(cx, cy, 1.4); // dive into the cluster
-        return;
-      }
-    }
-
-    function pointRect(e) {
-      return { left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY, width: 0, height: 0 };
-    }
-
-    /* ---- toolbar (compact strip, popover flyouts per CR-11) ---- */
+    /* ---- toolbar ---- */
     const strip = el('<div class="ic-strip"></div>');
     const btns = {};
     for (const [tool, ic, label] of TOOLS) {
       const b = el(`<button class="ic-btn" title="${label}">${icon(ic, 17)}</button>`);
       b.onclick = (e) => {
-        if (state.tool === tool && (tool === 'terrain' || tool === 'stamp')) return toolOptions(tool, e.currentTarget);
+        if (state.tool === tool && ['terrain', 'stamp', 'pin'].includes(tool)) return toolOptions(tool, e.currentTarget);
         state.tool = tool;
+        if (tool !== 'pointer') ptr.deselect();
+        text.setToolActive(tool === 'pointer' || tool === 'label');
         refresh();
+        surf.render();
       };
       btns[tool] = b;
       strip.appendChild(b);
     }
     strip.appendChild(el('<span class="ic-gap"></span>'));
-    const undoB = el(`<button class="ic-btn" title="Undo terrain">${icon('rotate-ccw', 16)}</button>`);
-    undoB.onclick = () => { if (doc.undo()) { surf.invalidate(); surf.render(); doc.flush(); refresh(); } };
-    const redoB = el(`<button class="ic-btn" title="Redo terrain">${icon('refresh', 16)}</button>`);
-    redoB.onclick = () => { if (doc.redo()) { surf.invalidate(); surf.render(); doc.flush(); refresh(); } };
+    const undoB = el(`<button class="ic-btn" title="Undo paint">${icon('rotate-ccw', 16)}</button>`);
+    undoB.onclick = () => { if (doc.undo()) { surf.invalidate(); surf.render(); text.sync(); doc.flush(); refresh(); } };
+    const redoB = el(`<button class="ic-btn" title="Redo paint">${icon('refresh', 16)}</button>`);
+    redoB.onclick = () => { if (doc.redo()) { surf.invalidate(); surf.render(); text.sync(); doc.flush(); refresh(); } };
+    const stampsB = el(`<button class="ic-btn" title="My Stamps">${icon('sparkles', 16)}</button>`);
+    stampsB.onclick = () => openStampManager();
     const fitB = el(`<button class="ic-btn" title="Fit everything">${icon('maximize', 16)}</button>`);
     fitB.onclick = () => {
-      const all = [...stamps(), ...labels(), ...pins()];
-      if (!all.length && !doc.io.tileKeys().length) return;
       let bb = null;
-      for (const o of all) {
-        bb = bb ? { x0: Math.min(bb.x0, o.data.x), y0: Math.min(bb.y0, o.data.y), x1: Math.max(bb.x1, o.data.x), y1: Math.max(bb.y1, o.data.y) } : { x0: o.data.x, y0: o.data.y, x1: o.data.x, y1: o.data.y };
-      }
+      const grow = (x, y) => {
+        bb = bb ? { x0: Math.min(bb.x0, x), y0: Math.min(bb.y0, y), x1: Math.max(bb.x1, x), y1: Math.max(bb.y1, y) } : { x0: x, y0: y, x1: x, y1: y };
+      };
+      for (const o of [...stamps(), ...pins(), ...text.boxes()]) grow(o.data.x, o.data.y);
       for (const key of doc.io.tileKeys()) {
         const [, b, tx, ty] = key.split(':');
         const ts = 512 / Math.pow(2, Number(b));
-        const r = { x0: tx * ts, y0: ty * ts, x1: (Number(tx) + 1) * ts, y1: (Number(ty) + 1) * ts };
-        bb = bb ? { x0: Math.min(bb.x0, r.x0), y0: Math.min(bb.y0, r.y0), x1: Math.max(bb.x1, r.x1), y1: Math.max(bb.y1, r.y1) } : r;
+        grow(tx * ts, ty * ts);
+        grow((Number(tx) + 1) * ts, (Number(ty) + 1) * ts);
       }
       if (bb) surf.fitTo({ x0: bb.x0 - 100, y0: bb.y0 - 100, x1: bb.x1 + 100, y1: bb.y1 + 100 });
     };
-    strip.append(undoB, redoB, fitB);
+    strip.append(undoB, redoB, stampsB, fitB);
     wrap.prepend(strip);
 
     function toolOptions(tool, anchor) {
-      const pop = openPopover(anchor, { title: tool === 'terrain' ? 'Terrain' : 'Stamps', width: 250 });
+      if (tool === 'pin') {
+        const pop = openPopover(anchor, { title: 'New pins use…', width: 250 });
+        const rowEl = el('<div class="row" style="flex-wrap:wrap;gap:4px"></div>');
+        for (const p of pinPresets()) {
+          const b = el(`<button class="chip${cfg.pinPresetId === p.id ? ' accent' : ''}"><span class="ic-dot" style="width:10px;height:10px;background:${p.color}"></span> ${p.name}</button>`);
+          b.onclick = () => { cfg.pinPresetId = p.id; store.put('widgets', widget); pop.close(); };
+          rowEl.appendChild(b);
+        }
+        pop.body.appendChild(rowEl);
+        pop.body.appendChild(el('<p class="soft" style="font-size:0.74rem;margin:8px 0 0">Tap the map to place a pin, then Edit on its toolbar for color, symbol, name, and links.</p>'));
+        return;
+      }
+      const pop = openPopover(anchor, { title: tool === 'terrain' ? 'Terrain' : 'Stamps', width: 270 });
       if (tool === 'terrain') {
         const grid = el('<div class="ic-swatches"></div>');
         for (const [key, t] of Object.entries(TERRAINS)) {
@@ -442,19 +475,57 @@ registry.register({
         slider.value = cfg.brushSize;
         slider.oninput = () => { cfg.brushSize = Number(slider.value); store.put('widgets', widget); };
         pop.body.appendChild(size);
-      } else {
-        const grid = el('<div class="row" style="flex-wrap:wrap;gap:6px"></div>');
-        for (const key of Object.keys(STAMPS)) {
-          const b = el(`<button class="ic-btn" title="${key}" style="width:48px;height:48px;border:1px solid var(--border)"><canvas width="36" height="36"></canvas></button>`);
-          const g = b.querySelector('canvas').getContext('2d');
-          g.translate(18, 20);
-          STAMPS[key](g, 13);
-          if (cfg.stampGlyph === key) b.classList.add('on');
-          b.onclick = () => { cfg.stampGlyph = key; store.put('widgets', widget); pop.close(); };
-          grid.appendChild(b);
-        }
-        pop.body.appendChild(grid);
+        return;
       }
+      // stamp tool: built-ins + My Stamps, place vs scatter, scatter sliders
+      const save = () => store.put('widgets', widget);
+      const grid = el('<div class="row" style="flex-wrap:wrap;gap:6px;max-height:170px;overflow:auto"></div>');
+      for (const key of Object.keys(GLYPHS)) {
+        const b = el(`<button class="ic-btn" title="${key}" style="width:46px;height:46px;border:1px solid var(--border)"><canvas width="34" height="34"></canvas></button>`);
+        const g = b.querySelector('canvas').getContext('2d');
+        g.translate(17, 19);
+        GLYPHS[key](g, 12);
+        if (!cfg.stampSel.stampId && cfg.stampSel.glyph === key) b.classList.add('on');
+        b.onclick = () => { cfg.stampSel = { glyph: key }; save(); pop.close(); };
+        grid.appendChild(b);
+      }
+      for (const s of allStamps()) {
+        const b = el(`<button class="ic-btn" title="${s.name}" style="width:46px;height:46px;border:1px solid var(--border)"><img alt="" style="max-width:34px;max-height:34px"></button>`);
+        b.querySelector('img').src = s.img;
+        stampImageEl(s); // pre-warm the decode for scatter strokes
+        if (cfg.stampSel.stampId === s.id) b.classList.add('on');
+        b.onclick = () => { cfg.stampSel = { stampId: s.id }; save(); pop.close(); };
+        grid.appendChild(b);
+      }
+      pop.body.appendChild(grid);
+      const more = el(`<div class="row" style="gap:6px;margin:8px 0"><button class="btn" style="font-size:0.78rem;padding:3px 9px">${icon('plus', 12)} My Stamps…</button></div>`);
+      more.querySelector('button').onclick = (e) => openStampPicker(e.currentTarget, {
+        onPick: (s) => { cfg.stampSel = { stampId: s.id }; save(); pop.close(); }
+      });
+      pop.body.appendChild(more);
+      const modeRow = el('<div class="ic-frow"><span>Mode</span><span class="seg ic-fseg"></span></div>');
+      for (const [v, label] of [['place', 'Place'], ['scatter', 'Scatter paint']]) {
+        const b = el(`<button type="button"${cfg.stampMode === v ? ' class="active"' : ''}>${label}</button>`);
+        b.onclick = () => {
+          cfg.stampMode = v;
+          save();
+          modeRow.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+          b.classList.add('active');
+          sliders.style.display = v === 'scatter' ? '' : 'none';
+        };
+        modeRow.querySelector('.seg').appendChild(b);
+      }
+      pop.body.appendChild(modeRow);
+      const sliders = el('<div></div>');
+      sliders.style.display = cfg.stampMode === 'scatter' ? '' : 'none';
+      for (const [key, label] of [['density', 'Density'], ['jitter', 'Jitter'], ['rot', 'Rotation']]) {
+        const row = el(`<div class="ic-frow"><span>${label}</span><input type="range" class="range" min="0" max="1" step="0.05" style="width:120px"></div>`);
+        const sl = row.querySelector('input');
+        sl.value = cfg.scatter[key];
+        sl.oninput = () => { cfg.scatter[key] = Number(sl.value); save(); };
+        sliders.appendChild(row);
+      }
+      pop.body.appendChild(sliders);
     }
 
     function refresh() {
@@ -465,9 +536,20 @@ registry.register({
     entry.hooks.decoded = () => { surf.invalidate(); surf.render(); };
     refresh();
     surf.render();
+    text.sync();
+    // stamp images and pin-symbol icons decode async — settle one frame later
+    for (const o of [...stamps(), ...pins()]) {
+      const sid = o.data.stampId || (o.data.sym?.t === 'stamp' && o.data.sym.v);
+      const s = sid && getStamp(sid);
+      if (s) {
+        const im = stampImageEl(s);
+        if (!im.complete) im.addEventListener('load', () => surf.render(), { once: true });
+      }
+    }
+    setTimeout(() => { if (canvas.isConnected) surf.render(); }, 200);
   },
 
   renderSettings(host) {
-    host.appendChild(el('<p class="soft" style="font-size:0.84rem">Tap the active terrain or stamp tool again to choose styles. Pins can link lore, civilizations, characters — or another World Map widget for region maps.</p>'));
+    host.appendChild(el('<p class="soft" style="font-size:0.84rem">The map opens in pointer mode — tap anything to select, move, resize, or edit it. Tap the active terrain, stamp, or pin tool again for its options. Stamps come from the shared My Stamps library; pins can link lore, civilizations, characters, or other maps.</p>'));
   }
 });

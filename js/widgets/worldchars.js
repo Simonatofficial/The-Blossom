@@ -9,11 +9,21 @@ import { icon } from '../ui/icons.js';
 import { el, toast, confirmDialog, popMenu, promptText } from '../ui/components.js';
 import { objectsOf, createObject, saveObject } from './base.js';
 import { watchWikilinks, wireWikilinks, openEntryPicker, openEntry, onWbOpen, resolveEntry, fmtWorldYear, siblingWidgets } from './wb-shared.js';
+import { getStamp, openStampPicker } from './wb-stamps.js';
 
 const chars = (w) => objectsOf(w.id, 'wchar');
 const PERSONALITY = [['traits', 'Traits'], ['ideals', 'Ideals'], ['bonds', 'Bonds'], ['flaws', 'Flaws']];
 
 function initialOf(name) { return (name || '?').trim().charAt(0).toUpperCase() || '?'; }
+
+/** Portrait: a My Stamps token when chosen (CR-14 §5), else the initial. */
+function setPortrait(span, c) {
+  const s = c.data.stampId && getStamp(c.data.stampId);
+  if (s) {
+    span.innerHTML = '<img alt="" style="width:100%;height:100%;object-fit:contain;border-radius:inherit">';
+    span.querySelector('img').src = s.img;
+  } else span.textContent = initialOf(c.data.name);
+}
 
 registry.register({
   type: 'worldchars',
@@ -69,7 +79,7 @@ registry.register({
         if (!list.length) grid.appendChild(el('<div class="empty-state" style="grid-column:1/-1">' + icon('users', 28) + '<p>Empty stage. Who steps into the light first?</p></div>'));
         for (const c of list) {
           const card = el(`<button class="wc-card"><span class="wc-portrait"></span><span class="wc-name"></span><span class="wc-essence soft"></span></button>`);
-          card.querySelector('.wc-portrait').textContent = initialOf(c.data.name);
+          setPortrait(card.querySelector('.wc-portrait'), c);
           card.querySelector('.wc-name').textContent = c.data.name;
           card.querySelector('.wc-essence').textContent = c.data.essence || '…';
           card.onclick = () => showProfile(c.id);
@@ -88,16 +98,29 @@ registry.register({
 
       const head = el(`<div class="row" style="gap:8px;margin-bottom:4px">
         <button class="btn-icon" title="All characters">${icon('arrow-left', 17)}</button>
-        <span class="wc-portrait" style="width:44px;height:44px;font-size:1.2rem">${initialOf(c.data.name)}</span>
+        <span class="wc-portrait" style="width:44px;height:44px;font-size:1.2rem"></span>
         <div class="grow"><input class="input" style="font-weight:650"><input class="input" placeholder="essence — one line that captures them" style="margin-top:4px;font-size:0.84rem;padding:5px 10px"></div>
         <button class="btn-icon" title="More">${icon('more', 16)}</button></div>`);
       head.querySelector('[title="All characters"]').onclick = showGrid;
+      setPortrait(head.querySelector('.wc-portrait'), c);
       const [nameIn, essIn] = head.querySelectorAll('input');
       nameIn.value = c.data.name;
       essIn.value = c.data.essence || '';
-      nameIn.onchange = () => { c.data.name = nameIn.value.trim() || 'Unnamed'; save(); head.querySelector('.wc-portrait').textContent = initialOf(c.data.name); };
+      nameIn.onchange = () => { c.data.name = nameIn.value.trim() || 'Unnamed'; save(); setPortrait(head.querySelector('.wc-portrait'), c); };
       essIn.onchange = () => { c.data.essence = essIn.value; save(); };
       head.querySelector('[title="More"]').onclick = (e) => popMenu(e.currentTarget, [
+        { label: 'Token from My Stamps', iconName: 'sparkles', fn: () => {
+          openStampPicker(head.querySelector('[title="More"]'), { title: 'Portrait token', onPick: (s) => {
+            c.data.stampId = s.id;
+            save();
+            setPortrait(head.querySelector('.wc-portrait'), c);
+          } });
+        } },
+        ...(c.data.stampId ? [{ label: 'Remove token', iconName: 'x', fn: () => {
+          delete c.data.stampId;
+          save();
+          setPortrait(head.querySelector('.wc-portrait'), c);
+        } }] : []),
         { label: 'Delete character', iconName: 'trash', danger: true, fn: async () => {
           if (await confirmDialog({ title: `Delete “${c.data.name}”?`, message: 'They rest in the trash for 30 days.' })) {
             store.trash('objects', c.id);
