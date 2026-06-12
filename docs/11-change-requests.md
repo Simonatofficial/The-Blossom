@@ -235,6 +235,21 @@ The Atlas (docs/08 §5) is still being built — make sure it lands **with** the
 
 ---
 
+## CR-15 — Popovers overflow off-screen (can't change colors in Infinite Canvas) · `ui/components.js` `openPopover()` (BUG)
+
+**Symptom:** in the Infinite Canvas, the color popover opens *downward* from the toolbar and runs off the bottom of the screen — the picker is unreachable, so colors can't be changed.
+
+**Fix — collision-aware placement in `openPopover()`, not a one-off patch.** Popovers are positioned by the shared utility (CR-11), so fix it once there:
+1. **Measure, then place.** After rendering (hidden) measure the popover; place on the anchor's preferred side, but **flip to the opposite side** if it would cross any viewport edge (below ↔ above, right ↔ left). The toolbar's color popover, with a bottom-docked toolbar, must therefore open *upward*.
+2. **Clamp + arrow.** After flipping, clamp position to an 8px viewport margin on all sides; keep the caret/arrow pointing at the anchor even when clamped.
+3. **Constrain height as a last resort.** If neither side fully fits, pick the larger side and give the popover `max-height` with internal scroll — content may scroll, but never off-screen.
+4. **Account for real viewport** (`visualViewport`): on-screen keyboard, browser UI, and safe-area insets — recompute on `resize`/`scroll`/orientation change while open.
+5. **Audit every popover** (color/tool/brush flyouts, ··· menus, quick pickers, stamp picker) — all must use `openPopover()`; remove any ad-hoc positioning. Add a regression test: anchor at each screen corner + each toolbar dock → popover fully within viewport every time.
+
+**Accept when:** the canvas color popover opens fully on-screen (upward from a bottom toolbar) on a 360×740 viewport with and without keyboard, and every popover in the app stays within the viewport from any anchor position.
+
+---
+
 ## Order of work
 
 ~~CR-3 → CR-6 → CR-1 → CR-2 → CR-5 → CR-4~~ ✅ all complete 2026-06-10.
@@ -247,9 +262,13 @@ The Atlas (docs/08 §5) is still being built — make sure it lands **with** the
 3. ~~CR-7~~ ✅ 2026-06-11 (particle layers shipped).
 4. Then resume Phase 7 (World Builder → D&D Character → D&D DM).
 
-**Round 4 (current priority):**
+**Round 4:**
 1. ~~CR-13~~ ✅ 2026-06-11 — stroke-buffer commit pipeline; budgets + chunking; Sketchy removed; perf tests permanent.
 2. ~~CR-14~~ ✅ 2026-06-11 — shipped with the World Builder module (stamps library + pointer tool + editable pins + rich text labels + save-as-stamp hooks).
 3. Then continue Phase 7 (D&D Character → D&D DM).
+
+**Round 5 (current priority):**
+1. **CR-15** — popover off-screen bug (blocks color changes in the canvas; small, fix first).
+2. Then continue Phase 7 (D&D Character → D&D DM).
 
 Mark each CR done here (`✅ + date`) when its acceptance criteria pass on a 360px viewport and desktop.

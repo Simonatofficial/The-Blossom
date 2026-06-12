@@ -186,42 +186,148 @@ export function closeStrayPanels() {
 /* ---------- popovers (CR-11): quick mid-task utilities — small, anchored,
    no scrim, no route change, gone on tap-outside or selection ---------- */
 
+/* CR-15: collision-aware placement, shared by every floating surface.
+   The visual viewport (keyboard, browser UI) is the truth; the popover is
+   measured AFTER its content exists (a ResizeObserver re-places it whenever
+   it grows), flips to whichever side of the anchor fits, clamps to an 8px
+   margin, and — only when no side fits — constrains its height so content
+   scrolls internally instead of running off-screen. */
+
+const PLACE_MARGIN = 8;
+
+function viewportBox() {
+  const vv = window.visualViewport;
+  return vv
+    ? { x: vv.offsetLeft, y: vv.offsetTop, w: vv.width, h: vv.height }
+    : { x: 0, y: 0, w: innerWidth, h: innerHeight };
+}
+
+/**
+ * Place a fixed-position element beside its anchor.
+ * @param {HTMLElement} elm
+ * @param {{getBoundingClientRect: () => DOMRect}} anchor (real or synthetic)
+ * @param {{gap?: number, align?: 'start'|'center'|'end', caret?: HTMLElement}} opts
+ */
+function placeFloating(elm, anchor, { gap = 8, align = 'start', caret = null } = {}) {
+  const vp = viewportBox();
+  const m = PLACE_MARGIN;
+  const r = anchor.getBoundingClientRect();
+  if (elm.style.maxHeight) elm.style.maxHeight = ''; // natural size first
+  let pw = elm.offsetWidth, ph = elm.offsetHeight;
+  const space = {
+    below: vp.y + vp.h - r.bottom - gap - m,
+    above: r.top - vp.y - gap - m,
+    right: vp.x + vp.w - r.right - gap - m,
+    left: r.left - vp.x - gap - m
+  };
+  let side;
+  if (ph <= space.below) side = 'below';
+  else if (ph <= space.above) side = 'above';
+  else if (pw <= space.right && ph <= vp.h - 2 * m) side = 'right';
+  else if (pw <= space.left && ph <= vp.h - 2 * m) side = 'left';
+  else {
+    side = space.below >= space.above ? 'below' : 'above';
+    elm.style.maxHeight = `${Math.max(120, space[side])}px`;
+    ph = elm.offsetHeight;
+  }
+  let x, y;
+  if (side === 'below' || side === 'above') {
+    x = align === 'end' ? r.right - pw : align === 'center' ? r.left + r.width / 2 - pw / 2 : r.left;
+    y = side === 'below' ? r.bottom + gap : r.top - ph - gap;
+  } else {
+    x = side === 'right' ? r.right + gap : r.left - pw - gap;
+    y = r.top + r.height / 2 - ph / 2;
+  }
+  x = Math.round(Math.min(Math.max(vp.x + m, x), vp.x + vp.w - pw - m));
+  y = Math.round(Math.min(Math.max(vp.y + m, y), vp.y + vp.h - ph - m));
+  if (elm.style.left !== `${x}px`) elm.style.left = `${x}px`;
+  if (elm.style.top !== `${y}px`) elm.style.top = `${y}px`;
+  if (caret) {
+    // the caret keeps pointing at the anchor even when the body is clamped
+    caret.dataset.side = side;
+    if (side === 'below' || side === 'above') {
+      caret.style.top = caret.style.bottom = '';
+      caret.style.left = `${Math.min(Math.max(r.left + r.width / 2 - x - 6, 10), pw - 22)}px`;
+    } else {
+      caret.style.left = '';
+      caret.style.top = `${Math.min(Math.max(r.top + r.height / 2 - y - 6, 10), ph - 22)}px`;
+    }
+  }
+  return side;
+}
+
+/** Keep elm placed while it lives: content growth, viewport/keyboard
+    changes, scrolling anchors. @returns {() => void} dispose */
+function watchPlacement(elm, anchor, opts) {
+  let queued = false;
+  const replace = () => {
+    if (queued || !elm.isConnected) return;
+    queued = true;
+    queueMicrotask(() => {
+      queued = false;
+      if (!elm.isConnected) return;
+      placeFloating(elm, anchor, opts);
+      mo.takeRecords(); // swallow our own style writes — no feedback loop
+    });
+  };
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(replace) : null;
+  ro?.observe(elm);
+  // MutationObserver too: it fires even in hidden documents (RO may not),
+  // and most callers fill the body after opening
+  const mo = new MutationObserver(replace);
+  mo.observe(elm, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+  const vv = window.visualViewport;
+  vv?.addEventListener('resize', replace);
+  vv?.addEventListener('scroll', replace);
+  window.addEventListener('resize', replace);
+  document.addEventListener('scroll', replace, { capture: true, passive: true });
+  return () => {
+    ro?.disconnect();
+    mo.disconnect();
+    vv?.removeEventListener('resize', replace);
+    vv?.removeEventListener('scroll', replace);
+    window.removeEventListener('resize', replace);
+    document.removeEventListener('scroll', replace, { capture: true });
+  };
+}
+
 /**
  * @param {HTMLElement} anchor the control that opened it
- * @param {{title?: string, width?: number}} opts
+ * @param {{title?: string, width?: number, onClose?: () => void}} opts
  * @returns {{body: HTMLElement, el: HTMLElement, close: () => void}}
  */
-export function openPopover(anchor, { title = null, width = 280 } = {}) {
+export function openPopover(anchor, { title = null, width = 280, onClose = null } = {}) {
   document.querySelector('.popover')?.remove();
-  const pop = el(`<div class="popover" role="dialog">${title ? '<h3 class="pop-title"></h3>' : ''}<div class="pop-body"></div></div>`);
+  const pop = el(`<div class="popover" role="dialog"><span class="pop-caret" aria-hidden="true"></span>${title ? '<h3 class="pop-title"></h3>' : ''}<div class="pop-body"></div></div>`);
   if (title) pop.querySelector('.pop-title').textContent = title;
-  pop.style.width = `${Math.min(width, innerWidth - 16)}px`;
-  document.body.appendChild(pop);
-  const r = anchor.getBoundingClientRect();
-  const pw = pop.offsetWidth, ph = pop.offsetHeight;
-  let x = Math.min(Math.max(8, r.left), innerWidth - pw - 8);
-  let y = r.bottom + 8;
-  if (y + ph > innerHeight - 8) y = Math.max(8, r.top - ph - 8);
-  // never cover the work area's center: prefer hugging the anchor's side
-  if (r.right + pw + 8 <= innerWidth && ph > innerHeight - r.bottom - 16) {
-    x = r.right + 8;
-    y = Math.min(Math.max(8, r.top), innerHeight - ph - 8);
-  }
-  pop.style.left = `${x}px`;
-  pop.style.top = `${y}px`;
+  pop.style.width = `${Math.min(width, viewportBox().w - 2 * PLACE_MARGIN)}px`;
+  // inside browser fullscreen (canvas focus page), body children are hidden
+  (document.fullscreenElement || document.body).appendChild(pop);
+  const opts = { caret: pop.querySelector('.pop-caret') };
+  const unwatch = watchPlacement(pop, anchor, opts);
+  let closed = false;
   const ctl = {
     el: pop,
     body: pop.querySelector('.pop-body'),
     close() {
+      if (closed) return;
+      closed = true;
+      unwatch();
       pop.classList.remove('open');
       setTimeout(() => pop.remove(), 140);
       document.removeEventListener('pointerdown', onAway, true);
+      onClose?.();
     }
   };
   function onAway(e) { if (!pop.contains(e.target)) ctl.close(); }
   setTimeout(() => document.addEventListener('pointerdown', onAway, true), 0);
-  requestAnimationFrame(() => pop.classList.add('open'));
-  pop.classList.add('open'); // hidden-document fallback: rAF may never fire
+  // place after the caller fills the body (callers fill synchronously);
+  // microtask beats rAF in hidden documents, the observer covers the rest
+  queueMicrotask(() => {
+    if (!pop.isConnected) return;
+    placeFloating(pop, anchor, opts);
+    pop.classList.add('open');
+  });
   return ctl;
 }
 
@@ -245,16 +351,18 @@ export function popMenu(anchor, items) {
     b.onclick = () => { close(); item.fn(); };
     menu.appendChild(b);
   }
-  document.body.appendChild(menu);
-  const r = anchor.getBoundingClientRect();
-  const mw = menu.offsetWidth, mh = menu.offsetHeight;
-  let x = Math.min(r.right - mw + 8, window.innerWidth - mw - 8);
-  let y = r.bottom + 6;
-  if (y + mh > window.innerHeight - 8) y = Math.max(8, r.top - mh - 6);
-  menu.style.left = `${Math.max(8, x)}px`;
-  menu.style.top = `${y}px`;
-  requestAnimationFrame(() => menu.classList.add('open'));
+  (document.fullscreenElement || document.body).appendChild(menu);
+  // same collision-aware placement as popovers (CR-15); menus hug the
+  // anchor's right edge, flip and clamp like everything else
+  const opts = { gap: 6, align: 'end' };
+  const unwatch = watchPlacement(menu, anchor, opts);
+  queueMicrotask(() => {
+    if (!menu.isConnected) return;
+    placeFloating(menu, anchor, opts);
+    menu.classList.add('open');
+  });
   function close() {
+    unwatch();
     menu.classList.remove('open');
     setTimeout(() => menu.remove(), 160);
     document.removeEventListener('pointerdown', onAway, true);

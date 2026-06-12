@@ -297,12 +297,15 @@
 .routed-page.rp-focus .rp-body { padding: 8px; }
 body.focus-page #chrome-top, body.focus-page #tab-bar { display: none; }
 
-/* ---- popovers (CR-11): small anchored utilities — no scrim, no route ---- */
+/* ---- popovers (CR-11): small anchored utilities — no scrim, no route ----
+   CR-15: placement JS clamps to the visual viewport and sets max-height
+   only when no side of the anchor fits; the BODY scrolls, the caret stays
+   outside the box (so no overflow clipping on the shell). */
 .popover {
   position: fixed;
   z-index: 58;
-  max-height: min(70vh, 540px);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   padding: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -314,6 +317,21 @@ body.focus-page #chrome-top, body.focus-page #tab-bar { display: none; }
   transition: opacity 140ms var(--ease), transform 140ms var(--ease);
 }
 .popover.open { opacity: 1; transform: none; }
+.popover .pop-body { overflow-y: auto; min-height: 0; }
+.pop-caret {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(14px);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+.pop-caret[data-side="below"] { top: -7px; border-right: none; border-bottom: none; }
+.pop-caret[data-side="above"] { bottom: -7px; border-left: none; border-top: none; }
+.pop-caret[data-side="right"] { left: -7px; border-top: none; border-right: none; }
+.pop-caret[data-side="left"] { right: -7px; border-bottom: none; border-left: none; }
 .popover .pop-title {
   font-size: 0.74rem;
   letter-spacing: 0.06em;
@@ -517,6 +535,7 @@ body.focus-page #chrome-top, body.focus-page #tab-bar { display: none; }
   position: fixed;
   z-index: 65;
   min-width: 180px;
+  overflow-y: auto; /* CR-15: placement may cap height on tiny viewports */
   padding: 6px;
   background: var(--surface);
   border: 1px solid var(--border);

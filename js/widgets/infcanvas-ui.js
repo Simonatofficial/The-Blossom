@@ -4,7 +4,7 @@
    tool is unmistakable — filled accent + glow — and one-hand reachable. */
 
 import { icon } from '../ui/icons.js';
-import { el, toast, confirmDialog, openDrawer, promptText, popMenu } from '../ui/components.js';
+import { el, toast, confirmDialog, openDrawer, openPopover, promptText, popMenu } from '../ui/components.js';
 import { BLEND_MODES, hexA } from './infcanvas-raster.js';
 
 const TOOLS = [
@@ -30,8 +30,8 @@ const BRUSHES = ['pen', 'blend', 'pixel', 'eraser'];
  */
 export function buildToolbar(state, act) {
   const strip = el('<div class="ic-strip"></div>');
-  let flyout = null;
-  const closeFlyout = () => { flyout?.remove(); flyout = null; };
+  let flyout = null; // an openPopover ctl — placement is collision-aware (CR-15)
+  const closeFlyout = () => { flyout?.close(); flyout = null; };
 
   const toolBtns = {};
   for (const [tool, ic, label] of TOOLS) {
@@ -93,18 +93,23 @@ export function buildToolbar(state, act) {
 
   function openFlyout(anchor, tool) {
     closeFlyout();
-    flyout = el('<div class="ic-flyout panel"></div>');
+    const pop = openPopover(anchor, {
+      title: TOOL_NAME[tool], width: 274,
+      onClose: () => { if (flyout === pop) flyout = null; }
+    });
+    flyout = pop;
+    const body = pop.body;
 
-    const head = el(`<div class="ic-fhead"><strong>${TOOL_NAME[tool]}</strong><canvas width="132" height="34"></canvas></div>`);
-    flyout.appendChild(head);
+    const head = el('<div class="ic-fhead"><canvas width="132" height="34"></canvas></div>');
+    body.appendChild(head);
     const pv = head.querySelector('canvas');
-    const repaint = () => { if (BRUSHES.includes(tool)) drawStrokePreview(pv, { ...state, tool }); else pv.style.display = 'none'; };
+    const repaint = () => { if (BRUSHES.includes(tool)) drawStrokePreview(pv, { ...state, tool }); else head.style.display = 'none'; };
     repaint();
 
     const row = (label, input) => {
       const r = el(`<div class="ic-frow"><span>${label}</span></div>`);
       r.appendChild(input);
-      flyout.appendChild(r);
+      body.appendChild(r);
       return input;
     };
     const slider = (label, key, min, max, step, fmt = null) => {
@@ -142,7 +147,7 @@ export function buildToolbar(state, act) {
       sizeWrap.append(sl, num);
       row('Size', sizeWrap);
       const note = el('<div class="soft" style="font-size:0.72rem;margin:-4px 0 8px"></div>');
-      flyout.appendChild(note);
+      body.appendChild(note);
       const sizeNote = () => {
         const onScreen = state.screenScaled ? state.size : state.size * act.scale();
         note.textContent = `${state.size} px · ≈${onScreen >= 10 ? Math.round(onScreen) : onScreen.toPrecision(2)} on screen`;
@@ -191,13 +196,13 @@ export function buildToolbar(state, act) {
       sBtn('flip-v', 'Flip vertical', () => act.select.flip('v'));
       sBtn('trash', 'Delete selection', () => act.select.del());
       sBtn('x', 'Deselect', () => act.select.deselect());
-      flyout.appendChild(actions);
+      body.appendChild(actions);
     }
     if (tool === 'text') {
-      flyout.appendChild(el('<p class="soft" style="font-size:0.78rem;margin:4px 0">Tap the canvas to place a text box. Tap a box to move or restyle it; double-tap to edit — forever.</p>'));
+      body.appendChild(el('<p class="soft" style="font-size:0.78rem;margin:4px 0">Tap the canvas to place a text box. Tap a box to move or restyle it; double-tap to edit — forever.</p>'));
     }
     if (tool === 'eyedropper') {
-      flyout.appendChild(el('<p class="soft" style="font-size:0.78rem;margin:4px 0">Tap the canvas to pick a color. Long-press inside any brush does the same.</p>'));
+      body.appendChild(el('<p class="soft" style="font-size:0.78rem;margin:4px 0">Tap the canvas to pick a color. Long-press inside any brush does the same.</p>'));
     }
 
     if (BRUSHES.includes(tool)) {
@@ -206,19 +211,7 @@ export function buildToolbar(state, act) {
       wsLabel();
       ws.onclick = () => { state.screenScaled = !state.screenScaled; wsLabel(); act.stateChanged(); };
     }
-
-    strip.parentElement.appendChild(flyout);
-    const r = anchor.getBoundingClientRect();
-    const host = strip.parentElement.getBoundingClientRect();
-    flyout.style.left = `${r.right - host.left + 8}px`;
-    flyout.style.top = `${Math.max(4, Math.min(r.top - host.top, host.height - 320))}px`;
-    setTimeout(() => document.addEventListener('pointerdown', away, true), 0);
-    function away(ev) {
-      if (!flyout?.contains(ev.target)) {
-        closeFlyout();
-        document.removeEventListener('pointerdown', away, true);
-      }
-    }
+    // placement + tap-outside dismissal come from openPopover (CR-15)
   }
 
   function refresh() {
