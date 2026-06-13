@@ -36,7 +36,7 @@ Work the active CRs in their stated order (menu-row fix → Flower Graph fixes �
 ## Phase 8 — Polish & small presets
 - ~~Reading Nook, Recipe Box, Budget Garden, Music Practice, Fitness Log definitions~~ ✅ (`js/presets/modules/small.js`)
 - ~~Trash UI~~ ✅ (Settings drawer: per-item restore / delete-forever **plus multi-select** — checkboxes, select-all, bulk Restore / Delete forever, Empty trash)
-- Accessibility pass: ~~reduced-motion audit~~ ✅ (global CSS `prefers-reduced-motion` block + particle/atmosphere/flower-graph gates; the RelationshipWeb force layout now solves synchronously instead of animating). **Remaining:** focus-order + aria-label sweep.
+- Accessibility pass: ~~reduced-motion audit~~ ✅ (global CSS `prefers-reduced-motion` block + particle/atmosphere/flower-graph gates; RelationshipWeb solves its layout synchronously). ~~Focus & labels — shared layer~~ ✅ (done once in `components.js`/`shell.js`, so it propagates app-wide): dialogs/panels are `role="dialog"`/`"alertdialog"` + `aria-modal`, move focus in on open, **trap Tab**, close on Esc, and **restore focus** on close; `seg`→`role="radiogroup"`/`radio`+`aria-checked`, `switchEl`→`role="switch"`, decorative SVGs already `aria-hidden`, tab bar is a labeled `<nav>` with `aria-current="page"`. **Remaining:** a deeper per-widget label audit (bespoke controls inside individual widgets).
 - i18n-ready strings file
 
 ---

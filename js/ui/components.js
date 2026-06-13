@@ -40,9 +40,10 @@ export function toast(msg, iconName = 'flower') {
  */
 export function confirmDialog({ title, message = '', confirmText = 'Delete' }) {
   return new Promise(resolve => {
+    const prevFocus = document.activeElement; // restore focus on close (a11y)
     const back = el(`
       <div class="dialog-backdrop">
-        <div class="dialog" role="alertdialog" aria-label="${title}">
+        <div class="dialog" role="alertdialog" aria-modal="true" aria-label="${title}">
           <h3></h3><p></p>
           <div class="row-end">
             <button class="btn btn-ghost" data-act="cancel">Cancel</button>
@@ -56,11 +57,22 @@ export function confirmDialog({ title, message = '', confirmText = 'Delete' }) {
     const done = (val) => {
       back.classList.remove('open');
       setTimeout(() => back.remove(), 220);
+      if (prevFocus?.isConnected) prevFocus.focus();
       resolve(val);
     };
     back.querySelector('[data-act="cancel"]').onclick = () => done(false);
     back.querySelector('[data-act="ok"]').onclick = () => done(true);
     back.onclick = (e) => { if (e.target === back) done(false); };
+    // Esc cancels; Tab stays within the two buttons (focus trap)
+    back.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); done(false); }
+      else if (e.key === 'Tab') {
+        const f = [...back.querySelectorAll('button')];
+        const i = f.indexOf(document.activeElement);
+        e.preventDefault();
+        f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+      }
+    });
     document.body.appendChild(back);
     requestAnimationFrame(() => back.classList.add('open'));
     back.querySelector('[data-act="cancel"]').focus();
@@ -89,11 +101,12 @@ export function panelPlacement() {
  */
 export function openPanel({ title, iconName = 'flower', onClose = null, placement = null, crumbs = null, actions = [] }) {
   const place = placement || panelPlacement();
+  const prevFocus = document.activeElement; // restore focus when the panel closes (a11y)
   const nested = drawerStack.length > 0; // a replaced panel leaves a back affordance
   for (const ctl of [...drawerStack]) ctl.close(); // one panel at a time (CR-11)
   const back = el('<div class="drawer-backdrop"></div>');
   const drawer = el(`
-    <div class="drawer place-${place}" role="dialog" aria-label="${title}">
+    <div class="drawer place-${place}" role="dialog" aria-modal="true" aria-label="${title}">
       ${place === 'sheet' ? '<div class="sheet-handle" aria-hidden="true"></div>' : ''}
       <div class="drawer-head">
         <button class="btn-icon" aria-label="Close">${icon(place === 'full' || nested ? 'arrow-left' : 'x', 18)}</button>
@@ -127,10 +140,22 @@ export function openPanel({ title, iconName = 'flower', onClose = null, placemen
       drawer.classList.remove('open');
       setTimeout(() => { back.remove(); drawer.remove(); }, 280);
       onClose?.();
+      if (prevFocus?.isConnected) prevFocus.focus(); // return focus where it was
     }
   };
   back.onclick = () => ctl.close();
   drawer.querySelector('[aria-label="Close"]').onclick = () => ctl.close();
+
+  // focus trap (a11y): keep Tab within the open panel; Esc is handled globally
+  drawer.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const f = [...drawer.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+      .filter(x => !x.disabled && x.offsetParent !== null);
+    if (f.length < 2) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
 
   // sheet: drag handle — up expands toward full, down dismisses
   if (place === 'sheet') {
@@ -170,7 +195,11 @@ export function openPanel({ title, iconName = 'flower', onClose = null, placemen
 
   document.body.appendChild(back);
   document.body.appendChild(drawer);
-  requestAnimationFrame(() => { back.classList.add('open'); drawer.classList.add('open'); });
+  requestAnimationFrame(() => {
+    back.classList.add('open');
+    drawer.classList.add('open');
+    drawer.querySelector('[aria-label="Close"]')?.focus(); // move focus in (callers may refocus a field)
+  });
   drawerStack.push(ctl);
   return ctl;
 }
@@ -394,16 +423,19 @@ export function input(value = '', placeholder = '') {
   return i;
 }
 
-/** Segmented control. */
+/** Segmented control (exposed as a radio group for assistive tech). */
 export function seg(options, value, onChange) {
-  const s = el('<div class="seg"></div>');
+  const s = el('<div class="seg" role="radiogroup"></div>');
   for (const opt of options) {
-    const b = el('<button type="button"></button>');
+    const b = el('<button type="button" role="radio"></button>');
     b.textContent = opt.label;
-    if (opt.value === value) b.classList.add('active');
+    const on = opt.value === value;
+    if (on) b.classList.add('active');
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
     b.onclick = () => {
-      s.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+      s.querySelectorAll('button').forEach(x => { x.classList.remove('active'); x.setAttribute('aria-checked', 'false'); });
       b.classList.add('active');
+      b.setAttribute('aria-checked', 'true');
       onChange(opt.value);
     };
     s.appendChild(b);
@@ -411,12 +443,13 @@ export function seg(options, value, onChange) {
   return s;
 }
 
-/** Toggle switch. */
+/** Toggle switch (a native checkbox exposed with the switch role). */
 export function switchEl(checked, onChange) {
-  const s = el(`<label class="switch"><input type="checkbox"><span class="knob"></span></label>`);
+  const s = el(`<label class="switch"><input type="checkbox" role="switch"><span class="knob"></span></label>`);
   const c = s.querySelector('input');
   c.checked = checked;
-  c.onchange = () => onChange(c.checked);
+  c.setAttribute('aria-checked', checked ? 'true' : 'false');
+  c.onchange = () => { c.setAttribute('aria-checked', c.checked ? 'true' : 'false'); onChange(c.checked); };
   return s;
 }
 

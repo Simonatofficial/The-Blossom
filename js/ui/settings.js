@@ -132,12 +132,14 @@ function renderAppearanceSection(d) {
   const sec = el('<div class="dsec"><h3>Appearance</h3><div class="field"><label>Open panels as</label><div class="a-seg"></div><div class="hint">How settings, pickers, and widget views slide in. Takes effect on the next panel.</div></div></div>');
   const settings = store.getMeta('settings', {});
   const current = settings.panelPlacement || (innerWidth >= 600 ? 'right' : 'sheet');
-  const segEl = el('<div class="seg"></div>');
+  const segEl = el('<div class="seg" role="radiogroup" aria-label="Open panels as"></div>');
   for (const [value, label] of [['full', 'Full page'], ['left', 'Left'], ['right', 'Right'], ['sheet', 'Bottom sheet']]) {
-    const b = el(`<button type="button" class="${current === value ? 'active' : ''}">${label}</button>`);
+    const on = current === value;
+    const b = el(`<button type="button" role="radio" aria-checked="${on}" class="${on ? 'active' : ''}">${label}</button>`);
     b.onclick = () => {
-      segEl.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+      segEl.querySelectorAll('button').forEach(x => { x.classList.remove('active'); x.setAttribute('aria-checked', 'false'); });
       b.classList.add('active');
+      b.setAttribute('aria-checked', 'true');
       const s = store.getMeta('settings', {});
       s.panelPlacement = value;
       store.setMeta('settings', s);

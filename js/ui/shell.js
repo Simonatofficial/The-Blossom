@@ -58,7 +58,7 @@ function renderTabs() {
   for (const page of visible) {
     const tab = el(`<button class="tab"><span class="tab-icon">${iconOrEmoji(page.icon, 18)}</span><span class="tab-name"></span></button>`);
     tab.querySelector('.tab-name').textContent = page.name;
-    if (page.id === pageId) tab.classList.add('active');
+    if (page.id === pageId) { tab.classList.add('active'); tab.setAttribute('aria-current', 'page'); }
     tab.onclick = () => router.go(mod.id, page.id);
     longPress(tab, () => pageMenu(tab, mod, page));
     bar.appendChild(tab);
