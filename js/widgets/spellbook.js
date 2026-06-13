@@ -8,7 +8,7 @@ import { store } from '../core/store.js';
 import { icon } from '../ui/icons.js';
 import { el, toast, popMenu, openPanel, input } from '../ui/components.js';
 import { objectsOf, createObject, saveObject } from './base.js';
-import { SCHOOLS, getCharacter, saveCharacter } from './dnd-shared.js';
+import { SCHOOLS, ABILITIES, fmtMod, spellSaveDC, spellAttackBonus, getCharacter, saveCharacter } from './dnd-shared.js';
 
 const LV_NAME = (n) => n === 0 ? 'Cantrips' : `Level ${n}`;
 
@@ -37,6 +37,25 @@ registry.register({
     const cfg = widget.config;
     const spells = () => objectsOf(owner.id, 'spell');
     const saveChar = () => saveCharacter(obj);
+
+    /* ---- spellcasting ability · save DC · spell attack bonus (5e) ---- */
+    const castHead = el(`<div class="dnd-box" style="margin-bottom:10px"><div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="soft" style="font-size:0.74rem;text-transform:uppercase;letter-spacing:0.05em">Spellcasting</span>
+      <select class="select cast-ab" style="padding:4px 8px;width:auto"></select>
+      <span class="chip">Save DC <b class="cast-dc"></b></span>
+      <span class="chip">Spell atk <b class="cast-atk"></b></span></div></div>`);
+    const abSel = castHead.querySelector('.cast-ab');
+    abSel.appendChild(new Option('No ability', ''));
+    for (const [key, label] of ABILITIES) abSel.appendChild(new Option(label, key));
+    abSel.value = c.spellAbility || '';
+    const drawCast = () => {
+      const dc = spellSaveDC(c), atk = spellAttackBonus(c);
+      castHead.querySelector('.cast-dc').textContent = dc != null ? dc : '—';
+      castHead.querySelector('.cast-atk').textContent = atk != null ? fmtMod(atk) : '—';
+    };
+    abSel.onchange = () => { c.spellAbility = abSel.value; saveChar(); drawCast(); };
+    drawCast();
+    host.appendChild(castHead);
 
     /* ---- slot pips per level (tap to expend / restore) ---- */
     const slotBox = el(`<div class="dnd-box" style="margin-bottom:10px"><div class="row" style="justify-content:space-between"><span class="soft">Spell slots</span><button class="btn" style="font-size:0.74rem;padding:2px 9px">Set slots</button></div><div class="slot-rows"></div></div>`);
@@ -136,8 +155,9 @@ registry.register({
             <button class="chip" title="Cast (spend a slot)">Cast</button>
             <button class="btn-icon" title="More">${icon('more', 13)}</button>
             <div class="sp-detail" style="display:none;width:100%"></div></div>`);
-          row.querySelector('.li-title').textContent = sp.data.name;
-          row.querySelector('.li-sub').textContent = [sp.data.school, sp.data.time, sp.data.range].filter(Boolean).join(' · ');
+          row.querySelector('.li-title').textContent = sp.data.name + (sp.data.ritual ? ' (R)' : '') + (sp.data.concentration ? ' (C)' : '');
+          row.querySelector('.li-sub').textContent = [sp.data.school, sp.data.time, sp.data.range,
+            sp.data.concentration && 'Concentration', sp.data.ritual && 'Ritual'].filter(Boolean).join(' · ');
           const prepBtn = row.querySelector('.sp-prep');
           prepBtn.style.color = sp.data.prepared ? 'var(--accent)' : 'var(--text-soft)';
           prepBtn.onclick = (e) => { e.stopPropagation(); sp.data.prepared = !sp.data.prepared; saveObject(sp); drawList(); };
@@ -178,6 +198,9 @@ registry.register({
       const range = f('Range (60 ft)', sp?.data.range);
       const comps = f('Components (V, S, M)', sp?.data.comps);
       const duration = f('Duration (1 minute)', sp?.data.duration);
+      const flags = el(`<div class="row" style="gap:18px;margin-top:8px"><label class="row" style="gap:6px;align-items:center;font-size:0.86rem"><input type="checkbox" class="sp-conc"> Concentration</label><label class="row" style="gap:6px;align-items:center;font-size:0.86rem"><input type="checkbox" class="sp-rit"> Ritual</label></div>`);
+      flags.querySelector('.sp-conc').checked = !!sp?.data.concentration;
+      flags.querySelector('.sp-rit').checked = !!sp?.data.ritual;
       const text = el('<textarea class="input" rows="5" placeholder="What it does…" style="margin-top:8px"></textarea>');
       text.value = sp?.data.text || '';
       const ok = el('<button class="btn btn-primary" style="width:100%;margin-top:12px">Save</button>');
@@ -187,6 +210,7 @@ registry.register({
           name: name.value.trim(), level: Math.max(0, Math.min(9, Number(lvl.value) || 0)),
           school: school.value, time: time.value.trim(), range: range.value.trim(),
           comps: comps.value.trim(), duration: duration.value.trim(), text: text.value,
+          concentration: flags.querySelector('.sp-conc').checked, ritual: flags.querySelector('.sp-rit').checked,
           prepared: sp?.data.prepared || false
         };
         if (sp) { sp.data = data; saveObject(sp); }
@@ -195,7 +219,7 @@ registry.register({
         drawFilters();
         drawList();
       };
-      d.body.append(name, lvl, school, time, range, comps, duration, ok);
+      d.body.append(name, lvl, school, time, range, comps, duration, flags, ok);
       d.body.insertBefore(text, ok);
       setTimeout(() => name.focus(), 150);
     };

@@ -663,6 +663,8 @@
 .dnd-coin { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .dnd-coin input { text-align: center; padding: 5px 4px; }
 .dnd-coin span { font-size: 0.68rem; color: var(--text-soft); text-transform: uppercase; }
+.dnd-desc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 8px; }
+.dnd-desc-grid .field { margin: 0; }
 @media (max-width: 480px) {
   .dnd-abilities { grid-template-columns: repeat(3, 1fr); }
   .dnd-tiles { grid-template-columns: repeat(2, 1fr); }
