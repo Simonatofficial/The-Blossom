@@ -235,7 +235,8 @@ The Atlas (docs/08 §5) is still being built — make sure it lands **with** the
 
 ---
 
-## CR-15 — Popovers overflow off-screen (can't change colors in Infinite Canvas) · `ui/components.js` `openPopover()` (BUG)
+## CR-15 — Popovers overflow off-screen (can't change colors in Infinite Canvas) · `ui/components.js` `openPopover()` (BUG) · ✅ 2026-06-12
+*(Build notes: collision-aware placement now lives in one shared helper — `placeFloating()` measures the surface, picks the anchor side with room (below → above → right → left), clamps to an 8px visual-viewport margin, and only as a last resort caps `max-height` so the `.pop-body` scrolls internally while the surface stays on-screen. A `.pop-caret` element sits outside the box and keeps pointing at the anchor even when clamped. `watchPlacement()` re-places on content growth (ResizeObserver + MutationObserver, for hidden documents) and on `visualViewport` resize/scroll (keyboard, browser UI, orientation). Both `openPopover` and `popMenu` route through it; surfaces mount on `document.fullscreenElement || document.body` so they show inside the Canvas focus page's browser-fullscreen. The Infinite Canvas tool-options `.ic-flyout` was retired and now rides `openPopover`, so it inherits the same placement — the color popover opens upward from the bottom toolbar. Audited: every anchored surface in the app (canvas color/tool/brush flyouts, `popMenu` overflow menus, the World Builder stamp/icon/curve/label pickers, pin editor) goes through `openPopover`/`popMenu`; no ad-hoc positioning remains. Regression suite: `tests/popover-place.html` (permanent) — anchors at every corner/edge, bottom-dock opens upward, over-tall content scrolls, late-filled content re-places, caret tracks the anchor, `popMenu` obeys the same rules. **Also folded in:** the installed PWA's `orientation` is now locked to `portrait` (manifest + docs/09) so the phone-first chrome never auto-rotates into a landscape reflow.)*
 
 **Symptom:** in the Infinite Canvas, the color popover opens *downward* from the toolbar and runs off the bottom of the screen — the picker is unreachable, so colors can't be changed.
 
@@ -267,8 +268,8 @@ The Atlas (docs/08 §5) is still being built — make sure it lands **with** the
 2. ~~CR-14~~ ✅ 2026-06-11 — shipped with the World Builder module (stamps library + pointer tool + editable pins + rich text labels + save-as-stamp hooks).
 3. Then continue Phase 7 (D&D Character → D&D DM).
 
-**Round 5 (current priority):**
-1. **CR-15** — popover off-screen bug (blocks color changes in the canvas; small, fix first).
-2. Then continue Phase 7 (D&D Character → D&D DM).
+**Round 5:**
+1. ~~CR-15~~ ✅ 2026-06-12 — collision-aware `placeFloating`/`watchPlacement` shared by `openPopover` + `popMenu`; canvas color popover opens upward; PWA orientation locked to portrait; `tests/popover-place.html` permanent.
+2. **Then continue Phase 7 (D&D Character → D&D DM).** ← current priority
 
 Mark each CR done here (`✅ + date`) when its acceptance criteria pass on a 360px viewport and desktop.

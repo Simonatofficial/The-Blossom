@@ -17,7 +17,7 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "orientation": "any",
+  "orientation": "portrait",
   "background_color": "#1b1430",
   "theme_color": "#1b1430",
   "icons": [
@@ -29,6 +29,8 @@
 ```
 
 Icon: the cosmos-flower-in-orbit sigil (docs/06), exported from SVG at the three sizes (maskable version has 20% safe-zone padding).
+
+**Orientation is locked to `portrait`** (CR-15): the Blossom is a phone-first cozy app whose chrome (bottom tab bar, bottom-docked Canvas toolbar, anchored popovers) is laid out for a tall viewport. Auto-rotating into landscape on a phone reflowed those surfaces awkwardly, so the installed PWA stays upright. (Desktop/tablet windows ignore the hint and resize freely.)
 
 ## Service worker (`sw.js`)
 
