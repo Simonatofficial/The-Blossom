@@ -59,6 +59,11 @@ function renderTabs() {
     const tab = el(`<button class="tab"><span class="tab-icon">${iconOrEmoji(page.icon, 18)}</span><span class="tab-name"></span></button>`);
     tab.querySelector('.tab-name').textContent = page.name;
     if (page.id === pageId) { tab.classList.add('active'); tab.setAttribute('aria-current', 'page'); }
+    if (mod.homePageId === page.id) {
+      tab.classList.add('home');
+      tab.setAttribute('aria-label', `${page.name}, home page`);
+      tab.insertAdjacentHTML('afterbegin', `<span class="tab-home" aria-hidden="true">${icon('home', 11)}</span>`);
+    }
     tab.onclick = () => router.go(mod.id, page.id);
     longPress(tab, () => pageMenu(tab, mod, page));
     bar.appendChild(tab);
@@ -69,7 +74,7 @@ function renderTabs() {
     more.onclick = () => {
       const d = openDrawer({ title: mod.name, iconName: 'grid' });
       for (const page of pages) {
-        const li = el(`<button class="list-item">${iconOrEmoji(page.icon, 18)}<span class="li-main"><span class="li-title"></span></span></button>`);
+        const li = el(`<button class="list-item">${iconOrEmoji(page.icon, 18)}<span class="li-main"><span class="li-title"></span></span>${mod.homePageId === page.id ? `<span style="color:var(--accent)" title="Home page">${icon('home', 15)}</span>` : ''}</button>`);
         li.querySelector('.li-title').textContent = page.name;
         li.onclick = () => { d.close(); router.go(mod.id, page.id); };
         d.body.appendChild(li);
@@ -116,6 +121,13 @@ function pageMenu(anchor, mod, page) {
     { label: 'Change icon', iconName: 'star', fn: () => openIconPicker(page.icon, (val) => {
       page.icon = val; store.put('pages', page); events.emit('module:changed', {});
     }) },
+    { label: mod.homePageId === page.id ? 'Remove as home page' : 'Set as home page', iconName: 'home', fn: () => {
+      const wasHome = mod.homePageId === page.id;
+      mod.homePageId = wasHome ? null : page.id;
+      store.put('modules', mod);
+      events.emit('module:changed', {});
+      toast(wasHome ? 'Home page cleared' : `“${page.name}” opens first now`, 'home');
+    } },
     { label: 'Move left', iconName: 'chevron-left', fn: () => {
       if (idx > 0) { mod.pages.splice(idx, 1); mod.pages.splice(idx - 1, 0, page.id); store.put('modules', mod); events.emit('module:changed', {}); }
     } },
@@ -138,6 +150,7 @@ function pageMenu(anchor, mod, page) {
           const w = store.get('widgets', wid);
           if (w) removeWidget(w);
         }
+        if (mod.homePageId === page.id) mod.homePageId = null; // don't point home at a deleted page
         mod.pages = mod.pages.filter(id => id !== page.id);
         store.put('modules', mod);
         store.trash('pages', page.id);

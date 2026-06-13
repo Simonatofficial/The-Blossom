@@ -19,8 +19,9 @@ Modules are the separate "applications" inside The Blossom — each one a full-s
 Pages organize a module; they render as the bottom tab bar. A basic module might have Calendar / Home / Statistics.
 
 - Pages hold an ordered list of widgets in a responsive column/masonry layout (docs/03).
-- Page management: long-press a tab (or module settings → Pages): Add, Rename, Change icon, Reorder (drag), Theme, Copy Blossom code, Delete.
+- Page management: long-press a tab (or module settings → Pages): Add, Rename, Change icon, **Set as home page**, Reorder (drag), Theme, Copy Blossom code, Delete.
 - Page settings can also set a per-page theme override (docs/03 scoping).
+- **Home page (optional).** A module may mark one page as its *home* (`module.homePageId`); the home tab shows a small home marker. Opening the module from the switcher, **or launching the app** (the manifest `start_url` is hash-less, so a cold launch carries no page), lands on the home page; if none is set it falls back to the first page. Tapping tabs within a module still navigates normally, and an in-browser reload (hash present) resumes the exact page — only "no page specified" resolves to home (`core/router.js · resolve`). Pointing home at a deleted page self-heals to the first page.
 
 ## Widgets
 

@@ -28,7 +28,11 @@ function resolve(route) {
   let mod = store.get('modules', route.moduleId);
   if (!mod) mod = store.get('modules', store.getMeta('lastModule')) || modules[0];
   if (!mod) return { moduleId: null, pageId: null, widgetId: null, focus: false };
-  let pageId = mod.pages.includes(route.pageId) ? route.pageId : mod.pages[0];
+  // explicit page wins; otherwise open the module's home page (if set), then
+  // its first page. "No page specified" = a module switch or a hash-less app
+  // launch (start_url "./"), so both land on the chosen home page.
+  const home = mod.pages.includes(mod.homePageId) ? mod.homePageId : mod.pages[0];
+  let pageId = mod.pages.includes(route.pageId) ? route.pageId : home;
   const widgetId = route.widgetId && store.get('widgets', route.widgetId) ? route.widgetId : null;
   return { moduleId: mod.id, pageId, widgetId, focus: !!widgetId && !!route.focus };
 }
