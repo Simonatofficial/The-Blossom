@@ -31,7 +31,7 @@ Work the active CRs in their stated order (menu-row fix → Flower Graph fixes �
 2. ~~**Infinite Canvas**~~ ✅ (sector/quadtree/tile engine — budget real time)
 3. ~~**World Builder**~~ ✅ (reuses the canvas engine; biggest module — shipped with CR-14)
 4. ~~**D&D Character Manager**~~ ✅
-5. **D&D DM Campaign Manager** (reuses character + world pieces)
+5. ~~**D&D DM Campaign Manager**~~ ✅ (reuses character + world pieces)
 
 ## Phase 8 — Polish & small presets
 Reading Nook, Recipe Box, Budget Garden, Music Practice, Fitness Log definitions. Accessibility pass (focus order, labels, reduced-motion audit), trash UI, i18n-ready strings file.

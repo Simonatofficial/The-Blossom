@@ -667,3 +667,79 @@
   .dnd-abilities { grid-template-columns: repeat(3, 1fr); }
   .dnd-tiles { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ---- D&D DM Campaign Manager (docs/08 §3) ---- */
+/* StatBlock bestiary */
+.dm-blocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.dm-block-card {
+  display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; text-align: left;
+  border: 1px solid var(--border); border-radius: 14px; background: var(--surface-alt); cursor: pointer; color: var(--text);
+}
+.dm-block-card:hover { border-color: var(--accent); }
+.dm-block-card b { font-size: 0.96rem; }
+.dm-block-card .soft { font-size: 0.76rem; }
+.dm-statrow { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.dm-statrow label { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: var(--text-soft); }
+.dm-statrow input { width: 72px; padding: 4px 7px; }
+.dm-abil { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 10px; }
+.dm-abil-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 2px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface-alt); cursor: pointer; color: var(--text);
+}
+.dm-abil-cell:hover { border-color: var(--accent); }
+.dm-abil-cell span { font-size: 0.62rem; color: var(--text-soft); letter-spacing: 0.05em; }
+.dm-abil-cell input { width: 100%; text-align: center; padding: 2px; font-size: 0.92rem; border: none; background: none; }
+.dm-abil-cell b { font-size: 0.78rem; color: var(--accent); }
+
+/* Encounter difficulty tiers */
+.dm-tier { font-weight: 600; }
+.dm-tier[data-tier="Sprout"] { color: var(--success, #7fae7f); border-color: var(--success, #7fae7f); }
+.dm-tier[data-tier="Bud"] { color: #93c47d; border-color: #93c47d; }
+.dm-tier[data-tier="Bloom"] { color: var(--accent); border-color: var(--accent); }
+.dm-tier[data-tier="Bright"] { color: #d9a05b; border-color: #d9a05b; }
+.dm-tier[data-tier="Radiant"] { color: var(--warn, #c75d4f); border-color: var(--warn, #c75d4f); }
+.dm-diff {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px;
+  border: 1px solid var(--border); background: var(--surface-alt); border-left-width: 4px;
+}
+.dm-diff b { font-size: 1.05rem; }
+.dm-diff[data-tier="Sprout"] { border-left-color: var(--success, #7fae7f); }
+.dm-diff[data-tier="Bud"] { border-left-color: #93c47d; }
+.dm-diff[data-tier="Bloom"] { border-left-color: var(--accent); }
+.dm-diff[data-tier="Bright"] { border-left-color: #d9a05b; }
+.dm-diff[data-tier="Radiant"] { border-left-color: var(--warn, #c75d4f); }
+.dm-read { font-style: italic; border-left: 3px solid var(--accent); }
+.loot-sum { font-weight: 600; }
+
+/* Initiative tracker */
+.init-list { display: flex; flex-direction: column; gap: 6px; }
+.init-row {
+  display: grid; grid-template-columns: 34px 1fr auto auto; align-items: center; gap: 8px;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-alt);
+}
+.init-row.cur { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 12px var(--glow); }
+.init-row.down { opacity: 0.6; }
+.init-num {
+  display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--surface); border: 1px solid var(--border); font-weight: 700; font-size: 0.9rem;
+}
+.init-row.cur .init-num { background: var(--accent); border-color: var(--accent); color: #fff; }
+.init-main { min-width: 0; }
+.init-name { font-size: 0.96rem; }
+.init-ac { font-size: 0.72rem; }
+.init-hpnum { min-width: 56px; text-align: center; font-weight: 600; cursor: pointer; }
+.init-next {
+  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin-top: 12px;
+  padding: 16px; border: none; border-radius: 16px; background: var(--accent); color: #fff;
+  font-size: 1.1rem; font-weight: 650; cursor: pointer; box-shadow: 0 4px 16px var(--glow);
+  transition: transform 150ms var(--ease);
+}
+.init-next:active { transform: scale(0.98); }
+
+/* Relationship web */
+.rweb-wrap { width: 100%; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-alt); overflow: hidden; }
+.rweb-canvas { display: block; width: 100%; touch-action: none; }
+@media (max-width: 480px) {
+  .dm-abil { grid-template-columns: repeat(3, 1fr); }
+  .init-row { grid-template-columns: 30px 1fr auto auto; gap: 6px; }
+}
