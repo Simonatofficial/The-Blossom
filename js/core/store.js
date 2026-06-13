@@ -4,6 +4,8 @@
    IndexedDB debounced (500ms), force-flushed on pagehide/visibilitychange.
    Migrations are additive only — user data is never dropped. */
 
+import { events } from './events.js';
+
 const DB_NAME = 'blossom';
 const DB_VERSION = 1;
 export const SCHEMA_VERSION = 1;
@@ -49,6 +51,21 @@ function loadStore(storeName) {
 function scheduleFlush() {
   clearTimeout(flushTimer);
   flushTimer = setTimeout(() => store.flush(), 500);
+}
+
+/* A flush can fail when the device/browser storage quota is exhausted. The
+   data stays safe in memory (and re-queued for the next flush); surface a
+   calm, throttled warning so the user can free space or export a backup. The
+   actual toast/feed entry is shown by app.js — store.js stays UI-free. */
+let lastWriteWarn = 0;
+function reportWriteFailure(err) {
+  console.error('[store] write failed', err);
+  const now = Date.now();
+  if (now - lastWriteWarn < 5 * 60000) return; // at most once every 5 minutes
+  lastWriteWarn = now;
+  const quota = !!err && (err.name === 'QuotaExceededError'
+    || /quota|exceeded/i.test(`${err.name || ''} ${err.message || ''}`));
+  events.emit('storage:full', { quota });
 }
 
 export const store = {
@@ -127,15 +144,29 @@ export const store = {
     clearTimeout(flushTimer);
     const touched = STORES.filter(s => dirty[s].size || removed[s].size);
     if (!touched.length || !db) return;
-    const tx = db.transaction(touched, 'readwrite');
+    // Remember exactly what this transaction is writing, so a failed flush
+    // (most likely storage full) can re-queue it for the next attempt instead
+    // of silently dropping the change — the in-memory cache is the source of
+    // truth and still holds it, so no write is ever lost (docs/01 rule 8).
+    const writing = {};
+    for (const s of touched) writing[s] = { put: [...dirty[s]], del: [...removed[s]] };
+    let tx;
+    try { tx = db.transaction(touched, 'readwrite'); }
+    catch (err) { reportWriteFailure(err); return; }
     for (const s of touched) {
       const os = tx.objectStore(s);
-      for (const id of dirty[s]) { const rec = cache[s].get(id); if (rec) os.put(rec); }
-      for (const id of removed[s]) os.delete(id);
+      for (const id of writing[s].put) { const rec = cache[s].get(id); if (rec) os.put(rec); }
+      for (const id of writing[s].del) os.delete(id);
       dirty[s].clear();
       removed[s].clear();
     }
-    tx.onerror = () => console.error('[store] flush failed', tx.error);
+    tx.onabort = tx.onerror = () => {
+      for (const s of touched) {
+        for (const id of writing[s].put) if (cache[s].has(id)) dirty[s].add(id);
+        for (const id of writing[s].del) if (!cache[s].has(id)) removed[s].add(id);
+      }
+      reportWriteFailure(tx.error);
+    };
   },
 
   /** Replace everything (import "Replace" mode). Caller is responsible for backups. */

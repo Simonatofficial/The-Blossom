@@ -450,12 +450,7 @@ function renderSavesSection(d) {
         toast('Backup code copied', 'code');
       };
       li.querySelector('[title="More"]').onclick = (e) => popMenu(e.currentTarget, [
-        { label: 'Restore this backup', iconName: 'rotate-ccw', fn: async () => {
-          if (await confirmDialog({ title: `Restore “${item.name}”?`, message: 'Current data is backed up first, then replaced.', confirmText: 'Restore' })) {
-            await saves.importWorkspace(item.payload, 'replace');
-            toast('Backup restored', 'flower');
-          }
-        } },
+        { label: 'Restore this backup', iconName: 'rotate-ccw', fn: () => openBackupRestore(item.payload, item.name) },
         { label: 'Update snapshot', iconName: 'refresh', fn: () => {
           item.payload = codes.snapshotNode('ws', null);
           item.history = [...(item.history || []), Date.now()];
@@ -526,6 +521,7 @@ export async function copyNodeCode(type, id, defaultName) {
 
 export function openCodeImport({ pageId = null, allowFile = false } = {}) {
   const d = openDrawer({ title: 'Import', iconName: 'upload' });
+  const preview = (type, payload) => renderImportPreview(d, type, payload, { pageId });
   const ta = el('<textarea class="textarea" rows="4" placeholder="Paste a Blossom code (BLSM1.…)"></textarea>');
   d.body.appendChild(ta);
 
@@ -552,42 +548,78 @@ export function openCodeImport({ pageId = null, allowFile = false } = {}) {
     } catch (err) { toast(err.message || 'That code could not be read.', 'info'); }
   };
   d.body.appendChild(goBtn);
+}
 
-  function preview(type, payload) {
-    d.setTitle(`Import ${codes.typeLabel(type)}`);
-    d.body.innerHTML = '';
-    const counts = codes.describePayload(type, payload);
-    const nice = { modules: 'modules', pages: 'pages', widgets: 'widgets', objects: 'objects', themes: 'themes' };
-    const lines = Object.entries(counts).filter(([k]) => nice[k]).map(([k, n]) => `${n} ${nice[k]}`).join(' · ') || 'empty';
-    d.body.appendChild(el(`<div class="panel" style="padding:14px;margin-bottom:14px">
-      <div class="row">${icon('gift', 18)}<strong style="margin-left:6px">${payload.root?.name || codes.typeLabel(type)}</strong></div>
-      <p class="soft" style="margin-top:6px;font-size:0.85rem">${lines}</p></div>`));
+/* ---------- shared import preview (contents, save date, what you have now) ---------- */
 
-    if (type === 'ws') {
-      const merge = el('<button class="btn" style="width:100%;margin-bottom:8px">Merge into my workspace</button>');
-      merge.onclick = async () => { await saves.importWorkspace(payload, 'merge'); d.close(); toast('Imported — welcome home', 'flower'); };
-      const replace = el('<button class="btn" style="width:100%;color:var(--warn)">Replace everything</button>');
-      replace.onclick = async () => {
-        if (await confirmDialog({ title: 'Replace your whole workspace?', message: 'A safety autosave is written first.', confirmText: 'Replace' })) {
-          await saves.importWorkspace(payload, 'replace');
-          d.close();
-          toast('Workspace replaced', 'flower');
-        }
-      };
-      d.body.append(merge, replace);
-    } else {
-      const ok = el('<button class="btn btn-primary" style="width:100%">Import</button>');
-      ok.onclick = () => {
-        const target = {};
-        if (type === 'wgt') target.pageId = pageId || router.current().pageId;
-        const res = codes.importNode(type, payload, target);
-        if (res.droppedLinks) toast(`${res.droppedLinks} link${res.droppedLinks === 1 ? '' : 's'} pointed outside this code and ${res.droppedLinks === 1 ? 'was' : 'were'} removed.`, 'info');
-        else toast('Imported', 'flower');
-        events.emit('module:changed', {});
-        events.emit('page:changed', {});
+const COUNT_ORDER = ['modules', 'pages', 'widgets', 'objects', 'themes'];
+function fmtCounts(c) {
+  return COUNT_ORDER.filter(k => c[k]).map(k => `${c[k]} ${k}`).join(' · ') || 'empty';
+}
+function liveCounts() {
+  return {
+    modules: store.all('modules').length,
+    pages: store.all('pages').length,
+    widgets: store.all('widgets').length,
+    objects: store.all('objects').length,
+    themes: store.all('themes').length
+  };
+}
+
+/**
+ * Render the import/restore preview into an open drawer: what the save holds,
+ * when it was taken, and — for a whole-workspace import — what you have now, so
+ * Replace can never overwrite your data unseen. Shared by paste-code import and
+ * the autosave "Restore this backup" flow.
+ * @param {{body:HTMLElement,setTitle:Function,close:Function}} d open drawer
+ * @param {string} type @param {object} payload
+ * @param {{pageId?:string, name?:string}} [opts]
+ */
+function renderImportPreview(d, type, payload, { pageId = null, name = null } = {}) {
+  d.setTitle(type === 'ws' ? 'Restore preview' : `Import ${codes.typeLabel(type)}`);
+  d.body.innerHTML = '';
+  const counts = codes.describePayload(type, payload);
+  const when = payload.exportedAt ? new Date(payload.exportedAt) : null;
+
+  const panel = el('<div class="panel" style="padding:14px;margin-bottom:14px"></div>');
+  const head = el(`<div class="row">${icon('gift', 18)}<strong style="margin-left:6px"></strong></div>`);
+  head.querySelector('strong').textContent = name || payload.root?.name || codes.typeLabel(type);
+  panel.appendChild(head);
+  if (when) panel.appendChild(el(`<p class="soft" style="margin-top:6px;font-size:0.8rem">Saved ${when.toLocaleDateString()} · ${when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>`));
+  panel.appendChild(el(`<p class="soft" style="margin-top:6px;font-size:0.85rem">Contains: ${fmtCounts(counts)}</p>`));
+  if (type === 'ws') panel.appendChild(el(`<p class="soft" style="margin-top:4px;font-size:0.8rem">You have now: ${fmtCounts(liveCounts())}</p>`));
+  d.body.appendChild(panel);
+
+  if (type === 'ws') {
+    const merge = el('<button class="btn" style="width:100%;margin-bottom:8px">Merge into my workspace</button>');
+    merge.onclick = async () => { await saves.importWorkspace(payload, 'merge'); d.close(); toast('Imported — welcome home', 'flower'); };
+    const replace = el('<button class="btn" style="width:100%;color:var(--warn)">Replace everything</button>');
+    replace.onclick = async () => {
+      if (await confirmDialog({ title: 'Replace your whole workspace?', message: 'Your current data is saved to a safety autosave first, then replaced by this backup.', confirmText: 'Replace' })) {
+        await saves.importWorkspace(payload, 'replace');
         d.close();
-      };
-      d.body.appendChild(ok);
-    }
+        toast('Workspace replaced', 'flower');
+      }
+    };
+    d.body.append(merge, replace);
+  } else {
+    const ok = el('<button class="btn btn-primary" style="width:100%">Import</button>');
+    ok.onclick = () => {
+      const target = {};
+      if (type === 'wgt') target.pageId = pageId || router.current().pageId;
+      const res = codes.importNode(type, payload, target);
+      if (res.droppedLinks) toast(`${res.droppedLinks} link${res.droppedLinks === 1 ? '' : 's'} pointed outside this code and ${res.droppedLinks === 1 ? 'was' : 'were'} removed.`, 'info');
+      else toast('Imported', 'flower');
+      events.emit('module:changed', {});
+      events.emit('page:changed', {});
+      d.close();
+    };
+    d.body.appendChild(ok);
   }
+}
+
+/** Open a restore preview for an existing autosave/backup workspace payload. */
+export function openBackupRestore(payload, name) {
+  const d = openDrawer({ title: 'Restore preview', iconName: 'rotate-ccw' });
+  renderImportPreview(d, 'ws', payload, { name });
 }
