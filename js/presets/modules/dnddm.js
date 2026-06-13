@@ -54,7 +54,7 @@ export const DND_DM_PRESET = {
     {
       name: 'Players', icon: 'shield',
       widgets: [
-        { type: 'worldchars', name: 'The party' },
+        { type: 'pcsheet', name: 'Player character' },
         { type: 'counter', name: 'Inspiration', w: 'half', config: { count: 0, step: 1, dailyReset: false, target: null } },
         { type: 'notes', name: 'XP & milestones', objects: [{ kind: 'note', data: { html: '<h1>XP &amp; milestones</h1><p>Awards, level-ups, and the moments that earned them.</p>', lastOpened: null } }] },
         { type: 'gallery', name: 'Handouts' }

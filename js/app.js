@@ -12,10 +12,27 @@ import { initParticles } from './fx/particles.js';
 import { initAtmosphere } from './fx/atmosphere.js';
 import { initShell } from './ui/shell.js';
 import { initEngine } from './modules/engine.js';
-import { initSaves, checkDayRollover } from './core/saves.js';
+import { initSaves, checkDayRollover, maybeBackupReminder } from './core/saves.js';
 import { initOnboarding } from './ui/onboarding.js';
-import { el } from './ui/components.js';
+import { el, toast } from './ui/components.js';
 import { instantiatePreset, PRESET_MODULES } from './presets/modules/index.js';
+
+/* ---- global error safety net (Phase 9): a runtime error in an event handler
+   otherwise fails silently; surface it calmly (data is in IndexedDB, untouched)
+   and keep logging to the console. Throttled so a repeating error can't storm. */
+let lastErrToast = 0;
+function gentleError(detail) {
+  console.error('[blossom]', detail);
+  const now = Date.now();
+  if (now - lastErrToast < 5000) return;
+  lastErrToast = now;
+  try { toast('Something hiccuped — your work is safe.', 'leaf'); } catch { /* pre-boot */ }
+}
+window.addEventListener('error', (e) => {
+  if (/ResizeObserver loop/.test(e.message || '')) return; // benign, common
+  gentleError(e.error || e.message);
+});
+window.addEventListener('unhandledrejection', (e) => gentleError(e.reason));
 
 async function boot() {
   await store.init();
@@ -43,6 +60,7 @@ async function boot() {
   applyEffects(activeTheme(), true);
   initSaves();
   checkDayRollover();
+  maybeBackupReminder(); // gentle off-device backup nudge when overdue
   router.init();
   initOnboarding();
   registerSW();

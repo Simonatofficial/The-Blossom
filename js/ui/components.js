@@ -485,3 +485,48 @@ export function promptText({ title, label = 'Name', value = '', placeholder = ''
     setTimeout(() => i.focus(), 150);
   });
 }
+
+/* ---------- a11y: name icon-only controls (Phase 8) ----------
+   Most icon buttons already carry a `title`; this is the safety net for the
+   rest. An interactive control with no text, title, or aria-label gets a name
+   inferred from its glyph (icon() stamps `data-i`). It only ever ADDS a name
+   when one is missing — a real `title`/`aria-label` always wins. A single
+   MutationObserver covers widgets that re-render their own lists, and every
+   control added in the future, without touching each call site. */
+
+const ICON_LABELS = {
+  x: 'Remove', plus: 'Add', minus: 'Decrease', trash: 'Delete', edit: 'Edit',
+  copy: 'Duplicate', check: 'Done', 'check-circle': 'Toggle', circle: 'Toggle',
+  'chevron-left': 'Previous', 'chevron-right': 'Next', 'chevron-up': 'Expand',
+  'chevron-down': 'Collapse', 'arrow-left': 'Back', 'arrow-right': 'Open',
+  more: 'More options', refresh: 'Reset', search: 'Search', save: 'Save',
+  settings: 'Settings', star: 'Favorite', eye: 'Toggle visibility',
+  shuffle: 'Shuffle', repeat: 'Repeat', play: 'Play', pause: 'Pause',
+  'skip-forward': 'Next', download: 'Download', upload: 'Upload', image: 'Image',
+  note: 'Note', folder: 'Folder', flip: 'Flip', maximize: 'Expand', shrink: 'Shrink'
+};
+
+function autoLabelIcons(root) {
+  if (root.nodeType !== 1) return;
+  const sel = 'button, a[href], [role="button"]';
+  const list = root.matches?.(sel) ? [root, ...root.querySelectorAll(sel)] : [...(root.querySelectorAll?.(sel) || [])];
+  for (const c of list) {
+    if (c.getAttribute('aria-label') || c.getAttribute('title') || c.textContent.trim()) continue;
+    const name = c.querySelector('svg.icon[data-i]')?.getAttribute('data-i');
+    const label = name && ICON_LABELS[name];
+    if (label) c.setAttribute('aria-label', label);
+  }
+}
+
+let labeling = false;
+function startIconLabeler() {
+  if (labeling || typeof document === 'undefined' || !document.body) return;
+  labeling = true;
+  autoLabelIcons(document.body);
+  new MutationObserver((muts) => {
+    for (const m of muts) for (const n of m.addedNodes) autoLabelIcons(n);
+  }).observe(document.body, { childList: true, subtree: true });
+}
+if (typeof document !== 'undefined') {
+  document.body ? startIconLabeler() : addEventListener('DOMContentLoaded', startIconLabeler);
+}

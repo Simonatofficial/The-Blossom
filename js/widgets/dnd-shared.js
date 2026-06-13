@@ -48,23 +48,30 @@ export function saveBonus(char, ab) {
 /* ---------- the anchor: one character per module ---------- */
 
 const FRESH_CHARACTER = () => ({
-  name: 'New adventurer', cls: '', level: 1, race: '', background: '', alignment: '',
+  name: 'New adventurer', cls: '', subclass: '', level: 1, xp: 0,
+  race: '', background: '', alignment: '', inspiration: false,
   stampId: null,
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   saveProfs: [], skillProfs: {},
-  ac: 10, speed: 30, initMisc: 0,
+  ac: 10, speed: 30, initMisc: 0, senses: '',
   hp: { cur: 10, max: 10, temp: 0 },
   hitDice: { die: 'd8', used: 0 },
   deathSaves: { ok: 0, bad: 0 },
   conditions: [],
   attacks: [],
   resources: [],
+  features: [], // class features, racial traits, feats: {name, source, text}
+  proficiencies: { armor: '', weapons: '', tools: '', languages: '' },
+  appearance: { size: 'Medium', age: '', height: '', weight: '', eyes: '', skin: '', hair: '', faith: '' },
   currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
-  slots: {}, preparedLimit: 0,
+  spellAbility: '', slots: {}, preparedLimit: 0,
   persona: { traits: '', ideals: '', bonds: '', flaws: '' },
   reputations: [],
   plans: [], levelLog: []
 });
+
+/** Character XP thresholds for levels 1–20 (5e DMG). */
+export const XP_LEVELS = [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000];
 
 /** The module's anchor sheet widget (section 'sheet' wins, else first). */
 export function anchorSheet(widget) {
@@ -72,9 +79,24 @@ export function anchorSheet(widget) {
   return sheets.find(w => w.config.section === 'sheet') || sheets[0] || widget;
 }
 
+/** Who owns this widget's character data: a self-contained sheet (an imported
+    PC on a DM's table) owns its own; otherwise the module's shared anchor. */
+export function ownerOf(widget) {
+  return widget.config?.selfContained ? widget : anchorSheet(widget);
+}
+
+/** Spell save DC (8 + prof + ability mod) — null until a casting ability is set. */
+export function spellSaveDC(c) {
+  return c.spellAbility ? 8 + profBonus(c.level) + mod(c.abilities[c.spellAbility]) : null;
+}
+/** Spell attack bonus (prof + ability mod) — null until a casting ability is set. */
+export function spellAttackBonus(c) {
+  return c.spellAbility ? profBonus(c.level) + mod(c.abilities[c.spellAbility]) : null;
+}
+
 /** Resolve (and lazily create) the character record. @returns {{owner, c}} */
 export function getCharacter(widget) {
-  const owner = anchorSheet(widget);
+  const owner = ownerOf(widget);
   let obj = objectsOf(owner.id, 'character')[0];
   if (!obj) obj = createObject(owner.id, 'character', FRESH_CHARACTER());
   for (const [k, v] of Object.entries(FRESH_CHARACTER())) {

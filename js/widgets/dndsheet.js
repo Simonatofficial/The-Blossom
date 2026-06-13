@@ -10,8 +10,9 @@ import { registry } from './registry.js';
 import { store } from '../core/store.js';
 import { icon } from '../ui/icons.js';
 import { el, popMenu, seg } from '../ui/components.js';
-import { ABILITIES, SKILLS, mod, fmtMod, profBonus, skillBonus, saveBonus, getCharacter, saveCharacter, rollD20 } from './dnd-shared.js';
+import { ABILITIES, SKILLS, XP_LEVELS, mod, fmtMod, profBonus, skillBonus, saveBonus, getCharacter, saveCharacter, rollD20 } from './dnd-shared.js';
 import { renderCombat } from './dndcombat.js';
+import { renderStory } from './dndstory.js';
 import { getStamp, openStampPicker } from './wb-stamps.js';
 
 registry.register({
@@ -65,7 +66,7 @@ registry.register({
 
 /* ---------- the Sheet face ---------- */
 
-function renderSheet(host, env) {
+export function renderSheet(host, env) {
   const { widget } = env;
   const { owner, obj, c } = getCharacter(widget);
   const play = widget.config.playMode !== false;
@@ -91,14 +92,14 @@ function renderSheet(host, env) {
   if (play) {
     idBox.innerHTML = '<div style="font-weight:650;font-size:1.05rem"></div><div class="soft" style="font-size:0.82rem"></div>';
     idBox.firstChild.textContent = c.name;
-    idBox.lastChild.textContent = [c.cls && `${c.cls} ${c.level}`, c.race, c.background, c.alignment].filter(Boolean).join(' · ') || `Level ${c.level}`;
+    idBox.lastChild.textContent = [c.cls && `${c.cls}${c.subclass ? ` (${c.subclass})` : ''} ${c.level}`, c.race, c.background, c.alignment].filter(Boolean).join(' · ') || `Level ${c.level}`;
   } else {
     idBox.innerHTML = '<input class="input" style="font-weight:650"><div class="row" style="gap:4px;margin-top:4px;flex-wrap:wrap"></div>';
     const nameIn = idBox.querySelector('input');
     nameIn.value = c.name;
     nameIn.onchange = () => { c.name = nameIn.value.trim() || 'Unnamed'; save(); };
     const row = idBox.querySelector('.row');
-    for (const [key, ph, w] of [['cls', 'Class', 90], ['level', 'Lv', 48], ['race', 'Race', 90], ['background', 'Background', 110], ['alignment', 'Alignment', 90]]) {
+    for (const [key, ph, w] of [['cls', 'Class', 90], ['subclass', 'Subclass', 100], ['level', 'Lv', 48], ['race', 'Race', 90], ['background', 'Background', 110], ['alignment', 'Alignment', 90]]) {
       const i = el(`<input class="input" placeholder="${ph}" style="width:${w}px;padding:4px 8px;font-size:0.8rem"${key === 'level' ? ' type="number" min="1" max="20"' : ''}>`);
       i.value = c[key] || (key === 'level' ? 1 : '');
       i.onchange = () => { c[key] = key === 'level' ? Math.max(1, Math.min(20, Number(i.value) || 1)) : i.value.trim(); save(); rerender(); };
@@ -135,6 +136,25 @@ function renderSheet(host, env) {
   tile('Speed', c.speed, null, 'speed');
   tile('Proficiency', fmtMod(profBonus(c.level)));
   host.appendChild(tiles);
+
+  // inspiration (tap to toggle) + experience points
+  const meta = el('<div class="row" style="gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap"></div>');
+  const insp = el(`<button class="chip${c.inspiration ? ' accent' : ''}">${icon('sparkles', 12)} Inspiration${c.inspiration ? ' ✓' : ''}</button>`);
+  insp.onclick = () => { c.inspiration = !c.inspiration; save(); rerender(); };
+  meta.appendChild(insp);
+  if (play) {
+    const next = XP_LEVELS[c.level]; // XP needed for the next level (levels are 1-based)
+    const chip = el('<span class="chip"></span>');
+    chip.textContent = next != null ? `${c.xp || 0} XP · ${Math.max(0, next - (c.xp || 0))} to Lv ${c.level + 1}` : `${c.xp || 0} XP`;
+    meta.appendChild(chip);
+  } else {
+    const wrap = el('<span class="row" style="gap:5px;align-items:center"><span class="soft" style="font-size:0.8rem">XP</span><input class="input" type="number" min="0" style="width:96px;padding:2px 6px"></span>');
+    const xi = wrap.querySelector('input');
+    xi.value = c.xp || 0;
+    xi.onchange = () => { c.xp = Math.max(0, Number(xi.value) || 0); save(); };
+    meta.appendChild(wrap);
+  }
+  host.appendChild(meta);
 
   // abilities: score + big modifier (tap = ability check)
   const grid = el('<div class="dnd-abilities"></div>');
@@ -194,71 +214,4 @@ function renderSheet(host, env) {
   }
   host.appendChild(passives);
   if (play) host.appendChild(el('<p class="soft" style="font-size:0.76rem;margin-top:8px">Tap any ability, save, or skill to roll it. Edit unlocks the numbers.</p>'));
-}
-
-/* ---------- the Story face ---------- */
-
-function renderStory(host, env) {
-  const { widget } = env;
-  const { obj, c } = getCharacter(widget);
-  const save = () => saveCharacter(obj);
-
-  const section = (title, build, open = true) => {
-    const sec = el(`<details class="wb-sec" ${open ? 'open' : ''}><summary>${title}</summary><div class="wb-sec-body"></div></details>`);
-    build(sec.querySelector('.wb-sec-body'));
-    host.appendChild(sec);
-  };
-
-  section('Personality', (body) => {
-    for (const [key, label] of [['traits', 'Traits'], ['ideals', 'Ideals'], ['bonds', 'Bonds'], ['flaws', 'Flaws']]) {
-      const f = el(`<div class="field"><label>${label}</label><textarea class="input" rows="2"></textarea></div>`);
-      const ta = f.querySelector('textarea');
-      ta.value = c.persona[key] || '';
-      ta.onchange = () => { c.persona[key] = ta.value; save(); };
-      body.appendChild(f);
-    }
-  });
-
-  section('Faction reputation', (body) => {
-    const list = el('<div></div>');
-    body.appendChild(list);
-    const render = () => {
-      list.innerHTML = '';
-      for (const rep of c.reputations) {
-        const row = el(`<div class="list-item" style="cursor:default"><span class="li-main"><span class="li-title"></span></span>
-          <button class="btn-icon">${icon('minus', 13)}</button><b style="min-width:28px;text-align:center"></b><button class="btn-icon">${icon('plus', 13)}</button>
-          <button class="btn-icon" title="Remove">${icon('x', 13)}</button></div>`);
-        row.querySelector('.li-title').textContent = rep.name;
-        row.querySelector('b').textContent = rep.value;
-        const [minus, , plus, x] = row.querySelectorAll('button');
-        minus.onclick = () => { rep.value--; save(); render(); };
-        plus.onclick = () => { rep.value++; save(); render(); };
-        x.onclick = () => { c.reputations.splice(c.reputations.indexOf(rep), 1); save(); render(); };
-        list.appendChild(row);
-      }
-      const addRow = el(`<div class="row" style="gap:6px;margin-top:6px"><input class="input grow" placeholder="Faction or person"><button class="btn">${icon('plus', 14)}</button></div>`);
-      const [input, btn] = addRow.children;
-      btn.onclick = () => {
-        if (!input.value.trim()) return;
-        c.reputations.push({ name: input.value.trim(), value: 0 });
-        save();
-        render();
-      };
-      addRow.querySelector('input').onkeydown = (e) => { if (e.key === 'Enter') btn.click(); };
-      list.appendChild(addRow);
-    };
-    render();
-  }, !!c.reputations.length);
-
-  section('Level-up log', (body) => {
-    if (!c.levelLog.length) body.appendChild(el('<p class="soft" style="font-size:0.82rem">Level-ups recorded in the Level Planner appear here.</p>'));
-    for (const entry of [...c.levelLog].reverse()) {
-      const row = el(`<div class="list-item" style="cursor:default"><span class="chip">Lv ${entry.level}</span><span class="li-main"><span class="li-title"></span><span class="li-sub"></span></span></div>`);
-      row.querySelector('.li-title').textContent = entry.note || 'Leveled up';
-      row.querySelector('.li-sub').textContent = entry.date || '';
-      body.appendChild(row);
-    }
-  }, !!c.levelLog.length);
-
-  host.appendChild(el('<p class="soft" style="font-size:0.76rem;margin-top:8px">Backstory lives best in a Notes widget beside this card; session memories in a Journal.</p>'));
 }
