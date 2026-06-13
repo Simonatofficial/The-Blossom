@@ -45,12 +45,15 @@ Release-readiness *without* changing hosting (still local-git by the user's choi
 - ~~Data safety~~ ✅ — daily autosaves (keep 30), safety autosave before a Replace import, file + full-state-code export, merge/replace import, 30-day soft-delete trash with multi-select purge.
 - ~~Global error safety net~~ ✅ — `window` `error` + `unhandledrejection` → a calm, throttled toast ("Something hiccuped — your work is safe."), still logged to console (`app.js`).
 - ~~Accessibility + reduced-motion~~ ✅ (Phase 8).
-- *Optional / environment-bound:* real-device 60fps profiling, IndexedDB quota write-failure surfacing.
+- ~~IndexedDB quota write-failure surfacing~~ ✅ (2026-06-13) — a failed flush (storage full) re-queues the unsaved write instead of dropping it (`core/store.js`) and emits `storage:full`; `app.js` surfaces a calm, throttled toast + a feed note so the user can free space or export.
+- *Optional / environment-bound:* real-device 60fps profiling.
 
 ## Phase 10 — Data safety & portability
 The roadmap originally ended at Phase 8; 9–10 were added on request. Everything lives on-device, so off-device backups are the real safety net.
 - ~~Off-device backup reminder~~ ✅ — Download-file / Copy-save-code record `lastExportAt`; on boot, if there's been no off-device backup in 14 days (and the install isn't nearly empty), a single **calm `backup` notification** lands in the feed (at most once a week — never a nagging toast). Settings → Saves shows "Last off-device backup: N days ago" (`core/saves.js`, `ui/settings.js`, `app.js`).
-- Candidates still open: a restore browser/preview before applying a backup, scheduled export reminders, IndexedDB quota handling, more preset modules/widgets.
+- ~~Restore preview before applying a backup~~ ✅ (2026-06-13) — the shared import/restore preview (`ui/settings.js · renderImportPreview`) now shows the save's **date**, its **contents** counts, and — for a whole-workspace restore — **"You have now: …"** so Replace can never overwrite your data unseen. The autosave **Restore this backup** action routes through it (`openBackupRestore`) instead of a bare confirm.
+- ~~IndexedDB quota handling~~ ✅ (2026-06-13, see Phase 9).
+- Candidates still open: a side-by-side restore *diff* (beyond counts), scheduled export reminders, more preset modules/widgets, GitHub Pages publish (see `DEPLOY.md`).
 
 ---
 
