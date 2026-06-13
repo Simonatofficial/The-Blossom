@@ -34,7 +34,10 @@ Work the active CRs in their stated order (menu-row fix → Flower Graph fixes �
 5. ~~**D&D DM Campaign Manager**~~ ✅ (reuses character + world pieces)
 
 ## Phase 8 — Polish & small presets
-Reading Nook, Recipe Box, Budget Garden, Music Practice, Fitness Log definitions. Accessibility pass (focus order, labels, reduced-motion audit), trash UI, i18n-ready strings file.
+- ~~Reading Nook, Recipe Box, Budget Garden, Music Practice, Fitness Log definitions~~ ✅ (`js/presets/modules/small.js`)
+- ~~Trash UI~~ ✅ (Settings drawer: per-item restore / delete-forever **plus multi-select** — checkboxes, select-all, bulk Restore / Delete forever, Empty trash)
+- Accessibility pass (focus order, labels, reduced-motion audit)
+- i18n-ready strings file
 
 ---
 
