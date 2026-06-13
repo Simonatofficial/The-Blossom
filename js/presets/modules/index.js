@@ -10,6 +10,7 @@ import { STUDY_PRESET } from './study.js';
 import { INFCANVAS_PRESET } from './infcanvas.js';
 import { WORLD_PRESET } from './worldbuilder.js';
 import { DND_CHARACTER_PRESET } from './dndcharacter.js';
+import { DND_DM_PRESET } from './dnddm.js';
 import { SMALL_PRESETS } from './small.js';
 
 function todayStr() {
@@ -104,6 +105,7 @@ export const PRESET_MODULES = [
   INFCANVAS_PRESET,
   WORLD_PRESET,
   DND_CHARACTER_PRESET,
+  DND_DM_PRESET,
   ...SMALL_PRESETS,
   {
     key: 'starter',

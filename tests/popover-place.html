@@ -1,0 +1,163 @@
+<!doctype html>
+<!-- Regression tests for docs/11 CR-15: popovers/menus must stay fully
+     within the visual viewport from any anchor position — flip, clamp,
+     and (last resort) constrain height with internal scroll. Serve the
+     repo root (tools/serve.ps1) and open /tests/popover-place.html.
+     Keep permanently. -->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Popovers — CR-15 placement regression</title>
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/components.css">
+<style>
+  body { font: 14px system-ui; padding: 20px; }
+  .pass { color: #7fae7f; } .fail { color: #e06c75; font-weight: bold; }
+  #log { position: relative; z-index: 70; background: var(--bg, #1c1722); }
+</style>
+</head>
+<body>
+<h1>Popover placement (CR-15)</h1>
+<div id="log"></div>
+<script type="module">
+import { openPopover, popMenu, el } from '../js/ui/components.js';
+
+let failures = 0;
+const log = (msg, ok) => {
+  const d = document.createElement('div');
+  d.className = ok ? 'pass' : 'fail';
+  d.textContent = `${ok ? 'PASS' : 'FAIL'} — ${msg}`;
+  document.getElementById('log').appendChild(d);
+  console.log(`${ok ? 'PASS' : 'FAIL'} — ${msg}`);
+  if (!ok) failures++;
+};
+
+const vp = () => {
+  const vv = window.visualViewport;
+  return vv
+    ? { x: vv.offsetLeft, y: vv.offsetTop, w: vv.width, h: vv.height }
+    : { x: 0, y: 0, w: innerWidth, h: innerHeight };
+};
+
+function anchorAt(x, y) {
+  const a = el('<button style="position:fixed;width:36px;height:36px;z-index:69">⚓</button>');
+  a.style.left = `${x}px`;
+  a.style.top = `${y}px`;
+  document.body.appendChild(a);
+  return a;
+}
+
+const settle = () => new Promise(r => setTimeout(r, 30)); // microtask place + observer pass
+
+function withinViewport(rect, slack = 1) {
+  const v = vp();
+  return rect.left >= v.x + 8 - slack && rect.top >= v.y + 8 - slack &&
+         rect.right <= v.x + v.w - 8 + slack && rect.bottom <= v.y + v.h - 8 + slack;
+}
+
+/* 1 — anchors at every corner and edge: popover always fully on-screen */
+{
+  const v = vp();
+  const spots = [
+    ['top-left', 8, 8], ['top-right', v.w - 44, 8],
+    ['bottom-left', 8, v.h - 44], ['bottom-right', v.w - 44, v.h - 44],
+    ['top-center', v.w / 2 - 18, 8], ['bottom-center', v.w / 2 - 18, v.h - 44],
+    ['left-center', 8, v.h / 2 - 18], ['right-center', v.w - 44, v.h / 2 - 18]
+  ];
+  for (const [name, x, y] of spots) {
+    const a = anchorAt(x, y);
+    const pop = openPopover(a, { title: name, width: 260 });
+    pop.body.appendChild(el('<div style="height:180px">content</div>'));
+    await settle();
+    const r = pop.el.getBoundingClientRect();
+    log(`${name} anchor → popover within viewport (${Math.round(r.top)},${Math.round(r.bottom)})`, withinViewport(r));
+    pop.close();
+    a.remove();
+  }
+}
+
+/* 2 — bottom-docked toolbar anchor must open UPWARD (the canvas color bug) */
+{
+  const v = vp();
+  const a = anchorAt(v.w / 2 - 18, v.h - 44);
+  const pop = openPopover(a, { title: 'Colors', width: 300 });
+  pop.body.appendChild(el('<div style="height:320px">palette</div>'));
+  await settle();
+  const r = pop.el.getBoundingClientRect();
+  const ar = a.getBoundingClientRect();
+  log(`bottom toolbar → opens upward (pop bottom ${Math.round(r.bottom)} ≤ anchor top ${Math.round(ar.top)})`, r.bottom <= ar.top && withinViewport(r));
+  pop.close();
+  a.remove();
+}
+
+/* 3 — content taller than every side: height constrained, body scrolls */
+{
+  const v = vp();
+  const a = anchorAt(v.w / 2 - 18, v.h / 2 - 18);
+  const pop = openPopover(a, { title: 'Tall', width: 260 });
+  pop.body.appendChild(el(`<div style="height:${v.h * 2}px">very tall</div>`));
+  await settle();
+  const r = pop.el.getBoundingClientRect();
+  const body = pop.body;
+  log('over-tall popover stays within the viewport', withinViewport(r));
+  log(`…and its body scrolls internally (scrollHeight ${body.scrollHeight} > client ${body.clientHeight})`, body.scrollHeight > body.clientHeight + 20);
+  pop.close();
+  a.remove();
+}
+
+/* 4 — content growing AFTER open (every caller fills the body late) */
+{
+  const v = vp();
+  const a = anchorAt(v.w / 2 - 18, v.h - 60);
+  const pop = openPopover(a, { width: 240 });
+  await settle(); // placed while ~empty, like openColorPanel does
+  pop.body.appendChild(el('<div style="height:380px">late content</div>'));
+  await new Promise(r => setTimeout(r, 120)); // ResizeObserver pass
+  const r = pop.el.getBoundingClientRect();
+  log('late-filled popover re-places itself on-screen', withinViewport(r));
+  pop.close();
+  a.remove();
+}
+
+/* 5 — the caret keeps pointing at the anchor, even when clamped */
+{
+  const v = vp();
+  const a = anchorAt(v.w - 44, v.h - 44); // corner forces clamping
+  const pop = openPopover(a, { title: 'Caret', width: 260 });
+  pop.body.appendChild(el('<div style="height:120px"></div>'));
+  await settle();
+  const caret = pop.el.querySelector('.pop-caret');
+  const cr = caret.getBoundingClientRect();
+  const ar = a.getBoundingClientRect();
+  const cx = cr.left + cr.width / 2;
+  log(`caret x ${Math.round(cx)} points near the anchor (${Math.round(ar.left)}–${Math.round(ar.right)})`,
+    caret.dataset.side && cx > ar.left - 18 && cx < ar.right + 18);
+  pop.close();
+  a.remove();
+}
+
+/* 6 — popMenu obeys the same rules at every corner */
+{
+  const v = vp();
+  for (const [name, x, y] of [['top-right', v.w - 44, 8], ['bottom-left', 8, v.h - 44]]) {
+    const a = anchorAt(x, y);
+    popMenu(a, Array.from({ length: 8 }, (_, i) => ({ label: `Item ${i + 1}`, fn: () => {} })));
+    await settle();
+    const m = document.querySelector('.menu');
+    const r = m.getBoundingClientRect();
+    log(`menu at ${name} stays within viewport`, withinViewport(r));
+    m.remove();
+    a.remove();
+  }
+}
+
+document.title = failures ? `✗ ${failures} FAILURES` : '✓ all pass';
+console.log(failures ? `RESULT: ${failures} FAILURES` : 'RESULT: all pass');
+const h = document.createElement('h2');
+h.className = failures ? 'fail' : 'pass';
+h.textContent = failures ? `${failures} failure(s)` : 'All assertions passed';
+document.body.appendChild(h);
+</script>
+</body>
+</html>
