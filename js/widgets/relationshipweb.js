@@ -91,6 +91,7 @@ registry.register({
     };
 
     const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     let heat = 320, raf = 0, dragging = null;
 
     const tick = () => {
@@ -103,7 +104,9 @@ registry.register({
       paint();
       if (canvas.isConnected && (heat > 0 || dragging)) raf = requestAnimationFrame(tick);
     };
-    const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
+    // reduced motion: no decorative settling animation — the layout is solved
+    // synchronously and just repainted; dragging still repositions live.
+    const kick = () => { if (reduced) { paint(); return; } if (!raf) raf = requestAnimationFrame(tick); };
 
     const step = () => {
       const cx = W / 2, cy = H / 2;
@@ -196,6 +199,7 @@ registry.register({
     const ro = new ResizeObserver(() => { resize(); kick(); });
     ro.observe(wrap);
     resize();
+    if (reduced) for (let i = 0; i < 240; i++) step(); // solve the layout up front
     kick();
 
     host.appendChild(el('<p class="soft" style="font-size:0.74rem;margin-top:8px;text-align:center">Drag to rearrange · tap a character to open them</p>'));

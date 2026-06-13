@@ -26,42 +26,99 @@ export function openSettings() {
 /* ---------- trash (docs/01: soft deletes rest 30 days) ---------- */
 
 function renderTrashSection(d) {
-  const sec = el('<div class="dsec"><h3>Trash</h3><div class="tr-list"></div></div>');
+  const sec = el('<div class="dsec"><h3>Trash</h3><div class="tr-bar"></div><div class="tr-list"></div></div>');
+  const bar = sec.querySelector('.tr-bar');
   const list = sec.querySelector('.tr-list');
   const LABEL = { modules: 'Module', pages: 'Page', widgets: 'Widget', objects: 'Object', themes: 'Theme' };
+  const selected = new Set(); // checked trash ids
+
+  /** Put one trashed record back, re-attaching a restored widget to its page. */
+  const restoreItem = (item) => {
+    const rec = store.restore(item.id);
+    if (item._store === 'widgets' && rec?.pageId) {
+      const page = store.get('pages', rec.pageId);
+      if (page && !page.widgets.includes(rec.id)) { page.widgets.push(rec.id); store.put('pages', page); }
+    }
+    return rec;
+  };
+
+  /** Permanently delete a set of trashed ids after one confirm. */
+  const purge = async (ids, empty = false) => {
+    if (!ids.length) return;
+    const ok = await confirmDialog({
+      title: empty ? 'Empty the trash?' : `Delete ${ids.length} item${ids.length > 1 ? 's' : ''} forever?`,
+      message: 'This cannot be undone.',
+      confirmText: empty ? 'Empty trash' : 'Delete forever'
+    });
+    if (!ok) return;
+    for (const id of ids) { store.del('trash', id); selected.delete(id); }
+    toast(empty ? 'Trash emptied' : `Deleted ${ids.length} forever`, 'trash');
+    render();
+  };
+
+  const restoreMany = (ids) => {
+    const all = store.all('trash');
+    for (const id of ids) { const it = all.find(x => x.id === id); if (it) restoreItem(it); }
+    selected.clear();
+    events.emit('page:changed', {});
+    events.emit('module:changed', {});
+    toast(ids.length > 1 ? `Restored ${ids.length}` : 'Restored', 'leaf');
+    render();
+  };
+
   const render = () => {
+    const all = store.all('trash').sort((a, b) => b.deletedAt - a.deletedAt);
+    for (const id of [...selected]) if (!all.some(x => x.id === id)) selected.delete(id); // drop stale
+    const items = all.slice(0, 30);
+
+    // ---- toolbar: select-all + bulk actions ----
+    bar.innerHTML = '';
+    if (all.length) {
+      const allShownSel = items.length > 0 && items.every(i => selected.has(i.id));
+      const head = el(`<div class="row tr-head">
+        <button class="btn-icon tr-all" title="Select all">${icon(allShownSel ? 'check-square' : 'square', 16)}</button>
+        <span class="soft grow tr-count"></span></div>`);
+      head.querySelector('.tr-count').textContent = selected.size
+        ? `${selected.size} selected`
+        : `${all.length} item${all.length > 1 ? 's' : ''}${all.length > items.length ? ` · showing ${items.length}` : ''}`;
+      head.querySelector('.tr-all').onclick = () => {
+        if (allShownSel) items.forEach(i => selected.delete(i.id));
+        else items.forEach(i => selected.add(i.id));
+        render();
+      };
+      if (selected.size) {
+        const restoreB = el(`<button class="btn tr-act">${icon('rotate-ccw', 14)} Restore</button>`);
+        restoreB.onclick = () => restoreMany([...selected]);
+        const delB = el(`<button class="btn tr-act tr-danger">${icon('trash', 14)} Delete forever</button>`);
+        delB.onclick = () => purge([...selected]);
+        head.append(restoreB, delB);
+      } else {
+        const emptyB = el(`<button class="btn tr-act tr-danger">${icon('trash', 14)} Empty trash</button>`);
+        emptyB.onclick = () => purge(all.map(i => i.id), true);
+        head.append(emptyB);
+      }
+      bar.appendChild(head);
+    }
+
+    // ---- the list ----
     list.innerHTML = '';
-    const items = store.all('trash').sort((a, b) => b.deletedAt - a.deletedAt).slice(0, 30);
-    if (!items.length) {
+    if (!all.length) {
       list.appendChild(el('<p class="soft" style="font-size:0.82rem">Empty — nothing is wilting here.</p>'));
       return;
     }
     for (const item of items) {
-      const li = el(`<div class="list-item" style="cursor:default">
+      const sel = selected.has(item.id);
+      const li = el(`<div class="list-item${sel ? ' sel' : ''}" style="cursor:default">
+        <button class="btn-icon tr-check" title="Select">${icon(sel ? 'check-square' : 'square', 16)}</button>
         <span class="li-main"><span class="li-title"></span><span class="li-sub"></span></span>
         <span class="chip">${LABEL[item._store] || item._store}</span>
         <button class="btn-icon" title="Restore">${icon('rotate-ccw', 15)}</button>
         <button class="btn-icon" title="Delete forever">${icon('x', 15)}</button></div>`);
       li.querySelector('.li-title').textContent = item.name || item.kind || 'Untitled';
       li.querySelector('.li-sub').textContent = `deleted ${new Date(item.deletedAt).toLocaleDateString()}`;
-      li.querySelector('[title="Restore"]').onclick = () => {
-        const rec = store.restore(item.id);
-        // re-attach restored widgets to their page if the page still exists
-        if (item._store === 'widgets' && rec?.pageId) {
-          const page = store.get('pages', rec.pageId);
-          if (page && !page.widgets.includes(rec.id)) { page.widgets.push(rec.id); store.put('pages', page); }
-        }
-        events.emit('page:changed', {});
-        events.emit('module:changed', {});
-        toast('Restored', 'leaf');
-        render();
-      };
-      li.querySelector('[title="Delete forever"]').onclick = async () => {
-        if (await confirmDialog({ title: 'Delete forever?', message: 'This cannot be undone.' })) {
-          store.del('trash', item.id);
-          render();
-        }
-      };
+      li.querySelector('.tr-check').onclick = () => { sel ? selected.delete(item.id) : selected.add(item.id); render(); };
+      li.querySelector('[title="Restore"]').onclick = () => restoreMany([item.id]);
+      li.querySelector('[title="Delete forever"]').onclick = () => purge([item.id]);
       list.appendChild(li);
     }
   };
@@ -75,12 +132,14 @@ function renderAppearanceSection(d) {
   const sec = el('<div class="dsec"><h3>Appearance</h3><div class="field"><label>Open panels as</label><div class="a-seg"></div><div class="hint">How settings, pickers, and widget views slide in. Takes effect on the next panel.</div></div></div>');
   const settings = store.getMeta('settings', {});
   const current = settings.panelPlacement || (innerWidth >= 600 ? 'right' : 'sheet');
-  const segEl = el('<div class="seg"></div>');
+  const segEl = el('<div class="seg" role="radiogroup" aria-label="Open panels as"></div>');
   for (const [value, label] of [['full', 'Full page'], ['left', 'Left'], ['right', 'Right'], ['sheet', 'Bottom sheet']]) {
-    const b = el(`<button type="button" class="${current === value ? 'active' : ''}">${label}</button>`);
+    const on = current === value;
+    const b = el(`<button type="button" role="radio" aria-checked="${on}" class="${on ? 'active' : ''}">${label}</button>`);
     b.onclick = () => {
-      segEl.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+      segEl.querySelectorAll('button').forEach(x => { x.classList.remove('active'); x.setAttribute('aria-checked', 'false'); });
       b.classList.add('active');
+      b.setAttribute('aria-checked', 'true');
       const s = store.getMeta('settings', {});
       s.panelPlacement = value;
       store.setMeta('settings', s);
