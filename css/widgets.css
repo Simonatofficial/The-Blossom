@@ -474,7 +474,7 @@
 .ic-btn:disabled { opacity: 0.35; pointer-events: none; }
 .ic-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); display: block; }
 .ic-gap { height: 8px; }
-.ic-flyout { position: absolute; z-index: 7; padding: 12px; width: 250px; }
+/* (.ic-flyout retired — tool options ride openPopover since CR-15) */
 .ic-frow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 0.84rem; }
 .ic-canvasbox { position: relative; flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .ic-surface { display: block; width: 100%; background: var(--surface-alt); cursor: crosshair; }
@@ -548,7 +548,6 @@
 @media (max-width: 600px) {
   .ic-wrap { flex-direction: column-reverse; }
   .ic-strip { flex-direction: row; flex-wrap: wrap; position: static; align-self: stretch; }
-  .ic-flyout { left: 8px !important; right: 8px; width: auto; top: auto !important; bottom: 64px; }
   .ic-hide-tab { display: none; }
   .rp-focus .ic-hide-tab { display: grid; left: auto; right: 8px; top: auto; bottom: 8px; border-radius: 9px; }
   .rp-focus .ic-strip { position: absolute; left: 4px; right: 4px; top: auto; bottom: 4px; max-height: 40vh; }
