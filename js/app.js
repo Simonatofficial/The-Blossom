@@ -12,7 +12,7 @@ import { initParticles } from './fx/particles.js';
 import { initAtmosphere } from './fx/atmosphere.js';
 import { initShell } from './ui/shell.js';
 import { initEngine } from './modules/engine.js';
-import { initSaves, checkDayRollover } from './core/saves.js';
+import { initSaves, checkDayRollover, maybeBackupReminder } from './core/saves.js';
 import { initOnboarding } from './ui/onboarding.js';
 import { el, toast } from './ui/components.js';
 import { instantiatePreset, PRESET_MODULES } from './presets/modules/index.js';
@@ -60,6 +60,7 @@ async function boot() {
   applyEffects(activeTheme(), true);
   initSaves();
   checkDayRollover();
+  maybeBackupReminder(); // gentle off-device backup nudge when overdue
   router.init();
   initOnboarding();
   registerSW();

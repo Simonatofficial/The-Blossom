@@ -47,8 +47,10 @@ Release-readiness *without* changing hosting (still local-git by the user's choi
 - ~~Accessibility + reduced-motion~~ ✅ (Phase 8).
 - *Optional / environment-bound:* real-device 60fps profiling, IndexedDB quota write-failure surfacing.
 
-## Phase 10 — (direction TBD with the user)
-The roadmap originally ended at Phase 8; 9–10 were added on request. Candidates for 10: deeper data backup/portability (export reminders, a restore browser), more preset modules/widgets, or real deployment if hosting is wanted later.
+## Phase 10 — Data safety & portability
+The roadmap originally ended at Phase 8; 9–10 were added on request. Everything lives on-device, so off-device backups are the real safety net.
+- ~~Off-device backup reminder~~ ✅ — Download-file / Copy-save-code record `lastExportAt`; on boot, if there's been no off-device backup in 14 days (and the install isn't nearly empty), a single **calm `backup` notification** lands in the feed (at most once a week — never a nagging toast). Settings → Saves shows "Last off-device backup: N days ago" (`core/saves.js`, `ui/settings.js`, `app.js`).
+- Candidates still open: a restore browser/preview before applying a backup, scheduled export reminders, IndexedDB quota handling, more preset modules/widgets.
 
 ---
 

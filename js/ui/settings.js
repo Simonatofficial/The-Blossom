@@ -407,6 +407,7 @@ function renderSavesSection(d) {
     await navigator.clipboard.writeText(code);
     const name = await promptText({ title: 'Name this backup', label: 'Name', value: '', placeholder: 'Before the trip' });
     saves.makeAutosave(name || 'Export', 'export');
+    saves.recordExport();
     toast('Save code copied', 'save');
   };
 
@@ -415,6 +416,7 @@ function renderSavesSection(d) {
     saves.downloadFile();
     const name = await promptText({ title: 'Name this backup', label: 'Name', placeholder: 'Before the trip' });
     saves.makeAutosave(name || 'Export', 'export');
+    saves.recordExport();
   };
 
   const importBtn = el(`<button class="btn">${icon('upload', 15)} Import</button>`);
@@ -472,11 +474,16 @@ function renderSavesSection(d) {
   render();
   events.on('saves:changed', render);
 
-  // storage durability status (docs/09)
+  // storage durability + last off-device backup status (docs/09)
   const status = el('<p class="soft" style="margin-top:10px;font-size:0.78rem"></p>');
+  const lastExp = saves.lastExportAt();
+  const backupLine = lastExp
+    ? `Last off-device backup: ${Math.max(0, Math.round((Date.now() - lastExp) / 86400000))} days ago.`
+    : 'No off-device backup yet — Download file keeps a copy you won’t lose.';
   navigator.storage?.persisted?.().then(p => {
-    status.textContent = p ? 'Storage: protected ✓' : 'Storage: best-effort — export backups regularly.';
+    status.textContent = `${p ? 'Storage: protected ✓' : 'Storage: best-effort.'} ${backupLine}`;
   });
+  status.textContent = backupLine; // shown immediately; persisted check refines it
   sec.appendChild(status);
   d.body.appendChild(sec);
 }

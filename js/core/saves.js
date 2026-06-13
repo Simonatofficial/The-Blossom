@@ -34,6 +34,40 @@ export function initSaves() {
   });
 }
 
+/* ---------- off-device backup reminder (Phase 10: local-only data safety) ----
+   Everything lives on this device; the one real loss risk is cleared browser
+   data with no external copy. If it's been long since the user downloaded a
+   file or copied a save code, drop ONE calm note into the notifications feed
+   (never a nagging toast) — at most once a week, and never for a fresh, nearly
+   empty install. */
+
+const BACKUP_REMIND_AFTER = 14 * 86400000; // 14 days since the last off-device backup
+const BACKUP_REMIND_COOLDOWN = 7 * 86400000;
+
+/** Mark that the user just took an off-device backup (download / copy code). */
+export function recordExport() {
+  store.setMeta('lastExportAt', Date.now());
+}
+
+/** Most recent off-device backup timestamp, or null. */
+export function lastExportAt() {
+  return store.getMeta('lastExportAt', null);
+}
+
+/** Run once on boot; emits a single 'backup' notification when overdue. */
+export function maybeBackupReminder() {
+  let installed = store.getMeta('installedAt', null);
+  if (!installed) { installed = Date.now(); store.setMeta('installedAt', installed); }
+  if (store.all('widgets').length < 4) return; // nothing worth worrying about yet
+  const last = store.getMeta('lastExportAt', null) || installed;
+  const nudged = store.getMeta('lastBackupNudge', 0);
+  const now = Date.now();
+  if (now - last <= BACKUP_REMIND_AFTER || now - nudged <= BACKUP_REMIND_COOLDOWN) return;
+  store.setMeta('lastBackupNudge', now);
+  const days = Math.round((now - last) / 86400000);
+  events.emit('notify', { category: 'backup', text: `It’s been ${days} days since you backed up off this device — Settings → Saves → Download file keeps your garden safe.` });
+}
+
 /* ---------- autosaves ---------- */
 
 /**
