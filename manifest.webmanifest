@@ -1,7 +1,11 @@
 {
+  "id": "the-blossom",
   "name": "The Blossom",
   "short_name": "Blossom",
   "description": "Your cozy, all-in-one space to grow.",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["productivity", "lifestyle", "utilities"],
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

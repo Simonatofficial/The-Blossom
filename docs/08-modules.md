@@ -138,6 +138,13 @@ Each of these is ~1 page of definition JSON — cheap to ship, great for the pre
 - **Edit vs play** is a per-widget toggle on the Sheet face only; the preset opens in edit mode for setup, Combat/Story are always live.
 - Portraits reuse **My Stamps** (the picker is module-agnostic). Backstory and the session journal are plain Notes/Journal widgets on the Story page — not exported with the character code (table notes stay home).
 - Level-up lives in the **LevelPlanner**: it pre-fills from the matching plan, checks it off, and writes the Story face's level-up log with the in-app date.
+- **5e completeness pass (v2):** the character record now also carries **XP** (with the DMG threshold table → "N to Lv X" on the Sheet), **Inspiration** (tap to toggle), **subclass**, **spellcasting ability → Spell save DC (8+prof+mod) and spell attack bonus (prof+mod)** shown in the Spell Book, spell **concentration/ritual** flags, **Features & Traits** (class features / racial traits / feats), **other proficiencies & languages** (armor/weapons/tools/languages), and a physical **Description** (size/age/height/weight/eyes/skin/hair/faith + senses). The Story face moved to `dndstory.js` (file-budget split, mirrors `dndcombat.js`) and gained those sections; `renderSheet`/`renderStory`/`renderCombat` are exported for reuse by the DM PC sheet. Older saved characters grow the new fields automatically (the field-merge in `getCharacter`).
+
+## Build decisions - D&D DM: full PC sheet import (v2)
+
+- The DM Players page imports a player's character via a **`pcsheet` widget** (`js/widgets/pcsheet.js`). Paste the player's `wgt` Blossom code (they copy it from their Sheet page's ⋯ menu) → the character/item/spell objects are re-minted and **reparented onto the pcsheet itself**.
+- **Self-contained sheets.** `dnd-shared.js · ownerOf()` returns the widget itself when `config.selfContained` is set, instead of the module's shared anchor. So a DM can import a *whole party* of PCs (one `pcsheet` each) with no collision — unlike the single-anchor player module. The player's own `charsheet` faces are unchanged (still resolve the module anchor).
+- The full view **reuses the exact player-side faces** — `renderSheet`, `renderCombat`, `spellbook.renderFull`, `dndinventory.renderFull`, `renderStory` — each in a collapsible section, all reading the one self-contained character. So the DM sees an identical, complete, accurate sheet; any 5e improvement to the player widgets shows up here for free. One `pcsheet` = one PC; add another widget per player.
 
 ## Build decisions - World Builder (v1, with CR-14)
 
