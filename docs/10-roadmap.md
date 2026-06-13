@@ -36,8 +36,8 @@ Work the active CRs in their stated order (menu-row fix → Flower Graph fixes �
 ## Phase 8 — Polish & small presets
 - ~~Reading Nook, Recipe Box, Budget Garden, Music Practice, Fitness Log definitions~~ ✅ (`js/presets/modules/small.js`)
 - ~~Trash UI~~ ✅ (Settings drawer: per-item restore / delete-forever **plus multi-select** — checkboxes, select-all, bulk Restore / Delete forever, Empty trash)
-- Accessibility pass: ~~reduced-motion audit~~ ✅ (global CSS `prefers-reduced-motion` block + particle/atmosphere/flower-graph gates; RelationshipWeb solves its layout synchronously). ~~Focus & labels — shared layer~~ ✅ (done once in `components.js`/`shell.js`, so it propagates app-wide): dialogs/panels are `role="dialog"`/`"alertdialog"` + `aria-modal`, move focus in on open, **trap Tab**, close on Esc, and **restore focus** on close; `seg`→`role="radiogroup"`/`radio`+`aria-checked`, `switchEl`→`role="switch"`, decorative SVGs already `aria-hidden`, tab bar is a labeled `<nav>` with `aria-current="page"`. **Remaining:** a deeper per-widget label audit (bespoke controls inside individual widgets).
-- i18n-ready strings file
+- ~~Accessibility pass~~ ✅ — **reduced-motion** (global CSS `prefers-reduced-motion` block + particle/atmosphere/flower-graph gates; RelationshipWeb solves its layout synchronously); **focus & roles** (done once in `components.js`/`shell.js`: dialogs/panels are `role="dialog"`/`"alertdialog"` + `aria-modal`, move focus in on open, **trap Tab**, close on Esc, **restore focus** on close; `seg`→`radiogroup`/`radio`+`aria-checked`, `switchEl`→`role="switch"`, tab bar a labeled `<nav>` with `aria-current="page"`); **labels** (`icon()` stamps `data-i`; a MutationObserver in `components.js` gives every icon-only control without a name one inferred from its glyph — covers dynamic re-renders and future buttons; an explicit `title`/`aria-label` always wins).
+- i18n-ready strings file *(only remaining Phase 8 item; architectural string extraction, low priority for a single-language app)*
 
 ---
 
