@@ -16,7 +16,7 @@
 import { RTILE, FINE_TILE_CAP, copyTile } from './infcanvas-raster.js';
 
 const MAX_BUFFER = 4096; // px — stroke buffer hard cap (≈ screen-sized)
-const CHUNK = 16;        // cross-band tile writes between frame yields
+const FRAME_BUDGET = 28; // ms of fine-tile work between cooperative yields (13a)
 
 const nextFrame = () => new Promise(r => (document.hidden ? setTimeout(r, 0) : requestAnimationFrame(r)));
 
@@ -94,23 +94,33 @@ export async function commitStroke(doc, s, pts) {
   });
   const rect = { x0: ox / sb, y0: oy / sb, x1: (ox + bw) / sb, y1: (oy + bh) / sb };
 
-  // 8×8 alpha probe: how much of a world rect does the stroke cover?
-  const probe = document.createElement('canvas');
-  probe.width = probe.height = 8;
-  const pg = probe.getContext('2d', { willReadFrequently: true });
+  // Alpha coverage of a world rect by the stroke buffer. CR-13 read the buffer
+  // back per tile (getImageData) — profiling showed that's ~100ms for a single
+  // zoomed-out stroke (the GPU→CPU readback dominates), the real cause of the
+  // lag. Instead snapshot the (small, band-resolution) buffer's alpha ONCE and
+  // scan it in JS: zoomed far out each fine tile maps to a sub-pixel buffer
+  // region, so a tile's coverage is a handful of array reads. Conservative on
+  // 'full' (every sampled pixel must be ≥250 AND the tile fully inside the
+  // buffer) so the erase fast-delete never drops partially-covered content.
+  let bufData = null;
   const coverage = (wx, wy, ts) => {
+    if (!bufData) bufData = bg.getImageData(0, 0, bw, bh).data;
     const ss = ts * sb;
-    // clamp the source rect to the buffer — drawImage silently draws nothing
-    // when the source rect leaves the bitmap (found by the perf tests)
-    const sx0 = Math.max(0, wx * sb - ox), sy0 = Math.max(0, wy * sb - oy);
-    const sx1 = Math.min(bw, wx * sb - ox + ss), sy1 = Math.min(bh, wy * sb - oy + ss);
+    const rx0 = wx * sb - ox, ry0 = wy * sb - oy;
+    const sx0 = Math.max(0, Math.floor(rx0)), sy0 = Math.max(0, Math.floor(ry0));
+    const sx1 = Math.min(bw, Math.ceil(rx0 + ss)), sy1 = Math.min(bh, Math.ceil(ry0 + ss));
     if (sx1 <= sx0 || sy1 <= sy0) return 'none';
-    const clipped = sx1 - sx0 < ss - 1e-9 || sy1 - sy0 < ss - 1e-9;
-    pg.clearRect(0, 0, 8, 8);
-    pg.drawImage(buffer, sx0, sy0, sx1 - sx0, sy1 - sy0, 0, 0, 8, 8);
-    const d = pg.getImageData(0, 0, 8, 8).data;
+    const clipped = rx0 < -1e-9 || ry0 < -1e-9 || rx0 + ss > bw + 1e-9 || ry0 + ss > bh + 1e-9;
+    const stepX = Math.max(1, Math.floor((sx1 - sx0) / 64)), stepY = Math.max(1, Math.floor((sy1 - sy0) / 64));
     let min = 255, max = 0;
-    for (let i = 3; i < d.length; i += 4) { if (d[i] < min) min = d[i]; if (d[i] > max) max = d[i]; }
+    for (let py = sy0; py < sy1; py += stepY) {
+      const row = py * bw;
+      for (let px = sx0; px < sx1; px += stepX) {
+        const a = bufData[(row + px) * 4 + 3];
+        if (a < min) min = a;
+        if (a > max) max = a;
+      }
+    }
     return max === 0 ? 'none' : (min >= 250 && !clipped ? 'full' : 'partial');
   };
 
@@ -130,10 +140,17 @@ export async function commitStroke(doc, s, pts) {
     // 1 — content in coarser bands is promoted into the commit band (CR-12)
     for (const b of bands) if (b < band) doc.promote(layer.id, b, band, rect, touched);
 
-    // 2 — content stored in finer bands: budgeted + chunked (13a). Iterates
-    // the bands' REAL tiles, so empty space costs nothing at any zoom.
-    let wrote = 0, sinceYield = 0;
+    // 2 — content stored in finer bands: budgeted, batched, time-sliced (13a).
+    // First pick the covered tiles (cheap, no awaits) and resolve whole-tile
+    // erases as deletions; iterating the bands' REAL tiles means empty space
+    // costs nothing at any zoom. Then decode every paint target in ONE parallel
+    // batch (cold tiles inflate together, not one-at-a-time) and composite them,
+    // yielding only after a frame's worth of work — so a stroke over moderate
+    // content lands in a single pass instead of stalling for several frames,
+    // which is what blocks the NEXT stroke from starting.
+    let wrote = 0;
     const wroteCoords = []; // {ts, set} of fine tiles the stroke painted into
+    const paintJobs = [];   // {b, sbF, tx, ty, key} fine tiles to composite into
     for (const b of bands.filter(v => v > band)) {
       const ts = RTILE / Math.pow(2, b);
       const sbF = Math.pow(2, b);
@@ -160,21 +177,27 @@ export async function commitStroke(doc, s, pts) {
         }
         if (wrote >= FINE_TILE_CAP) { skipped++; continue; }
         wrote++;
-        await doc.ensureLoaded([key]);
-        const c = doc.tile(layer.id, b, tx, ty, true);
-        if (!touched.has(key)) touched.set(key, copyTile(c));
+        paintJobs.push({ b, sbF, tx, ty, key });
+        set.add(coord);
+      }
+      if (set.size) wroteCoords.push({ ts, set });
+    }
+    if (paintJobs.length) {
+      await doc.ensureLoaded(paintJobs.map(j => j.key)); // one parallel decode pass
+      let sliceStart = performance.now();
+      for (const j of paintJobs) {
+        const c = doc.tile(layer.id, j.b, j.tx, j.ty, true);
+        if (!touched.has(j.key)) touched.set(j.key, copyTile(c));
         const g = c.getContext('2d');
         g.save();
-        g.transform(sbF, 0, 0, sbF, -tx * RTILE, -ty * RTILE);
+        g.transform(j.sbF, 0, 0, j.sbF, -j.tx * RTILE, -j.ty * RTILE);
         doc.clipMask(g, mask);
         drawBuf(g);
         g.restore();
-        doc.dirty.add(key);
-        doc.bustMips(key);
-        set.add(coord);
-        if (++sinceYield >= CHUNK) { sinceYield = 0; await nextFrame(); }
+        doc.dirty.add(j.key);
+        doc.bustMips(j.key);
+        if (performance.now() - sliceStart > FRAME_BUDGET) { await nextFrame(); sliceStart = performance.now(); }
       }
-      if (set.size) wroteCoords.push({ ts, set });
     }
 
     // 3 — the commit band itself (bounded by the buffer cap ≈ screen size).

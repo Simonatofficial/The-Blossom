@@ -160,6 +160,23 @@ function bufStroke(doc, band, pts, { tool = 'pen', size = 12, opacity = 1, color
   log('…and still renders along its full length', r.alphaAt(1000, 0) > 0 && r.alphaAt(9000, 0) > 0);
 }
 
+/* 8 — the lag report: a normal PEN stroke while zoomed far out, over a canvas
+   already full of fine detail, must commit fast. The per-tile getImageData
+   coverage probe used to make this ~100ms+ (and block the next stroke); it now
+   snapshots the buffer once and scans it, decodes targets in one batch, and
+   yields by time budget rather than every 16 tiles. */
+{
+  const doc = freshDoc();
+  for (let y = 0; y <= 6000; y += 90) await bufStroke(doc, 0, [[0, y], [6000, y]], { size: 40 });
+  const fine = doc.tiles.size;
+  const t0 = performance.now();
+  await bufStroke(doc, -10, [[100, 100], [5900, 5900]], { size: 240, opacity: 0.7 });
+  const ms = performance.now() - t0;
+  log(`pen stroke at ×0.001 over ${fine} fine tiles commits in ${ms.toFixed(0)}ms (<150)`, ms < 150);
+  const r = render(doc, 3000, 3000, 0.05, 200);
+  log('…and the canvas still renders from far out (total alpha > 0)', r.totalAlpha() > 0);
+}
+
 document.title = failures ? `✗ ${failures} FAILURES` : '✓ all pass';
 console.log(failures ? `RESULT: ${failures} FAILURES` : 'RESULT: all pass');
 const h = document.createElement('h2');
