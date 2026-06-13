@@ -34,6 +34,17 @@ window.addEventListener('error', (e) => {
 });
 window.addEventListener('unhandledrejection', (e) => gentleError(e.reason));
 
+/* Storage write failed (most likely a full quota). The change is safe in
+   memory and re-queued; tell the user calmly so they can free space or export
+   a backup. store.js throttles this, so just surface it once it arrives. */
+events.on('storage:full', ({ quota }) => {
+  const text = quota
+    ? 'Storage is full. Free up space (or export a backup and clear old data) so The Blossom can keep saving.'
+    : 'A recent change could not be written to storage. Your work is still here — export a backup to be safe.';
+  try { toast(quota ? 'Storage is full — recent changes may not be saved.' : 'A save didn’t go through.', 'leaf'); } catch { /* pre-boot */ }
+  events.emit('notify', { category: 'storage', text });
+});
+
 async function boot() {
   await store.init();
 
