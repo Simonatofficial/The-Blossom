@@ -38,8 +38,7 @@ registry.register({
     </div>`);
     host.appendChild(card);
 
-    const tick = () => {
-      if (!host.isConnected) { clearInterval(timer); return; }
+    const draw = () => {
       const now = new Date();
       card.querySelector('.t-day').textContent = now.toLocaleDateString([], { weekday: 'long' });
       card.querySelector('.t-time').textContent = fmtTime(now, cfg);
@@ -47,8 +46,14 @@ registry.register({
         now.toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' }) +
         (cfg.week ? ` · week ${weekNumber(now)}` : '');
     };
-    const timer = setInterval(tick, cfg.seconds ? 1000 : 5000);
-    tick();
+    // draw immediately — the engine builds the card detached, so an
+    // isConnected check here would skip the very first paint (the bug that
+    // left only the note showing). The interval self-cleans once unmounted.
+    draw();
+    const timer = setInterval(() => {
+      if (!host.isConnected) { clearInterval(timer); return; }
+      draw();
+    }, cfg.seconds ? 1000 : 5000);
 
     const note = card.querySelector('.t-note');
     note.textContent = cfg.note || '';
