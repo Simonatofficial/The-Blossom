@@ -6,16 +6,19 @@ import { events } from '../core/events.js';
 import { ulid } from '../core/ids.js';
 import { router } from '../core/router.js';
 import { icon } from './icons.js';
-import { el, toast, confirmDialog, openDrawer, popMenu, promptText, emptyState, switchEl } from './components.js';
+import { el, toast, confirmDialog, openDrawer, popMenu, promptText, emptyState, switchEl, field, input, rangeField } from './components.js';
 import { allThemes, applyGlobalTheme, activeThemeId, getTheme, withOverrides, themeOverrides, setThemeOverride, clearThemeOverrides } from '../fx/themes.js';
 import { ATMOSPHERE_PRESETS } from '../fx/atmosphere.js';
 import { PRESET_PARTICLES, PRESET_POINTER_FX, getParticlePreset, getPointerFxPreset } from '../presets/particles.js';
 import * as codes from '../core/codes.js';
 import * as saves from '../core/saves.js';
+import { syncStatus, accountInfo, upgradeAccount, kofiHandle } from '../core/sync.js';
 
 export function openSettings() {
   const d = openDrawer({ title: 'Settings', iconName: 'settings' });
   renderAppearanceSection(d);
+  renderAccountSection(d);
+  renderVisualEffectsSection(d);
   renderThemesSection(d);
   renderCodesSection(d);
   renderSavesSection(d);
@@ -148,6 +151,79 @@ function renderAppearanceSection(d) {
     segEl.appendChild(b);
   }
   sec.querySelector('.a-seg').appendChild(segEl);
+  d.body.appendChild(sec);
+}
+
+/* ---------- account / cloud sync (V2 §1) — only shown when sync is configured ---------- */
+
+function renderAccountSection(d) {
+  const info = accountInfo();
+  if (!info.configured) return; // sync not set up → hide entirely (silently disabled)
+
+  const sec = el(`<div class="dsec"><h3>Account</h3>
+    <div class="row" style="margin-bottom:10px"><span class="sync-dot"></span><span class="soft sync-label" style="font-size:0.84rem"></span></div>
+    <div class="acct-body"></div></div>`);
+  const dot = sec.querySelector('.sync-dot');
+  const label = sec.querySelector('.sync-label');
+  const paint = (s) => {
+    dot.className = `sync-dot sync-${s}`;
+    label.textContent = s === 'syncing' ? 'Syncing…' : s === 'error' ? 'Sync paused — will retry' : 'Synced';
+  };
+  paint(syncStatus());
+  events.on('sync:status', ({ status }) => { if (sec.isConnected) paint(status); });
+
+  const body = sec.querySelector('.acct-body');
+  const render = () => {
+    body.innerHTML = '';
+    const a = accountInfo();
+    if (!a.active) { body.appendChild(el('<p class="soft" style="font-size:0.84rem">Connecting…</p>')); return; }
+    if (a.anonymous) {
+      body.appendChild(el('<p class="soft" style="font-size:0.84rem;margin-bottom:8px">You’re signed in anonymously. Add an email and password to sign in on another device and keep everything in sync.</p>'));
+      const email = input('', 'you@example.com'); email.type = 'email';
+      const pass = input('', 'Password (8+ characters)'); pass.type = 'password';
+      const btn = el(`<button class="btn btn-primary" style="width:100%;margin-top:8px">${icon('check', 15)} Create account</button>`);
+      btn.onclick = async () => {
+        if (!email.value.trim() || pass.value.length < 8) { toast('Enter an email and an 8+ character password.', 'info'); return; }
+        btn.disabled = true;
+        try { await upgradeAccount(email.value.trim(), pass.value); toast('Account created — you’re synced', 'check'); render(); }
+        catch (err) { toast(err.message || 'Could not create the account.', 'info'); btn.disabled = false; }
+      };
+      body.append(field('Email', email), field('Password', pass), btn);
+    } else {
+      const p = el('<p class="soft" style="font-size:0.84rem"></p>');
+      p.textContent = `Signed in as ${a.email}. Your data syncs across your devices.`;
+      body.appendChild(p);
+    }
+  };
+  render();
+  d.body.appendChild(sec);
+}
+
+/* ---------- visual effects master toggles (V2 §5) ---------- */
+
+function renderVisualEffectsSection(d) {
+  const sec = el('<div class="dsec"><h3>Visual Effects</h3><div class="ve-rows"></div></div>');
+  const rows = sec.querySelector('.ve-rows');
+  const getFx = () => store.getMeta('settings', {})?.fx || {};
+  const setFx = (k, v) => {
+    const s = store.getMeta('settings', {});
+    s.fx = { ...(s.fx || {}), [k]: v };
+    store.setMeta('settings', s);
+    events.emit('page:changed', {}); // re-applies effects for the current scope
+  };
+  const row = (label, key, hint, defaultOn) => {
+    const r = el('<div class="ve-row"><div class="grow"><div class="ve-label"></div><div class="hint"></div></div></div>');
+    r.querySelector('.ve-label').textContent = label;
+    r.querySelector('.hint').textContent = hint;
+    const on = defaultOn ? getFx()[key] !== false : getFx()[key] === true;
+    r.appendChild(switchEl(on, (v) => setFx(key, v)));
+    return r;
+  };
+  rows.append(
+    row('Particles', 'particlesEnabled', 'Drifting background particles for the active theme.', true),
+    row('Atmosphere', 'atmosphereEnabled', 'Day/night, constellations, waves and other scenes.', true),
+    row('Weather', 'weatherEnabled', 'Snow, rain, clouds, wind and fire — arriving soon.', false)
+  );
   d.body.appendChild(sec);
 }
 
@@ -480,7 +556,51 @@ function renderSavesSection(d) {
   });
   status.textContent = backupLine; // shown immediately; persisted check refines it
   sec.appendChild(status);
+
+  // ---- danger zone: full reset (V2 §10) — three gated steps, red styling ----
+  const reset = el(`<button class="btn btn-danger" style="width:100%;margin-top:18px">${icon('trash', 15)} Reset all data</button>`);
+  reset.onclick = resetAllDataFlow;
+  sec.appendChild(reset);
+
   d.body.appendChild(sec);
+}
+
+/* Full reset (V2 §10): three deliberate steps so a mistap can never wipe data.
+   Only completing all three — confirm, re-confirm, then type DELETE — erases
+   everything and restarts the app fresh. */
+async function resetAllDataFlow() {
+  const step1 = await confirmDialog({
+    title: 'Reset all data?',
+    message: 'This will permanently delete all your modules, pages, widgets, objects, themes, and settings.',
+    confirmText: 'Delete everything'
+  });
+  if (!step1) return;
+  const step2 = await confirmDialog({
+    title: 'Are you absolutely sure?',
+    message: 'This cannot be undone. If you might want it back, download a backup first.',
+    confirmText: 'Yes, delete everything'
+  });
+  if (!step2) return;
+  if (!(await typeDeleteToConfirm())) return;
+  await store.resetAll();
+  location.reload();
+}
+
+/** Step 3: a typed confirmation. Resolves true only when the user types DELETE. */
+function typeDeleteToConfirm() {
+  return new Promise((resolve) => {
+    let settled = false;
+    const d = openDrawer({ title: 'Final step', iconName: 'trash', onClose: () => { if (!settled) { settled = true; resolve(false); } } });
+    d.body.appendChild(el('<p class="soft" style="margin-bottom:6px">Type <strong>DELETE</strong> to confirm. There is no undo.</p>'));
+    const inp = input('', 'DELETE');
+    const btn = el(`<button class="btn btn-danger" style="width:100%;margin-top:12px" disabled>${icon('trash', 15)} Confirm reset</button>`);
+    inp.addEventListener('input', () => { btn.disabled = inp.value !== 'DELETE'; });
+    const confirm = () => { if (inp.value === 'DELETE') { settled = true; resolve(true); d.close(); } };
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirm(); });
+    btn.onclick = confirm;
+    d.body.append(field('Confirmation', inp), btn);
+    setTimeout(() => inp.focus(), 150);
+  });
 }
 
 /* ---------- about ---------- */
@@ -495,6 +615,13 @@ function renderAboutSection(d) {
     d.close();
     initOnboarding(true);
   };
+  // Ko-fi support (V2 §1) — opt-in: only when a handle is configured
+  const handle = kofiHandle();
+  if (handle) {
+    const support = el('<a class="btn" style="width:100%;margin-top:10px;text-decoration:none" target="_blank" rel="noopener">☕ Support on Ko-fi</a>');
+    support.href = `https://ko-fi.com/${encodeURIComponent(handle)}`;
+    sec.appendChild(support);
+  }
   d.body.appendChild(sec);
 }
 

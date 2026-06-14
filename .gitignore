@@ -1,3 +1,7 @@
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Optional cloud-sync secrets (V2 §1) — never commit real keys
+config.js
+.env

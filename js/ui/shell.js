@@ -8,22 +8,28 @@ import { router } from '../core/router.js';
 import { icon, iconOrEmoji, iconNames } from './icons.js';
 import { el, toast, confirmDialog, openDrawer, popMenu, promptText } from './components.js';
 import { openSettings } from './settings.js';
+import { initFab } from './fab.js';
+import { openModulesPanel } from './navpanels.js';
 import { getTheme, allThemes } from '../fx/themes.js';
 
 const MAX_TABS = 5;
 
 export function initShell(app) {
   app.innerHTML = '';
+  // V2 §5: the top-right chrome collapses to a single small menu button so it
+  // never crowds the top widget's ··· menu; richer navigation lives in the FAB.
   const chrome = el(`
     <div id="chrome-top">
-      <button class="chrome-btn" id="btn-modules" aria-label="Modules">${icon('grid', 18)}</button>
-      <button class="chrome-btn" id="btn-settings" aria-label="Settings">${icon('settings', 18)}</button>
+      <button class="chrome-btn" id="btn-chrome" aria-label="Menu">${icon('more', 18)}</button>
     </div>`);
-  chrome.querySelector('#btn-modules').onclick = openModuleSwitcher;
-  chrome.querySelector('#btn-settings').onclick = () => openSettings();
+  chrome.querySelector('#btn-chrome').onclick = (e) => popMenu(e.currentTarget, [
+    { label: 'Settings', iconName: 'settings', fn: () => openSettings() },
+    { label: 'Modules', iconName: 'grid', fn: () => openModulesPanel() }
+  ]);
   app.appendChild(chrome);
   app.appendChild(el('<div id="page-host"></div>'));
   app.appendChild(el('<nav id="tab-bar" aria-label="Pages"></nav>'));
+  initFab();
 
   // chrome wakes on any touch, settles after a pause
   let awakeTimer = null;

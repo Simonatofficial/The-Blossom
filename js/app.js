@@ -14,6 +14,7 @@ import { initShell } from './ui/shell.js';
 import { initEngine } from './modules/engine.js';
 import { initSaves, checkDayRollover, maybeBackupReminder } from './core/saves.js';
 import { initOnboarding } from './ui/onboarding.js';
+import { initSync } from './core/sync.js';
 import { el, toast } from './ui/components.js';
 import { instantiatePreset, PRESET_MODULES } from './presets/modules/index.js';
 
@@ -76,6 +77,8 @@ async function boot() {
   initOnboarding();
   registerSW();
   navigator.storage?.persist?.();
+  initSync(); // optional cloud mirror (V2 §1) — no-op unless configured
+
 }
 
 /* ---- service worker + gentle update toast (docs/09: never auto-reload) ---- */

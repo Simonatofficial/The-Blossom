@@ -34,6 +34,7 @@ Source: https://github.com/mattpocock/skills/blob/main/skills/productivity/grill
 | `docs/10-roadmap.md` | Phased build order — follow this sequence |
 | `docs/11-change-requests.md` | Active change requests from user testing — work these alongside Phase 7+ |
 | `docs/12-canvas-overhaul.md` | CR-10: full spec for the Infinite Canvas painting overhaul (Kleki parity) |
+| `docs/13-v2-framework.md` | **V2 spec** — Supabase sync, FAB nav, particles/atmosphere/weather overhaul, themes, new widgets (Blossoms game, Canva Board, Tabletop, etc.), and all V2 change requests. Read this before any V2 work. |
 
 ## Tech stack (non-negotiable)
 

@@ -155,11 +155,15 @@ export function particleLayerDefs(spec) {
 export function applyEffects(rawTheme, force = false) {
   const theme = withOverrides(rawTheme);
   if (!theme) return;
-  const key = JSON.stringify([theme.id, theme.atmosphere, theme.particles, theme.pointerFx]);
+  // V2 §5: global master toggles disable rendering while preserving the preset.
+  const fx = store.getMeta('settings', {})?.fx || {};
+  const particlesOn = fx.particlesEnabled !== false;
+  const atmosphereOn = fx.atmosphereEnabled !== false;
+  const key = JSON.stringify([theme.id, theme.atmosphere, theme.particles, theme.pointerFx, particlesOn, atmosphereOn]);
   if (!force && key === lastFxKey) return;
   lastFxKey = key;
-  setAtmosphere(theme.atmosphere || null, theme.colors);
-  setBackground(particleLayerDefs(theme.particles), theme.colors.accent);
+  setAtmosphere(atmosphereOn ? (theme.atmosphere || null) : null, theme.colors);
+  setBackground(particlesOn ? particleLayerDefs(theme.particles) : [], theme.colors.accent);
   const fxDef = resolveParticleDef(theme.pointerFx);
   setPointerFx(fxDef, fxDef?.color || theme.colors.accent);
 }

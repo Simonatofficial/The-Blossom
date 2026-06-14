@@ -453,6 +453,48 @@ export function switchEl(checked, onChange) {
   return s;
 }
 
+/**
+ * A range slider with a synced compact numeric readout (V2 §5). Both inputs
+ * stay in sync; `onInput` fires live (during drag), `onChange` on commit.
+ * The returned row exposes `.setValue(v)` for programmatic updates (live
+ * previews elsewhere). Units (px, %, °, ×…) come from `unit`.
+ * @param {{min?:number, max?:number, step?:number, value?:number, unit?:string,
+ *          onInput?:(v:number)=>void, onChange?:(v:number)=>void}} opts
+ * @returns {HTMLElement & {setValue:(v:number)=>void}}
+ */
+export function rangeField({ min = 0, max = 100, step = 1, value = 0, unit = '', onInput = null, onChange = null } = {}) {
+  const decimals = (String(step).split('.')[1] || '').length;
+  const clamp = (v) => Math.min(max, Math.max(min, v));
+  const fmt = (v) => decimals ? Number(v).toFixed(decimals) : String(Math.round(Number(v)));
+  const row = el(`<div class="range-field">
+    <input type="range" class="range" min="${min}" max="${max}" step="${step}">
+    <span class="range-readout">
+      <input type="number" class="range-num" min="${min}" max="${max}" step="${step}" inputmode="decimal" aria-label="value">
+      <span class="range-unit"></span>
+    </span></div>`);
+  const range = row.querySelector('.range');
+  const num = row.querySelector('.range-num');
+  row.querySelector('.range-unit').textContent = unit;
+  range.value = clamp(value);
+  num.value = fmt(clamp(value));
+  range.addEventListener('input', () => { num.value = fmt(range.value); onInput?.(Number(range.value)); });
+  range.addEventListener('change', () => onChange?.(Number(range.value)));
+  num.addEventListener('input', () => {
+    if (num.value === '' || num.value === '-') return; // mid-edit, wait for change
+    const v = clamp(Number(num.value));
+    range.value = v;
+    onInput?.(v);
+  });
+  num.addEventListener('change', () => {
+    const v = clamp(num.value === '' ? min : Number(num.value));
+    range.value = v;
+    num.value = fmt(v);
+    onChange?.(v);
+  });
+  row.setValue = (v) => { const c = clamp(v); range.value = c; if (document.activeElement !== num) num.value = fmt(c); };
+  return row;
+}
+
 /** Warm empty state. */
 export function emptyState(iconName, text, btnLabel = null, onBtn = null) {
   const e = el(`<div class="empty-state">${icon(iconName, 30)}<p></p></div>`);
