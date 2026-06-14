@@ -94,6 +94,7 @@ export const store = {
     dirty[storeName].add(record[keyOf(storeName)]);
     removed[storeName].delete(record[keyOf(storeName)]);
     scheduleFlush();
+    events.emit('store:write', { store: storeName, id: record[keyOf(storeName)] });
     return record;
   },
 
@@ -102,6 +103,17 @@ export const store = {
     cache[storeName].delete(id);
     removed[storeName].add(id);
     dirty[storeName].delete(id);
+    scheduleFlush();
+    events.emit('store:delete', { store: storeName, id });
+  },
+
+  /** Ingest a record exactly as given (preserving updatedAt) WITHOUT emitting a
+      store:write — used by sync.pull (V2 §1) to apply a remote record without
+      echoing it straight back as a new local change. */
+  ingest(storeName, record) {
+    cache[storeName].set(record[keyOf(storeName)], record);
+    dirty[storeName].add(record[keyOf(storeName)]);
+    removed[storeName].delete(record[keyOf(storeName)]);
     scheduleFlush();
   },
 
@@ -178,6 +190,25 @@ export const store = {
       for (const rec of (data[s] || [])) this.put(s, rec);
     }
     this.flush();
+  },
+
+  /** Wipe ALL local data — every IndexedDB store plus localStorage prefs.
+      Irreversible; used by Settings → Reset All Data (V2 §10). The caller is
+      expected to reload the app immediately afterwards. */
+  async resetAll() {
+    clearTimeout(flushTimer);
+    for (const s of STORES) { cache[s].clear(); dirty[s].clear(); removed[s].clear(); }
+    try { if (db) { db.close(); db = null; } } catch { /* already closed */ }
+    await new Promise((resolve) => {
+      let done = false;
+      const finish = () => { if (!done) { done = true; resolve(); } };
+      try {
+        const req = indexedDB.deleteDatabase(DB_NAME);
+        req.onsuccess = req.onerror = req.onblocked = finish;
+      } catch { finish(); }
+      setTimeout(finish, 1500); // never hang if a tab is blocking the delete
+    });
+    try { localStorage.clear(); } catch { /* ignore */ }
   },
 
   /** Snapshot of all user data (for exports). Excludes trash. */

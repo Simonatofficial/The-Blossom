@@ -10,10 +10,12 @@ import { makeCtx } from './widgets/base.js';
 import { applyGlobalTheme, activeThemeId, activeTheme, applyEffects } from './fx/themes.js';
 import { initParticles } from './fx/particles.js';
 import { initAtmosphere } from './fx/atmosphere.js';
+import { initWeather } from './fx/weather.js';
 import { initShell } from './ui/shell.js';
 import { initEngine } from './modules/engine.js';
 import { initSaves, checkDayRollover, maybeBackupReminder } from './core/saves.js';
 import { initOnboarding } from './ui/onboarding.js';
+import { initSync } from './core/sync.js';
 import { el, toast } from './ui/components.js';
 import { instantiatePreset, PRESET_MODULES } from './presets/modules/index.js';
 
@@ -68,6 +70,7 @@ async function boot() {
   initEngine(document.getElementById('page-host'));
   initParticles();
   initAtmosphere();
+  initWeather();
   applyEffects(activeTheme(), true);
   initSaves();
   checkDayRollover();
@@ -76,6 +79,8 @@ async function boot() {
   initOnboarding();
   registerSW();
   navigator.storage?.persist?.();
+  initSync(); // optional cloud mirror (V2 §1) — no-op unless configured
+
 }
 
 /* ---- service worker + gentle update toast (docs/09: never auto-reload) ---- */

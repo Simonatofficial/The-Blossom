@@ -8,7 +8,7 @@ import { router } from '../core/router.js';
 import { registry } from '../widgets/registry.js';
 import { makeCtx, engineHooks, openWidgetSettings, removeWidget } from '../widgets/base.js';
 import { icon } from '../ui/icons.js';
-import { el, toast, confirmDialog, openDrawer, popMenu, emptyState, closeStrayPanels } from '../ui/components.js';
+import { el, toast, confirmDialog, popMenu, emptyState, closeStrayPanels } from '../ui/components.js';
 import { applyScopedTheme, applyEffects, getTheme, activeTheme } from '../fx/themes.js';
 import { openWidgetGallery } from '../ui/picker.js';
 
@@ -85,6 +85,11 @@ export function renderPage() {
   applyScopedTheme(scope, page.themeOverride || mod.themeOverride || null);
   // deepest non-inherit theme drives atmosphere + particles (docs/03)
   applyEffects(getTheme(page.themeOverride || mod.themeOverride) || activeTheme());
+
+  // home-page star (V2 §11/§15): a quiet filled star in the content corner
+  if (mod.homePageId === page.id) {
+    scope.appendChild(el(`<span class="page-home-star" title="Home page" aria-hidden="true">${icon('star', 13)}</span>`));
+  }
 
   const grid = el('<div class="widget-grid"></div>');
   const widgets = page.widgets.map(id => store.get('widgets', id)).filter(Boolean);
@@ -173,8 +178,9 @@ function refreshCard(widgetId, structural = false) {
 /** Render one widget's card (also used by container widgets for children). */
 export function renderWidgetCard(widget) {
   const def = registry.get(widget.type);
-  const card = el(`<section class="widget-card ${widget.type}-card" data-w="${widget.w || 'full'}"></section>`);
+  const card = el(`<section class="widget-card ${widget.type}-card" data-w="${widget.w || 'full'}" data-wid="${widget.id}"></section>`);
   cardEls.set(widget.id, card);
+  if (widget.style?.opacity != null) card.style.setProperty('--w-bg-opacity', widget.style.opacity);
   if (widget.collapsed) card.classList.add('collapsed');
   if (widget.themeOverride) applyScopedTheme(card, widget.themeOverride);
   if (!def) {
@@ -224,11 +230,11 @@ export function renderWidgetCard(widget) {
 }
 
 function widgetMenu(anchor, widget) {
+  // V2 §12: Edit · Copy Widget Code · Delete (Theme merged into Edit →
+  // Appearance; Move-to-page replaced by hold-drag).
   popMenu(anchor, [
     { label: 'Edit', iconName: 'edit', fn: () => openWidgetSettings(widget) },
-    { label: 'Theme', iconName: 'palette', fn: () => openWidgetSettings(widget) },
-    { label: 'Move to page', iconName: 'move', fn: () => moveWidgetFlow(widget) },
-    { label: 'Copy Blossom code', iconName: 'code', fn: async () => {
+    { label: 'Copy Widget Code', iconName: 'code', fn: async () => {
       const { copyNodeCode } = await import('../ui/settings.js');
       copyNodeCode('wgt', widget.id, widget.name);
     } },
@@ -242,46 +248,27 @@ function widgetMenu(anchor, widget) {
   ]);
 }
 
-function moveWidgetFlow(widget) {
-  const d = openDrawer({ title: 'Move to page', iconName: 'move' });
-  for (const mod of store.all('modules')) {
-    const h = el('<h3 class="soft" style="margin:10px 0 6px;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.08em"></h3>');
-    h.textContent = mod.name;
-    d.body.appendChild(h);
-    for (const pid of mod.pages) {
-      const page = store.get('pages', pid);
-      if (!page) continue;
-      const li = el(`<button class="list-item"><span class="li-main"><span class="li-title"></span></span>${pid === widget.pageId ? '<span class="chip">here</span>' : icon('chevron-right', 14)}</button>`);
-      li.querySelector('.li-title').textContent = page.name;
-      li.onclick = () => {
-        if (pid === widget.pageId) return;
-        const from = store.get('pages', widget.pageId);
-        if (from) { from.widgets = from.widgets.filter(id => id !== widget.id); store.put('pages', from); }
-        page.widgets.push(widget.id);
-        store.put('pages', page);
-        widget.pageId = pid;
-        store.put('widgets', widget);
-        d.close();
-        toast(`Moved to ${page.name}`, 'move');
-        renderPage(); // links keep working — they're id-based (docs/02)
-      };
-      d.body.appendChild(li);
-    }
-  }
-}
-
 /* ---------- drag to reorder (pointer-based; works with touch) ---------- */
 
 function enableDrag(handle, widget, card) {
   handle.addEventListener('pointerdown', (start) => {
     start.preventDefault();
     handle.setPointerCapture(start.pointerId);
-    let started = false;
-    let dropTarget = null; // { id, before }
+    let armed = false;       // becomes draggable only after a 600ms hold (V2 §12)
+    let dropTarget = null;   // { id, before }
+
+    // hold-to-move: a border glow grows over 600ms, then haptic + arm for drag
+    card.classList.add('w-holding');
+    const holdTimer = setTimeout(() => {
+      armed = true;
+      card.classList.remove('w-holding');
+      card.classList.add('dragging');
+      navigator.vibrate?.(30);
+    }, 600);
+    const cancelHold = () => { clearTimeout(holdTimer); card.classList.remove('w-holding'); };
 
     const onMove = (e) => {
-      if (!started && Math.hypot(e.clientX - start.clientX, e.clientY - start.clientY) < 7) return;
-      if (!started) { started = true; card.classList.add('dragging'); }
+      if (!armed) return; // movement before the threshold never reorders (release = no move)
       document.querySelectorAll('.widget-card.drop-before').forEach(c => c.classList.remove('drop-before'));
       dropTarget = null;
       for (const [id, other] of cardEls) {
@@ -296,11 +283,13 @@ function enableDrag(handle, widget, card) {
     };
 
     const onUp = () => {
+      cancelHold();
       handle.removeEventListener('pointermove', onMove);
       handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
       card.classList.remove('dragging');
       document.querySelectorAll('.widget-card.drop-before').forEach(c => c.classList.remove('drop-before'));
-      if (!started || !dropTarget) return;
+      if (!armed || !dropTarget) return;
       const page = store.get('pages', widget.pageId);
       if (!page) return;
       const order = page.widgets.filter(id => id !== widget.id);
@@ -315,6 +304,7 @@ function enableDrag(handle, widget, card) {
 
     handle.addEventListener('pointermove', onMove);
     handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
   });
 }
 

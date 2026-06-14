@@ -135,6 +135,25 @@ export function withOverrides(theme) {
    every page render, we skip redundant re-activations) ---- */
 
 let lastFxKey = null;
+let lastEnvThemeId = null;
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* V2 §4: when navigating to a scope with a different theme, fade the new
+   environment in over 400ms so colors/particles/atmosphere settle rather than
+   pop. Uses a forced reflow + CSS transition (not rAF) so the final opacity is
+   correct even while the tab is hidden. Weather swaps immediately (it's additive
+   on its own layer). prefers-reduced-motion skips the fade entirely. */
+function fadeEnvironmentIn() {
+  for (const id of ['atmosphere-canvas', 'particle-canvas']) {
+    const c = document.getElementById(id);
+    if (!c) continue;
+    c.style.transition = 'none';
+    c.style.opacity = '0';
+    void c.offsetWidth; // force reflow so the transition actually runs
+    c.style.transition = 'opacity 400ms ease';
+    c.style.opacity = '1';
+  }
+}
 
 function resolveParticleDef(spec, custom) {
   if (!spec?.preset) return null;
@@ -155,11 +174,18 @@ export function particleLayerDefs(spec) {
 export function applyEffects(rawTheme, force = false) {
   const theme = withOverrides(rawTheme);
   if (!theme) return;
-  const key = JSON.stringify([theme.id, theme.atmosphere, theme.particles, theme.pointerFx]);
+  // V2 §4: cross-fade the environment when the active theme actually changes.
+  if (lastEnvThemeId && lastEnvThemeId !== theme.id && !reducedMotion()) fadeEnvironmentIn();
+  lastEnvThemeId = theme.id;
+  // V2 §5: global master toggles disable rendering while preserving the preset.
+  const fx = store.getMeta('settings', {})?.fx || {};
+  const particlesOn = fx.particlesEnabled !== false;
+  const atmosphereOn = fx.atmosphereEnabled !== false;
+  const key = JSON.stringify([theme.id, theme.atmosphere, theme.particles, theme.pointerFx, particlesOn, atmosphereOn]);
   if (!force && key === lastFxKey) return;
   lastFxKey = key;
-  setAtmosphere(theme.atmosphere || null, theme.colors);
-  setBackground(particleLayerDefs(theme.particles), theme.colors.accent);
+  setAtmosphere(atmosphereOn ? (theme.atmosphere || null) : null, theme.colors);
+  setBackground(particlesOn ? particleLayerDefs(theme.particles) : [], theme.colors.accent);
   const fxDef = resolveParticleDef(theme.pointerFx);
   setPointerFx(fxDef, fxDef?.color || theme.colors.accent);
 }
