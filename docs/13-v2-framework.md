@@ -826,7 +826,7 @@ Work in this sequence. Mark each `✅ date` when acceptance criteria pass on 360
 | V2-8 | Particles overhaul (picker UI + creator + specific fixes) | `js/fx/particles.js`, `js/presets/particles.js`, `js/ui/particleeditor.js`, `js/ui/particlepicker.js` | ✅ 2026-06-13 (Snow/Rain/Wind/embers kept until Weather V2-10; pointer-FX picker stays a list for now) |
 | V2-9 | Atmospheres overhaul | `js/fx/atmosphere.js`, `js/ui/settings.js` | ✅ 2026-06-13 (renders verified non-blank; visual polish wants a visible pass) |
 | V2-10 | Weather system | `js/fx/weather.js`, `css/weather.css` | ✅ 2026-06-13 (engine + 5 effects + picker; fine interactions basic; visual polish wants a visible pass) |
-| V2-11 | Theme transitions | `fx/themes.js` | pending |
+| V2-11 | Theme transitions | `js/fx/themes.js` | ✅ 2026-06-13 (environment cross-fades in over 400ms on theme change; colour vars still snap — see notes) |
 | V2-12 | Theme page editor + preset updates | `js/ui/themes.js`, `js/presets/themes.js` | pending |
 | V2-13 | Full reset (save data) | `js/ui/settings.js`, `js/core/store.js` | ✅ 2026-06-13 |
 | V2-14 | Module categories/subcategories/tags | `js/presets/modules/index.js`, `js/ui/navpanels.js` | ✅ 2026-06-13 |
