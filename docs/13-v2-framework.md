@@ -892,4 +892,10 @@ Decisions taken where the spec left room, so later work matches:
 
 ---
 
+## Implementation notes — V2-29 Blossoms game MVP (2026-06-14)
+
+Grill-me'd to a **cozy MVP slice** (battles, villager tiers Knight→King, and the Layer 2/3 Kingdom/Empire are deferred). Built as a widget `blossoms` (`internal:true`, keywords incl. game/clicker/idle — the gallery is a flat searchable list so "Games" is conceptual). Files: `blossoms-data.js` (resources/buildings/villager/tiers/upgrades/grid), `blossoms-engine.js` (pure JSON game + rules: tap, build/upgrade/demolish, recruit/assign, `rates`/`tick`, tier check, `applyOffline`), `blossoms.js` (registration + per-widget live game controller in a module `games` Map, ticked by the shared `fx/loop`, throttled notify, autosave 60s + on hide, offline-on-load, shared view helpers `fmt`/`blossomSVG`/`doTap`/`subscribe`/`save`), `blossoms-ui.js` (full-page: HUD, SVG Blossom tap target, tap/auto upgrades, settlement plot grid, per-plot build/manage sheet). Card view = tappable SVG Blossom + counts + "Open garden". Game state lives in `widget.config.game` (so the existing `wgt` Blossom code exports it). **Design choices:** real-time + capped 8h offline catch-up (gentle "while away" toast); Peasants only (boost +60% each, Food upkeep, Housing cap); settlement tiers Camp→Hamlet→Village→Town unlock plots (4/6/9/12); emoji + soft theme-tinted tiles. CSS in `widgets.css` (`.bl-*`). Verified via engine unit checks + DOM render (all §21 acceptance criteria pass: tap×10, build Farm, build Home, recruit+assign Peasant, Food 0.56→0.92/s; full-page renders 12 plots + 5-resource HUD on mobile), 0 errors. SW v37. **Visuals want an on-device eyeball pass.**
+
+---
+
 **Standing rule for V2:** use the `grill-me` skill before implementing any feature in this doc that has unresolved sub-questions. If a section contradicts an existing doc (01–12), V2 wins — update the older doc to match when implementing.
