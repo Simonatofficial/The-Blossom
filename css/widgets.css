@@ -777,3 +777,48 @@
   .dm-abil { grid-template-columns: repeat(3, 1fr); }
   .init-row { grid-template-columns: 30px 1fr auto auto; gap: 6px; }
 }
+
+/* ============ Blossoms game (docs/13 §21) ============ */
+.bl-card { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 12px 12px; }
+.bl-tap { background: none; border: 0; cursor: pointer; position: relative; padding: 4px; line-height: 0; filter: drop-shadow(0 4px 10px var(--glow)); transition: transform 80ms ease; }
+.bl-tap:active { transform: scale(0.94); }
+.bl-pop { animation: bl-pop 260ms var(--ease); }
+@keyframes bl-pop { 0% { transform: scale(0.9); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.bl-count { font-size: 1.5rem; font-weight: 700; }
+.bl-chip, .bl-hud-it { display: inline-flex; align-items: center; gap: 4px; }
+.bl-chip { font-size: 0.85rem; background: var(--surface-alt); border-radius: 999px; padding: 2px 9px; }
+.bl-float { position: absolute; top: 18%; transform: translateX(-50%); font-weight: 700; color: var(--accent); pointer-events: none; animation: bl-float 850ms ease-out forwards; }
+@keyframes bl-float { from { opacity: 1; top: 18%; } to { opacity: 0; top: -16%; } }
+
+.bl-game { display: flex; flex-direction: column; gap: 12px; padding: 12px 12px 40px; max-width: 560px; margin: 0 auto; }
+.bl-tier { display: flex; justify-content: space-between; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; }
+.bl-tier-name { font-weight: 700; }
+.bl-hud { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; position: sticky; top: 0; z-index: 2; }
+.bl-hud-it { font-size: 0.9rem; }
+.bl-hud-it .soft { font-size: 0.72rem; margin-left: 2px; }
+.bl-tapzone { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; padding: 6px 0; }
+.bl-tapval { font-size: 0.82rem; }
+.bl-ups { display: flex; gap: 8px; flex-wrap: wrap; }
+.bl-up { flex: 1 1 46%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; }
+.bl-vbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.bl-h { font-size: 0.78rem; letter-spacing: 0.05em; color: var(--text-soft); margin: 2px 0 -4px; }
+.bl-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.bl-plot { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-alt); cursor: pointer; padding: 4px; overflow: hidden; }
+.bl-plot.empty { border-style: dashed; color: var(--text-soft); }
+.bl-plot.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.bl-plot.bl-locked { opacity: 0.4; cursor: default; }
+.bl-pemoji { font-size: 1.7rem; line-height: 1; }
+.bl-plvl { font-size: 0.62rem; text-align: center; color: var(--text-soft); }
+.bl-pv { font-size: 0.6rem; }
+.bl-padd { font-size: 1.6rem; opacity: 0.6; }
+.bl-sheet { display: none; flex-direction: column; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
+.bl-sheet.open { display: flex; }
+.bl-sheet-head { font-size: 0.95rem; }
+.bl-buildopt { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; text-align: left; }
+.bl-buildopt.cant { opacity: 0.5; }
+.bl-assign { padding: 2px 0; }
+.bl-step { width: 34px; height: 34px; font-size: 1.1rem; }
+.bl-demo { width: 100%; color: var(--danger); }
+.bl-nope { animation: bl-nope 320ms ease; }
+@keyframes bl-nope { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+@media (prefers-reduced-motion: reduce) { .bl-pop, .bl-float, .bl-nope { animation: none; } }
