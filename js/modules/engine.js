@@ -94,11 +94,20 @@ export function renderPage() {
   const grid = el('<div class="widget-grid"></div>');
   const widgets = page.widgets.map(id => store.get('widgets', id)).filter(Boolean);
 
+  // Category Dividers (V2 §18): a divider folds and indents the group beneath it
   let hiddenBySeparator = false;
+  let inGroup = false;
   for (const w of widgets) {
-    if (w.type === 'separator') hiddenBySeparator = w.collapsed;
-    else if (hiddenBySeparator) continue;
-    grid.appendChild(renderWidgetCard(w));
+    if (w.type === 'separator') {
+      hiddenBySeparator = w.collapsed;
+      inGroup = true;
+      grid.appendChild(renderWidgetCard(w));
+      continue;
+    }
+    if (hiddenBySeparator) continue;
+    const card = renderWidgetCard(w);
+    if (inGroup) card.classList.add('w-in-group');
+    grid.appendChild(card);
   }
 
   scope.appendChild(grid);
