@@ -2,6 +2,8 @@
 self.SW_ASSETS = [
   './css/base.css',
   './css/components.css',
+  './css/fab.css',
+  './css/weather.css',
   './css/widgets.css',
   './icons/favicon.svg',
   './icons/icon-192.png',
@@ -15,12 +17,14 @@ self.SW_ASSETS = [
   './js/core/router.js',
   './js/core/saves.js',
   './js/core/store.js',
+  './js/core/sync.js',
   './js/core/values.js',
   './js/core/wallet.js',
   './js/fx/atmosphere.js',
   './js/fx/loop.js',
   './js/fx/particles.js',
   './js/fx/themes.js',
+  './js/fx/weather.js',
   './js/modules/engine.js',
   './js/presets/modules/blossom.js',
   './js/presets/modules/dndcharacter.js',
@@ -34,9 +38,12 @@ self.SW_ASSETS = [
   './js/presets/prompts.js',
   './js/presets/themes.js',
   './js/ui/components.js',
+  './js/ui/fab.js',
   './js/ui/icons.js',
+  './js/ui/navpanels.js',
   './js/ui/onboarding.js',
   './js/ui/particleeditor.js',
+  './js/ui/particlepicker.js',
   './js/ui/picker.js',
   './js/ui/presetgallery.js',
   './js/ui/settings.js',
@@ -109,4 +116,3 @@ self.SW_ASSETS = [
   './js/widgets/wtimeline.js',
   './manifest.webmanifest'
 ];
-

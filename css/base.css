@@ -21,6 +21,8 @@
   --highlight: #cdbcf5;
   --success: #7fd1a8;
   --warn: #e8b76f;
+  --danger: #e06c6c;
+  --danger-soft: rgba(224, 108, 108, 0.14);
   --glow: rgba(167, 139, 250, 0.35);
   --bg-image: linear-gradient(var(--bg-angle), var(--bg-grad-1), var(--bg-grad-2));
 

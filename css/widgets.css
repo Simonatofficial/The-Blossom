@@ -19,17 +19,34 @@
 
 /* ---- widget card chrome ---- */
 .widget-card {
-  background: var(--surface);
+  position: relative;
+  isolation: isolate;
+  background: transparent;       /* fill lives on ::before so opacity (V2 §5) tints only the background */
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  backdrop-filter: blur(12px);
   box-shadow: var(--shadow-soft);
   overflow: hidden;
   transition: box-shadow var(--t-med) var(--ease), border-color var(--t-med) var(--ease),
               transform var(--t-med) var(--ease), opacity var(--t-med) var(--ease);
 }
+.widget-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  opacity: var(--w-bg-opacity, 1);
+  transition: opacity var(--t-med) var(--ease);
+}
 .widget-card.dragging { opacity: 0.55; transform: scale(0.98); }
 .widget-card.drop-before { box-shadow: -3px 0 0 var(--accent), var(--shadow-soft); }
+/* hold-to-move (V2 §12): the glow grows over the 600ms hold before drag arms */
+@keyframes w-hold-glow {
+  from { box-shadow: 0 0 0 0 transparent, var(--shadow-soft); }
+  to { box-shadow: 0 0 0 2px var(--accent), 0 0 22px var(--glow), var(--shadow-soft); }
+}
+.widget-card.w-holding { animation: w-hold-glow 600ms var(--ease) forwards; }
 .widget-card.focus-glow { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 24px var(--glow); }
 
 .widget-head {
