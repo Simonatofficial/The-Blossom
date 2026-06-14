@@ -831,7 +831,7 @@ Work in this sequence. Mark each `✅ date` when acceptance criteria pass on 360
 | V2-13 | Full reset (save data) | `js/ui/settings.js`, `js/core/store.js` | ✅ 2026-06-13 |
 | V2-14 | Module categories/subcategories/tags | `js/presets/modules/index.js`, `js/ui/navpanels.js` | ✅ 2026-06-13 |
 | V2-15 | Home star indicator | `js/modules/engine.js`, `css/fab.css` | ✅ 2026-06-13 |
-| V2-16 | Widget separators → Category Dividers | `js/widgets/separator.js` | pending |
+| V2-16 | Widget separators → Category Dividers | `js/widgets/separator.js`, `js/modules/engine.js` | 🟡 2026-06-13 (renamed + count badge + indented group + fold; true nested-container with drag-into-divider deferred to a visible pass) |
 | V2-17 | Alarm widget overhaul | `js/widgets/alarm.js` | pending |
 | V2-18 | Calculator widget overhaul | `js/widgets/calculator.js` | pending |
 | V2-19 | Calendar widget | `js/widgets/calendar.js` | pending |

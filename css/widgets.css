@@ -166,6 +166,21 @@
   height: 1px;
   background: var(--border);
 }
+/* widget-count badge on a Category Divider (V2 §18) */
+.s-count {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  color: var(--text-soft);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 1px 9px;
+}
+/* widgets grouped under a divider are gently indented */
+.widget-card.w-in-group { margin-left: 16px; }
+@media (min-width: 600px) { .widget-card.w-in-group { margin-left: 24px; } }
 
 /* ---- Notes widget ---- */
 .notes-card-preview .n-date { font-size: 0.76rem; color: var(--text-soft); margin-bottom: 4px; }
