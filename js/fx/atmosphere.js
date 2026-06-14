@@ -72,8 +72,10 @@ const PRESETS = {
      ride a shared arc (the moon trails the sun by half a day). */
   dayNight: {
     init(state) {
-      state.sunGlow = softBlob(190, 'rgba(255,224,150,0.6)');
-      state.moonGlow = softBlob(150, 'rgba(200,214,255,0.5)');
+      // soft, low-opacity halos so they read as a gentle glow that blends with
+      // the sky rather than a hard coloured disc clashing with the gradient.
+      state.sunGlow = softBlob(180, 'rgba(255,234,190,0.34)');
+      state.moonGlow = softBlob(150, 'rgba(206,220,255,0.26)');
       state.stars = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random() * 0.7, tw: Math.random() * Math.PI * 2, r: 0.5 + Math.random() * 1.2 }));
       state.zenith = [[0, '#05060f'], [0.18, '#161334'], [0.26, '#3a3a6e'], [0.5, '#5fa0e0'], [0.74, '#7a4a78'], [0.82, '#3a2a64'], [0.9, '#161334'], [1, '#05060f']];
       state.horizon = [[0, '#0b0c1c'], [0.18, '#2a2350'], [0.26, '#e9a36a'], [0.5, '#bcdcf4'], [0.74, '#e0703c'], [0.82, '#7a4a78'], [0.9, '#241d44'], [1, '#0b0c1c']];
@@ -90,14 +92,16 @@ const PRESETS = {
         g.beginPath(); g.arc(s.x * W(), s.y * H(), s.r, 0, Math.PI * 2); g.fill();
       }
       const horizonY = H() * 0.82, arcH = H() * 0.66;
+      // let the sun/moon ride in from off-screen and fully exit (the extended
+      // range dips below the horizon at the edges so they rise and set cleanly).
       const su = (dayFrac - 0.22) / 0.56;
-      if (su > 0 && su < 1) {
+      if (su > -0.12 && su < 1.12) {
         const x = W() * su, y = horizonY - Math.sin(su * Math.PI) * arcH;
-        g.drawImage(state.sunGlow, x - 95, y - 95);
+        g.drawImage(state.sunGlow, x - 90, y - 90);
         g.fillStyle = '#ffe39a'; g.beginPath(); g.arc(x, y, 15, 0, Math.PI * 2); g.fill();
       }
       const mu = ((dayFrac + 0.5) % 1 - 0.22) / 0.56;
-      if (mu > 0 && mu < 1) {
+      if (mu > -0.12 && mu < 1.12) {
         const x = W() * mu, y = horizonY - Math.sin(mu * Math.PI) * arcH;
         g.drawImage(state.moonGlow, x - 75, y - 75);
         g.fillStyle = '#eef0fb'; g.beginPath(); g.arc(x, y, 12, 0, Math.PI * 2); g.fill();
@@ -120,7 +124,7 @@ const PRESETS = {
         { pts: [[0, 0.4], [0.22, 0.1], [0.45, 0], [0.7, 0.1], [0.9, 0.4]], lines: [[0, 1], [1, 2], [2, 3], [3, 4]] }, // corona
         { pts: [[0, 1], [0.5, 0], [1, 1]], lines: [[0, 1], [1, 2], [2, 0]] } // triangulum
       ];
-      state.field = Array.from({ length: 90 }, () => ({ x: (Math.random() - 0.5) * 1.6, y: (Math.random() - 0.5) * 1.6, tw: Math.random() * Math.PI * 2, period: 0.5 + Math.random() * 2.5, r: 0.5 + Math.random() * 1.2 }));
+      state.field = Array.from({ length: 120 }, () => ({ x: (Math.random() - 0.5) * 1.8, y: (Math.random() - 0.5) * 1.8, tw: Math.random() * Math.PI * 2, period: 0.5 + Math.random() * 2.5, r: 0.5 + Math.random() * 1.2 }));
       const picks = SHAPES.slice().sort(() => Math.random() - 0.5).slice(0, 3 + Math.floor(Math.random() * 2));
       state.cons = picks.map(sh => {
         const cx = (Math.random() - 0.5) * 1.0, cy = (Math.random() - 0.5) * 1.0, scale = 0.18 + Math.random() * 0.14, rot = Math.random() * Math.PI * 2;
@@ -135,7 +139,10 @@ const PRESETS = {
     tick(state, now, o, colors) {
       const rot = now / 1000 * (o.speed ?? 1) * (Math.PI * 2 / 60); // 60s / rotation at ×1
       const ca = Math.cos(rot), sa = Math.sin(rot);
-      const cx = W() / 2, cy = H() / 2, scale = Math.min(W(), H());
+      // pivot the whole sky around a point at the BOTTOM-centre (like the celestial
+      // pole low on the horizon) so stars wheel in arcs overhead, not around the
+      // middle of the screen. A larger scale spreads the field across the height.
+      const cx = W() / 2, cy = H(), scale = Math.max(W(), H());
       const place = (p) => [cx + (p.x * ca - p.y * sa) * scale, cy + (p.x * sa + p.y * ca) * scale];
       g.fillStyle = 'rgba(60,72,150,0.05)'; g.fillRect(0, 0, W(), H());
       for (const s of state.field) {

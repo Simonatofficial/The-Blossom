@@ -36,7 +36,7 @@
   z-index: -1;
   background: var(--surface);
   backdrop-filter: blur(12px);
-  opacity: var(--w-bg-opacity, 1);
+  opacity: var(--w-bg-opacity, 0.85); /* slightly see-through by default so the background shows through */
   transition: opacity var(--t-med) var(--ease);
 }
 .widget-card.dragging { opacity: 0.55; transform: scale(0.98); }

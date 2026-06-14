@@ -279,6 +279,16 @@ export class Layer {
     }
     const cap = Math.min(this.cap, Math.round((def.maxCount || 60) * this.degrade));
     this.pool = Array.from({ length: cap }, () => ({ alive: false }));
+    // Pre-distribute the starting population across the screen so continuous
+    // streams (falling leaves/petals, rising bubbles) flow steadily from the
+    // first frame, instead of arriving as one synchronized wave that empties and
+    // then refills in batches.
+    if (def.continuous !== false) {
+      for (let i = 0; i < cap; i++) {
+        const p = this.spawnOne();
+        if (p) { p.x = Math.random() * this.canvas.width; p.y = Math.random() * this.canvas.height; }
+      }
+    }
   }
 
   spawnOne(atX = null, atY = null) {
