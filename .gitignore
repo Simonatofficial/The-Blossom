@@ -5,3 +5,6 @@ desktop.ini
 # Optional cloud-sync secrets (V2 §1) — never commit real keys
 config.js
 .env
+
+# Local Claude Code tooling (machine-specific paths; not for the public repo)
+.claude/
