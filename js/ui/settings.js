@@ -9,7 +9,7 @@ import { icon } from './icons.js';
 import { el, toast, confirmDialog, openDrawer, popMenu, promptText, emptyState, switchEl, field, input, rangeField } from './components.js';
 import { allThemes, applyGlobalTheme, activeThemeId, getTheme, withOverrides, themeOverrides, setThemeOverride, clearThemeOverrides } from '../fx/themes.js';
 import { ATMOSPHERE_PRESETS } from '../fx/atmosphere.js';
-import { PRESET_PARTICLES, PRESET_POINTER_FX, getParticlePreset, getPointerFxPreset } from '../presets/particles.js';
+import { PRESET_POINTER_FX, getParticlePreset, getPointerFxPreset } from '../presets/particles.js';
 import * as codes from '../core/codes.js';
 import * as saves from '../core/saves.js';
 import { syncStatus, accountInfo, upgradeAccount, kofiHandle } from '../core/sync.js';
@@ -359,18 +359,20 @@ function renderEffectsPanel(rerenderThemes) {
     layers.forEach((layer, i) => {
       const row = el(`<div class="row" style="margin-bottom:8px;flex-wrap:wrap">
         <span style="font-size:0.86rem;min-width:84px">${i === 0 ? 'Particles' : `Layer ${i + 1}`}</span>
-        <select class="select grow" style="min-width:110px;padding:6px 9px"></select>
+        <button class="btn p-pick grow" style="min-width:110px;justify-content:flex-start;padding:6px 9px"></button>
         <button class="btn-icon p-adj" title="Adjust">${icon('sliders', 15)}</button>
         <button class="btn-icon p-up" title="Move back">${icon('chevron-up', 14)}</button>
         <button class="btn-icon p-down" title="Move forward">${icon('chevron-down', 14)}</button>
         <button class="btn-icon p-del" title="Remove layer">${icon('x', 14)}</button>
         <span class="p-switch"></span></div>`);
-      const sel = row.querySelector('select');
-      for (const p of PRESET_PARTICLES) sel.appendChild(new Option(p.name, p.id));
-      for (const c of store.all('themes').filter(t => t.type === 'particle')) sel.appendChild(new Option(`${c.name} (custom)`, c.id));
-      sel.value = layer.preset;
+      const pickBtn = row.querySelector('.p-pick');
+      const labelFor = (id) => getParticlePreset(id)?.name || store.get('themes', id)?.name || id;
+      pickBtn.textContent = labelFor(layer.preset);
       const next = () => layers.map(l => ({ ...l }));
-      sel.onchange = () => { const n = next(); n[i] = { ...n[i], preset: sel.value, overrides: {} }; save(n); };
+      pickBtn.onclick = async () => {
+        const { openParticlePicker } = await import('./particlepicker.js');
+        openParticlePicker({ current: layer.preset, onPick: (id) => { const n = next(); n[i] = { ...n[i], preset: id, overrides: {} }; save(n); } });
+      };
       row.querySelector('.p-switch').appendChild(switchEl(layer.enabled !== false, (on) => {
         const n = next(); n[i].enabled = on; save(n);
       }));

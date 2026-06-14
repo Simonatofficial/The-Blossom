@@ -41,6 +41,7 @@ self.SW_ASSETS = [
   './js/ui/navpanels.js',
   './js/ui/onboarding.js',
   './js/ui/particleeditor.js',
+  './js/ui/particlepicker.js',
   './js/ui/picker.js',
   './js/ui/presetgallery.js',
   './js/ui/settings.js',

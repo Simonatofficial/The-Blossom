@@ -823,7 +823,7 @@ Work in this sequence. Mark each `✅ date` when acceptance criteria pass on 360
 | V2-5 | Widget opacity setting | `js/widgets/base.js`, `css/widgets.css` | ✅ 2026-06-13 |
 | V2-6 | Sliders with numeric readouts | `js/ui/components.js` | ✅ 2026-06-13 |
 | V2-7 | Atmosphere/particle/weather toggle redesign | `js/ui/settings.js`, `js/fx/themes.js` | ✅ 2026-06-13 (weather toggle stores pref; engine lands with V2-10) |
-| V2-8 | Particles overhaul (picker UI + creator + specific fixes) | `fx/particles.js`, `js/presets/particles.js` | pending |
+| V2-8 | Particles overhaul (picker UI + creator + specific fixes) | `js/fx/particles.js`, `js/presets/particles.js`, `js/ui/particleeditor.js`, `js/ui/particlepicker.js` | ✅ 2026-06-13 (Snow/Rain/Wind/embers kept until Weather V2-10; pointer-FX picker stays a list for now) |
 | V2-9 | Atmospheres overhaul | `fx/atmosphere.js`, `js/presets/atmospheres.js` | pending |
 | V2-10 | Weather system | `fx/weather.js`, `css/weather.css` | pending |
 | V2-11 | Theme transitions | `fx/themes.js` | pending |
@@ -858,6 +858,15 @@ Decisions taken where the spec left room, so later work matches:
 - **§1 sync** model: a local delete also deletes its remote row (so the next pull can't resurrect it). Cross-device delete propagation needs tombstones and is deferred. The `blossom_sync` SQL/RLS in §1 is unchanged.
 - **§5/§7 Weather toggle** is stored as `meta.settings.fx.weatherEnabled` (default off) and will be honoured when the weather engine (V2-10) lands. The Particles and Atmosphere toggles are live now (wired through `applyEffects`).
 - A reusable `rangeField()` (§6) now lives in `js/ui/components.js`; new sliders use it. Retrofitting every legacy slider is left to each feature's own pass.
+
+## Implementation notes — V2-8 Particles (2026-06-13)
+
+- The engine stays pooled/capped/auto-degrading; new features are additive and back-compatible (old defs render unchanged). Per-particle variety (emoji-alongside-vector, gradient spread, hue jitter) is pre-rasterised into sprite *variants* picked per particle — no per-frame cost.
+- New def fields: `behavior:'swim'|'flow'`, `flowAngle`, `angle`, `spawnAngleSpread`, `spawn:{xRange,yRange,shape,spread}`, `twinkle:{period,min,max}`, `gradient`, `hueJitter`, `driftAmp`, `trail:{len,head,mid}`, `shapes:[…]`, `popRate`, and `shape.kind:'image'`.
+- `pulseGrow`/`pulseShrink` are NEW sine effects; the legacy age-based `grow`/`shrink` are kept (pointer-FX bursts depend on them) and simply aren't offered in the creator.
+- The angle/flow "rotation wheel" (§6) is presented as a 0–360° slider with a numeric readout for now.
+- Snow/Rain/Wind/Fire-embers are **not** removed from particles yet — they only move once the Weather engine (V2-10) exists, so nothing regresses meanwhile. Dust Motes removed (Sunset/Beach themes repointed to Fireflies).
+- Pointer-FX still uses its dropdown; the shared grid picker is wired for background particle layers. `openParticlePicker({source})` already accepts `'pointer'`, so flipping pointer-FX over is a one-line follow-up.
 
 ---
 

@@ -281,6 +281,29 @@
 .sync-dot.sync-error { background: var(--warn); }
 @keyframes sync-pulse { 50% { opacity: 0.3; } }
 
+/* particle picker grid (V2 §6) */
+.pp-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.pp-chips .chip { cursor: pointer; }
+.pp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (min-width: 600px) { .pp-grid { grid-template-columns: repeat(4, 1fr); } }
+.pp-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.pp-card:hover { border-color: var(--accent); background: var(--accent-soft); }
+.pp-card.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.pp-card canvas { width: 64px; height: 64px; border-radius: 8px; background: rgba(0, 0, 0, 0.22); }
+.pp-name { font-size: 0.74rem; text-align: center; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
 /* visual-effects toggle rows (V2 §5) */
 .ve-rows { display: flex; flex-direction: column; gap: 4px; }
 .ve-row { display: flex; align-items: center; gap: 12px; padding: 8px 2px; }
