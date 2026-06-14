@@ -825,7 +825,7 @@ Work in this sequence. Mark each `✅ date` when acceptance criteria pass on 360
 | V2-7 | Atmosphere/particle/weather toggle redesign | `js/ui/settings.js`, `js/fx/themes.js` | ✅ 2026-06-13 (weather toggle stores pref; engine lands with V2-10) |
 | V2-8 | Particles overhaul (picker UI + creator + specific fixes) | `js/fx/particles.js`, `js/presets/particles.js`, `js/ui/particleeditor.js`, `js/ui/particlepicker.js` | ✅ 2026-06-13 (Snow/Rain/Wind/embers kept until Weather V2-10; pointer-FX picker stays a list for now) |
 | V2-9 | Atmospheres overhaul | `js/fx/atmosphere.js`, `js/ui/settings.js` | ✅ 2026-06-13 (renders verified non-blank; visual polish wants a visible pass) |
-| V2-10 | Weather system | `fx/weather.js`, `css/weather.css` | pending |
+| V2-10 | Weather system | `js/fx/weather.js`, `css/weather.css` | ✅ 2026-06-13 (engine + 5 effects + picker; fine interactions basic; visual polish wants a visible pass) |
 | V2-11 | Theme transitions | `fx/themes.js` | pending |
 | V2-12 | Theme page editor + preset updates | `js/ui/themes.js`, `js/presets/themes.js` | pending |
 | V2-13 | Full reset (save data) | `js/ui/settings.js`, `js/core/store.js` | ✅ 2026-06-13 |
@@ -874,6 +874,12 @@ Decisions taken where the spec left room, so later work matches:
 - Day/Night, Sunset and Sunrise paint a full-canvas sky gradient (the cozy way to shift the whole scene's colour) instead of mutating a `--bgOverlay` CSS var as §7 suggested — keeps the existing "atmosphere owns its canvas" architecture.
 - Each atmosphere now exposes one labelled slider with a numeric readout and a hover tooltip, configured by the exported `ATMOSPHERE_OPTIONS` map and rendered inline in the effects panel.
 - Clouds removed from the catalog (→ Weather V2-10); its renderer is kept for back-compat. Forest theme → new `forest` atmosphere; Solar System theme → new `solarSystem` atmosphere (the old constellations `variant:'planets'` path is gone).
+
+## Implementation notes — V2-10 Weather (2026-06-13)
+
+- `js/fx/weather.js` is the new layer: two JS-created canvases — `#weather-bg` (z-index 1, above atmosphere, below cards) and `#weather-fg` (z-index 150, over everything, `pointer-events:none`) — plus a CSS overlay `#weather-fx` (z-index 149) for cheap glows/vignettes. Interactions hit-test from a document click so the UI never loses taps. One effect at a time, off under reduced-motion. Stored in `meta.settings.fx.weather = {activeEffect, intensity}`, gated by the existing `weatherEnabled` master toggle; the engine reacts to a `weather:changed` event.
+- All five backgrounds are implemented (snow fall, rain streaks, drifting clouds, wind streaks, a bottom-centre fire sim with embers). Screen effects: snow frost vignette + fire bottom glow (CSS), wind widget wobble (CSS `body.wx-wind .widget-card`, amplitude from `--wx-wob`). Interactions: tap an icicle to shatter (regrows), tap a droplet to run, tap a cloud to puff apart, tap a cooked s'more to eat it (a new one cooks after 2s).
+- Each effect was verified to render non-blank (no errors) by driving `weatherTickOnce`; **the dev tab is `document.hidden` so visuals weren't eyeballed.** The interactive timings/curves (s'more cooking speed, icicle regrow, droplet physics) are functional but un-tuned — a visible pass should refine them. Settings: a Weather effect picker (Off/Snow/Rain/Clouds/Wind/Fire) + intensity slider appears under the master toggle.
 
 ---
 

@@ -9,6 +9,7 @@ import { icon } from './icons.js';
 import { el, toast, confirmDialog, openDrawer, popMenu, promptText, emptyState, switchEl, field, input, rangeField } from './components.js';
 import { allThemes, applyGlobalTheme, activeThemeId, getTheme, withOverrides, themeOverrides, setThemeOverride, clearThemeOverrides } from '../fx/themes.js';
 import { ATMOSPHERE_PRESETS, ATMOSPHERE_OPTIONS } from '../fx/atmosphere.js';
+import { WEATHER_EFFECTS } from '../fx/weather.js';
 import { PRESET_POINTER_FX, getParticlePreset, getPointerFxPreset } from '../presets/particles.js';
 import * as codes from '../core/codes.js';
 import * as saves from '../core/saves.js';
@@ -205,25 +206,51 @@ function renderVisualEffectsSection(d) {
   const sec = el('<div class="dsec"><h3>Visual Effects</h3><div class="ve-rows"></div></div>');
   const rows = sec.querySelector('.ve-rows');
   const getFx = () => store.getMeta('settings', {})?.fx || {};
-  const setFx = (k, v) => {
+  const setFx = (k, v, weather = false) => {
     const s = store.getMeta('settings', {});
     s.fx = { ...(s.fx || {}), [k]: v };
     store.setMeta('settings', s);
-    events.emit('page:changed', {}); // re-applies effects for the current scope
+    events.emit(weather ? 'weather:changed' : 'page:changed', {});
   };
-  const row = (label, key, hint, defaultOn) => {
+  const setWeatherOpt = (patch) => {
+    const s = store.getMeta('settings', {});
+    s.fx = s.fx || {}; s.fx.weather = { ...(s.fx.weather || {}), ...patch };
+    store.setMeta('settings', s);
+    events.emit('weather:changed', {});
+  };
+  const toggleRow = (label, key, hint, defaultOn, weather, onAfter) => {
     const r = el('<div class="ve-row"><div class="grow"><div class="ve-label"></div><div class="hint"></div></div></div>');
     r.querySelector('.ve-label').textContent = label;
     r.querySelector('.hint').textContent = hint;
     const on = defaultOn ? getFx()[key] !== false : getFx()[key] === true;
-    r.appendChild(switchEl(on, (v) => setFx(key, v)));
+    r.appendChild(switchEl(on, (v) => { setFx(key, v, weather); onAfter?.(); }));
     return r;
   };
-  rows.append(
-    row('Particles', 'particlesEnabled', 'Drifting background particles for the active theme.', true),
-    row('Atmosphere', 'atmosphereEnabled', 'Day/night, constellations, waves and other scenes.', true),
-    row('Weather', 'weatherEnabled', 'Snow, rain, clouds, wind and fire — arriving soon.', false)
-  );
+  const render = () => {
+    rows.innerHTML = '';
+    rows.append(
+      toggleRow('Particles', 'particlesEnabled', 'Drifting background particles for the active theme.', true),
+      toggleRow('Atmosphere', 'atmosphereEnabled', 'Day/night, constellations, waves and other scenes.', true),
+      toggleRow('Weather', 'weatherEnabled', 'Snow, rain, clouds, wind and fire — decorative and tappable.', false, true, render)
+    );
+    if (getFx().weatherEnabled) {
+      const wx = getFx().weather || {};
+      const chipRow = el('<div class="row" style="flex-wrap:wrap;gap:6px;margin:8px 2px"></div>');
+      const mkChip = (key, name) => {
+        const c = el(`<button class="chip ${(wx.activeEffect || null) === key ? 'accent' : ''}"></button>`);
+        c.textContent = name;
+        c.onclick = () => { setWeatherOpt({ activeEffect: key }); render(); };
+        return c;
+      };
+      chipRow.appendChild(mkChip(null, 'Off'));
+      for (const e of WEATHER_EFFECTS) chipRow.appendChild(mkChip(e.key, e.name));
+      rows.appendChild(chipRow);
+      const intBlock = el('<div style="margin:4px 2px 2px"><div class="ve-label" style="font-size:0.84rem;margin-bottom:5px">Intensity</div></div>');
+      intBlock.appendChild(rangeField({ min: 0, max: 100, step: 5, value: Math.round((wx.intensity ?? 0.5) * 100), unit: '%', onChange: (v) => setWeatherOpt({ intensity: v / 100 }) }));
+      rows.appendChild(intBlock);
+    }
+  };
+  render();
   d.body.appendChild(sec);
 }
 

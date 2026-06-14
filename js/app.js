@@ -10,6 +10,7 @@ import { makeCtx } from './widgets/base.js';
 import { applyGlobalTheme, activeThemeId, activeTheme, applyEffects } from './fx/themes.js';
 import { initParticles } from './fx/particles.js';
 import { initAtmosphere } from './fx/atmosphere.js';
+import { initWeather } from './fx/weather.js';
 import { initShell } from './ui/shell.js';
 import { initEngine } from './modules/engine.js';
 import { initSaves, checkDayRollover, maybeBackupReminder } from './core/saves.js';
@@ -69,6 +70,7 @@ async function boot() {
   initEngine(document.getElementById('page-host'));
   initParticles();
   initAtmosphere();
+  initWeather();
   applyEffects(activeTheme(), true);
   initSaves();
   checkDayRollover();
