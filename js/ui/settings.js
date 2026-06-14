@@ -8,7 +8,7 @@ import { router } from '../core/router.js';
 import { icon } from './icons.js';
 import { el, toast, confirmDialog, openDrawer, popMenu, promptText, emptyState, switchEl, field, input, rangeField } from './components.js';
 import { allThemes, applyGlobalTheme, activeThemeId, getTheme, withOverrides, themeOverrides, setThemeOverride, clearThemeOverrides } from '../fx/themes.js';
-import { ATMOSPHERE_PRESETS } from '../fx/atmosphere.js';
+import { ATMOSPHERE_PRESETS, ATMOSPHERE_OPTIONS } from '../fx/atmosphere.js';
 import { PRESET_POINTER_FX, getParticlePreset, getPointerFxPreset } from '../presets/particles.js';
 import * as codes from '../core/codes.js';
 import * as saves from '../core/saves.js';
@@ -305,6 +305,7 @@ function renderEffectsPanel(rerenderThemes) {
 
   const fxRow = (label, kind, presets, allowAdjust) => {
     const spec = theme[kind];
+    const wrap = el('<div></div>');
     const row = el(`<div class="row" style="margin-bottom:8px;flex-wrap:wrap">
       <span style="font-size:0.86rem;min-width:84px">${label}</span>
       <select class="select grow" style="min-width:120px;padding:6px 9px"></select>
@@ -324,28 +325,37 @@ function renderEffectsPanel(rerenderThemes) {
       setThemeOverride(raw.id, kind, on ? undefined : null); // on = back to the preset's own default
       reapply();
     }));
-    if (allowAdjust && spec) {
+    wrap.appendChild(row);
+
+    // atmosphere: a clearly-labeled slider with a numeric readout + tooltip (V2 §7)
+    if (kind === 'atmosphere' && spec?.preset && ATMOSPHERE_OPTIONS[spec.preset]) {
+      const o = ATMOSPHERE_OPTIONS[spec.preset];
+      const sliderRow = el('<div class="row" style="margin:-2px 0 12px 84px;flex-wrap:wrap;gap:5px"></div>');
+      const lbl = el('<span class="soft" style="font-size:0.78rem;flex:1 1 100%;cursor:help"></span>');
+      lbl.textContent = o.label;
+      lbl.title = o.tip;
+      const rf = rangeField({ min: o.min, max: o.max, step: o.step, value: spec.options?.[o.key] ?? o.def, unit: o.unit, onChange: (v) => {
+        setThemeOverride(raw.id, 'atmosphere', { ...spec, options: { ...(spec.options || {}), [o.key]: v } });
+        reapply();
+      } });
+      rf.style.flex = '1 1 100%';
+      sliderRow.append(lbl, rf);
+      wrap.appendChild(sliderRow);
+    }
+
+    // pointer FX: keep the adjust button (opens the particle editor)
+    if (allowAdjust && kind !== 'atmosphere' && spec) {
       const adj = el(`<button class="btn-icon" title="Adjust">${icon('sliders', 15)}</button>`);
       adj.onclick = async () => {
-        if (kind === 'atmosphere') {
-          const slider = el('<input type="range" class="range" min="0.25" max="3" step="0.25" style="width:110px" title="Speed">');
-          slider.value = spec.options?.speed || 1;
-          slider.onchange = () => {
-            setThemeOverride(raw.id, 'atmosphere', { ...spec, options: { ...(spec.options || {}), speed: Number(slider.value) } });
-            reapply();
-          };
-          adj.replaceWith(slider);
-        } else {
-          const { openParticleEditor } = await import('./particleeditor.js');
-          openParticleEditor(null, (rec) => {
-            setThemeOverride(raw.id, kind, { preset: rec.id, overrides: {} });
-            reapply();
-          }, resolveFxDef(spec));
-        }
+        const { openParticleEditor } = await import('./particleeditor.js');
+        openParticleEditor(null, (rec) => {
+          setThemeOverride(raw.id, kind, { preset: rec.id, overrides: {} });
+          reapply();
+        }, resolveFxDef(spec));
       };
       row.querySelector('.e-adjust').appendChild(adj);
     }
-    return row;
+    return wrap;
   };
 
   /* CR-7: particles are a LIST of up to three layers (first = back).

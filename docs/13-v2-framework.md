@@ -824,7 +824,7 @@ Work in this sequence. Mark each `✅ date` when acceptance criteria pass on 360
 | V2-6 | Sliders with numeric readouts | `js/ui/components.js` | ✅ 2026-06-13 |
 | V2-7 | Atmosphere/particle/weather toggle redesign | `js/ui/settings.js`, `js/fx/themes.js` | ✅ 2026-06-13 (weather toggle stores pref; engine lands with V2-10) |
 | V2-8 | Particles overhaul (picker UI + creator + specific fixes) | `js/fx/particles.js`, `js/presets/particles.js`, `js/ui/particleeditor.js`, `js/ui/particlepicker.js` | ✅ 2026-06-13 (Snow/Rain/Wind/embers kept until Weather V2-10; pointer-FX picker stays a list for now) |
-| V2-9 | Atmospheres overhaul | `fx/atmosphere.js`, `js/presets/atmospheres.js` | pending |
+| V2-9 | Atmospheres overhaul | `js/fx/atmosphere.js`, `js/ui/settings.js` | ✅ 2026-06-13 (renders verified non-blank; visual polish wants a visible pass) |
 | V2-10 | Weather system | `fx/weather.js`, `css/weather.css` | pending |
 | V2-11 | Theme transitions | `fx/themes.js` | pending |
 | V2-12 | Theme page editor + preset updates | `js/ui/themes.js`, `js/presets/themes.js` | pending |
@@ -867,6 +867,13 @@ Decisions taken where the spec left room, so later work matches:
 - The angle/flow "rotation wheel" (§6) is presented as a 0–360° slider with a numeric readout for now.
 - Snow/Rain/Wind/Fire-embers are **not** removed from particles yet — they only move once the Weather engine (V2-10) exists, so nothing regresses meanwhile. Dust Motes removed (Sunset/Beach themes repointed to Fireflies).
 - Pointer-FX still uses its dropdown; the shared grid picker is wired for background particle layers. `openParticlePicker({source})` already accepts `'pointer'`, so flipping pointer-FX over is a one-line follow-up.
+
+## Implementation notes — V2-9 Atmospheres (2026-06-13)
+
+- The engine still renders at half-res with one scene at a time; new/redesigned scenes precompute their geometry in `init` so frames stay cheap. Each scene was verified to render non-blank (no errors) by driving `tickOnce` + sampling the canvas — but the dev preview tab runs `document.hidden`, so **visual quality wasn't eyeballed**; a visible pass to tune colours/sizes is the natural follow-up.
+- Day/Night, Sunset and Sunrise paint a full-canvas sky gradient (the cozy way to shift the whole scene's colour) instead of mutating a `--bgOverlay` CSS var as §7 suggested — keeps the existing "atmosphere owns its canvas" architecture.
+- Each atmosphere now exposes one labelled slider with a numeric readout and a hover tooltip, configured by the exported `ATMOSPHERE_OPTIONS` map and rendered inline in the effects panel.
+- Clouds removed from the catalog (→ Weather V2-10); its renderer is kept for back-compat. Forest theme → new `forest` atmosphere; Solar System theme → new `solarSystem` atmosphere (the old constellations `variant:'planets'` path is gone).
 
 ---
 

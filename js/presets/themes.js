@@ -47,7 +47,7 @@ export const PRESET_THEMES = [
       accent: '#6fdb8b', accentSoft: 'rgba(111,219,139,0.16)', highlight: '#ffd98a',
       success: '#6fdb8b', warn: '#e0a45c', glow: 'rgba(111,219,139,0.38)'
     },
-    atmosphere: { preset: 'clouds', options: { speed: 0.5 } },
+    atmosphere: { preset: 'forest', options: { density: 55 } },
     particles: { preset: 'summerLeaves', overrides: {} },
     pointerFx: { preset: 'leafFlutter', overrides: {} }
   },
@@ -112,7 +112,7 @@ export const PRESET_THEMES = [
       accent: '#ffc24d', accentSoft: 'rgba(255,194,77,0.15)', highlight: '#7fb3ff',
       success: '#7fe0a8', warn: '#ffc24d', glow: 'rgba(255,194,77,0.38)'
     },
-    atmosphere: { preset: 'constellations', options: { variant: 'planets' } },
+    atmosphere: { preset: 'solarSystem', options: { speed: 1 } },
     particles: { preset: 'comets', overrides: {} },
     pointerFx: { preset: 'orbitPulse', overrides: {} }
   },
