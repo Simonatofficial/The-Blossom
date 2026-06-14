@@ -71,8 +71,10 @@ const EFFECTS = {
           // a clearly visible shatter burst that falls and fades on screen
           ic.shards = Array.from({ length: 22 }, () => ({ x: ic.x + rnd(-ic.w, ic.w), y: ic.len * Math.random(), vx: rnd(-160, 160), vy: rnd(-80, 50), sz: rnd(2, 6), life: rnd(0.5, 1.0), max: 1.0 }));
           ic.regrow = now + rnd(10000, 40000);
+          return true;
         }
       }
+      return false;
     }
   },
 
@@ -101,8 +103,10 @@ const EFFECTS = {
     },
     tickFg(g, s, dt) {
       s.acc += dt * (0.4 + intensity * 2.2);
-      if (s.acc > 1 && s.drops.length < 60) { s.acc = 0; s.drops.push({ x: Math.random() * W(), y: rnd(0.1, 0.85) * H(), r: rnd(5, 10), run: false, v: 0 }); }
+      if (s.acc > 1 && s.drops.length < 46) { s.acc = 0; s.drops.push({ x: Math.random() * W(), y: rnd(0.1, 0.85) * H(), r: rnd(5, 10), run: false, v: 0, age: 0, ttl: rnd(7, 14) }); }
       for (const d of s.drops) {
+        d.age += dt;
+        if (!d.run && d.age > d.ttl) d.run = true; // self-clear after a while so droplets don't pile up
         if (d.run) { d.v += 600 * dt; d.y += d.v * dt; d.r *= 0.992; }
         g.fillStyle = `rgba(200,220,250,${d.run ? 0.3 : 0.5})`;
         g.beginPath(); g.arc(d.x, d.y, d.r, 0, Math.PI * 2); g.fill();
@@ -111,8 +115,10 @@ const EFFECTS = {
       s.drops = s.drops.filter(d => d.y < H() + 10 && d.r > 1);
     },
     pointer(s, x, y) {
-      // bigger tap radius so droplets are easy to pop, even in gaps over widgets
-      for (const d of s.drops) if (!d.run && Math.hypot(d.x - x, d.y - y) < d.r + 16) d.run = true;
+      // bigger tap radius so droplets are easy to pop, even over a widget below
+      let hit = false;
+      for (const d of s.drops) if (!d.run && Math.hypot(d.x - x, d.y - y) < d.r + 16) { d.run = true; hit = true; }
+      return hit;
     }
   },
 
@@ -154,9 +160,10 @@ const EFFECTS = {
         if (b && x > b[0] && x < b[0] + b[2] && y > b[1] && y < b[1] + b[3]) {
           const c = s.clouds.splice(i, 1)[0];
           for (let k = 0; k < 4; k++) s.clouds.push({ ...s.makeCloud(), x: c.x + rnd(-0.05, 0.05), y: c.y + rnd(-0.05, 0.05), scale: c.scale * 0.5, v: c.v * rnd(1.2, 2) });
-          return;
+          return true;
         }
       }
+      return false;
     }
   },
 
@@ -189,36 +196,42 @@ const EFFECTS = {
       s.makeSmore = makeSmore;
     },
     tickBg(g, s, dt, now) {
-      // a WIDE fire spanning the bottom; the slider drives both width and height.
-      const base = H() - 6, size = 0.7 + intensity * 0.9, tall = 0.7 + intensity * 2.0;
-      const cx = W() / 2, halfW = W() * (0.32 + intensity * 0.16);
-      s.acc += dt * (90 + intensity * 220);
-      while (s.acc > 1) { s.acc -= 1; s.parts.push({ x: cx + rnd(-halfW, halfW), y: base, vx: rnd(-16, 16), vy: rnd(-95, -150) * tall, life: rnd(0.5, 1.15), max: 1.15, ember: Math.random() < 0.12 }); }
+      // a calm, cohesive campfire: fewer, softer particles, denser in the centre
+      // so it reads as one natural flame (not scattered). Slider drives height.
+      const base = H() - 4, size = 0.85 + intensity * 0.7, tall = 0.6 + intensity * 1.4;
+      const cx = W() / 2, halfW = W() * (0.2 + intensity * 0.12);
+      s.acc += dt * (38 + intensity * 78);
+      while (s.acc > 1) {
+        s.acc -= 1;
+        const off = (Math.random() + Math.random() - 1) * halfW; // triangular → denser centre
+        s.parts.push({ x: cx + off, y: base, vx: rnd(-7, 7), vy: rnd(-118, -150) * tall, life: rnd(0.6, 1.1), max: 1.1, ember: Math.random() < 0.05 });
+      }
       for (const p of s.parts) {
-        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 26 * dt; p.life -= dt;
+        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 24 * dt; p.life -= dt;
         const t = 1 - p.life / p.max; // 0 hot → 1 cool
         if (p.ember) { g.fillStyle = `rgba(255,${180 - t * 120 | 0},80,${Math.max(0, p.life)})`; g.fillRect(p.x, p.y, 2, 2); }
-        else { const col = t < 0.4 ? `rgba(255,236,140,${0.8 * p.life})` : t < 0.7 ? `rgba(255,150,50,${0.7 * p.life})` : `rgba(120,90,90,${0.4 * p.life})`; g.fillStyle = col; g.beginPath(); g.arc(p.x, p.y, (6 + t * 8) * size, 0, Math.PI * 2); g.fill(); }
+        else { const col = t < 0.4 ? `rgba(255,236,140,${0.7 * p.life})` : t < 0.7 ? `rgba(255,150,50,${0.6 * p.life})` : `rgba(120,90,90,${0.3 * p.life})`; g.fillStyle = col; g.beginPath(); g.arc(p.x, p.y, (7 + t * 8) * size, 0, Math.PI * 2); g.fill(); }
       }
       s.parts = s.parts.filter(p => p.life > 0);
     },
     tickFg(g, s, dt, now) {
       const speed = (0.4 + intensity) * 0.05;
-      const baseY = H() - 92; // marshmallows sit well above the bottom nav so they're tappable
+      const baseY = H() - 58; // sit low near the bottom; sticks reach down into the fire
       for (const sm of s.smores) {
         if (sm.eaten) { if (now > sm.born) { sm.eaten = false; sm.cook = 0; sm.x = 0.11 + Math.random() * 0.78; } else continue; }
         sm.cook = Math.min(1, sm.cook + dt * speed);
         const x = sm.x * W();
-        g.strokeStyle = '#7a5230'; g.lineWidth = 3; g.beginPath(); g.moveTo(x, baseY + 60); g.lineTo(x, baseY); g.stroke(); // stick reaching down toward the fire
-        const r = parseInt(248 - sm.cook * 120), gg = parseInt(236 - sm.cook * 150), b = parseInt(200 - sm.cook * 150);
+        g.strokeStyle = '#7a5230'; g.lineWidth = 3; g.beginPath(); g.moveTo(x, H()); g.lineTo(x, baseY); g.stroke(); // stick down to the bottom edge
+        const r = parseInt(248 - sm.cook * 22), gg = parseInt(236 - sm.cook * 66), b = parseInt(200 - sm.cook * 120); // pale → golden (never dark brown)
         g.fillStyle = `rgb(${r},${gg},${b})`;
         g.beginPath(); g.roundRect ? g.roundRect(x - 11, baseY - 20, 22, 22, 5) : g.rect(x - 11, baseY - 20, 22, 22); g.fill();
         if (sm.cook >= 1) { g.fillStyle = `rgba(255,240,180,${0.4 + 0.4 * Math.sin(now / 200)})`; g.beginPath(); g.arc(x, baseY - 9, 4, 0, Math.PI * 2); g.fill(); }
-        sm._box = [x - 20, baseY - 30, 40, 44]; // generous tap target, clear of the nav
+        sm._box = [x - 20, baseY - 30, 40, 46]; // generous tap target (tappable over widgets via the hit-test)
       }
     },
     pointer(s, x, y, now) {
-      for (const sm of s.smores) if (!sm.eaten && sm.cook >= 1 && sm._box && x > sm._box[0] && x < sm._box[0] + sm._box[2] && y > sm._box[1] && y < sm._box[1] + sm._box[3]) { sm.eaten = true; sm.born = now + 2000; }
+      for (const sm of s.smores) if (!sm.eaten && sm.cook >= 1 && sm._box && x > sm._box[0] && x < sm._box[0] + sm._box[2] && y > sm._box[1] && y < sm._box[1] + sm._box[3]) { sm.eaten = true; sm.born = now + 2000; return true; }
+      return false;
     }
   }
 };
@@ -236,9 +249,15 @@ export function initWeather() {
   addEventListener('resize', resize);
   document.addEventListener('click', (e) => {
     if (!active || !EFFECTS[active.key].pointer) return;
-    if (e.target.closest('.widget-card, .drawer, .dialog, .menu, .popover, button, input, a, #fab-root')) return;
-    EFFECTS[active.key].pointer(active.state, e.clientX, e.clientY, performance.now());
-  }, { passive: true });
+    // Let genuine overlay UI (modals, menus, the FAB) keep their taps. Otherwise
+    // the weather element wins ONLY when the tap actually lands on its hitbox —
+    // so you can pop a droplet or eat a s'more even with a widget sitting below.
+    if (e.target.closest('.drawer, .dialog, .menu, .popover, [role="dialog"], #fab-root')) return;
+    if (EFFECTS[active.key].pointer(active.state, e.clientX, e.clientY, performance.now())) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, { capture: true });
   events.on('weather:changed', setWeather);
   setWeather();
 }
