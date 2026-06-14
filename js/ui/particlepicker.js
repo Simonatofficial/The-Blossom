@@ -11,7 +11,7 @@ import { PRESET_PARTICLES, PRESET_POINTER_FX } from '../presets/particles.js';
 
 /* preset id → category (Custom is derived from the themes store) */
 const CATEGORY = {
-  autumnLeaves: 'Nature', summerLeaves: 'Nature', cherryBlossoms: 'Nature', dandelionSeeds: 'Nature', fireflies: 'Nature',
+  autumnLeaves: 'Nature', summerLeaves: 'Nature', cherryBlossoms: 'Nature', dandelionSeeds: 'Nature', fireflies: 'Nature', tropicalFish: 'Nature',
   starfield: 'Celestial', shootingStars: 'Celestial', comets: 'Celestial',
   snow: 'Weather', rain: 'Weather', windStreaks: 'Weather', fireEmbers: 'Weather', smokeWisps: 'Weather',
   hearts: 'Magic', bubbles: 'Magic',

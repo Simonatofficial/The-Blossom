@@ -827,7 +827,7 @@ Work in this sequence. Mark each `✅ date` when acceptance criteria pass on 360
 | V2-9 | Atmospheres overhaul | `js/fx/atmosphere.js`, `js/ui/settings.js` | ✅ 2026-06-13 (renders verified non-blank; visual polish wants a visible pass) |
 | V2-10 | Weather system | `js/fx/weather.js`, `css/weather.css` | ✅ 2026-06-13 (engine + 5 effects + picker; fine interactions basic; visual polish wants a visible pass) |
 | V2-11 | Theme transitions | `js/fx/themes.js` | ✅ 2026-06-13 (environment cross-fades in over 400ms on theme change; colour vars still snap — see notes) |
-| V2-12 | Theme page editor + preset updates | `js/ui/themes.js`, `js/presets/themes.js` | pending |
+| V2-12 | Theme page editor + preset updates | `js/presets/themes.js`, `js/presets/particles.js` | 🟡 2026-06-13 (preset gradients/particles/atmospheres done; Beach removed; Crimson→Autumn; Tropical Fish added. Draggable-stop gradient PAGE editor still TODO — existing drawer editor works) |
 | V2-13 | Full reset (save data) | `js/ui/settings.js`, `js/core/store.js` | ✅ 2026-06-13 |
 | V2-14 | Module categories/subcategories/tags | `js/presets/modules/index.js`, `js/ui/navpanels.js` | ✅ 2026-06-13 |
 | V2-15 | Home star indicator | `js/modules/engine.js`, `css/fab.css` | ✅ 2026-06-13 |
