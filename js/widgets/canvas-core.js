@@ -50,7 +50,8 @@ export class DrawingSurface {
     this.canvas.addEventListener('pointercancel', e => this.up(e));
     this.canvas.addEventListener('wheel', e => {
       e.preventDefault();
-      this.zoomAt(e.offsetX, e.offsetY, e.deltaY < 0 ? 1.1 : 0.9);
+      const [px, py] = this.localPoint(e);
+      this.zoomAt(px, py, e.deltaY < 0 ? 1.1 : 0.9);
     }, { passive: false });
 
     this.fitToView();
@@ -74,6 +75,17 @@ export class DrawingSurface {
     return [(x - this.view.x) / this.view.scale, (y - this.view.y) / this.view.scale];
   }
 
+  /** Pointer position in canvas backing-store pixels (V2 §12d). Robust to CSS
+      display-scaling (the canvas carries max-width:100%), page scroll, and
+      zoom — unlike offsetX/offsetY, which drift the moment the canvas is shown
+      at a size other than its backing-store size. */
+  localPoint(e) {
+    const r = this.canvas.getBoundingClientRect();
+    const sx = r.width ? this.canvas.width / r.width : 1;
+    const sy = r.height ? this.canvas.height / r.height : 1;
+    return [(e.clientX - r.left) * sx, (e.clientY - r.top) * sy];
+  }
+
   zoomAt(x, y, f) {
     const s = Math.max(0.1, Math.min(8, this.view.scale * f));
     const [dx, dy] = this.toDoc(x, y);
@@ -87,9 +99,10 @@ export class DrawingSurface {
 
   down(e) {
     this.canvas.setPointerCapture(e.pointerId);
-    this.pointers.set(e.pointerId, [e.offsetX, e.offsetY]);
+    const [px, py] = this.localPoint(e);
+    this.pointers.set(e.pointerId, [px, py]);
     if (this.pointers.size === 2) { this.current = null; return; } // two fingers = pan/zoom
-    const [x, y] = this.toDoc(e.offsetX, e.offsetY);
+    const [x, y] = this.toDoc(px, py);
     this.current = {
       tool: this.tool, color: this.color, size: this.size, opacity: this.opacity,
       pts: [[x, y, e.pressure || 0.6]]
@@ -97,7 +110,8 @@ export class DrawingSurface {
   }
 
   move(e) {
-    if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, [e.offsetX, e.offsetY]);
+    const [px, py] = this.localPoint(e);
+    if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, [px, py]);
     if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
       if (!this.pinch) this.pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), cx: (a[0] + b[0]) / 2, cy: (a[1] + b[1]) / 2 };
@@ -113,7 +127,7 @@ export class DrawingSurface {
       return;
     }
     if (!this.current) return;
-    const [x, y] = this.toDoc(e.offsetX, e.offsetY);
+    const [x, y] = this.toDoc(px, py);
     const last = this.current.pts[this.current.pts.length - 1];
     if (Math.hypot(x - last[0], y - last[1]) < 1.2 / this.view.scale) return;
     this.current.pts.push([x, y, e.pressure || 0.6]);

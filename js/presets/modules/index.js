@@ -18,6 +18,24 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** Category/subcategory/tags for the built-in presets (V2 §11/§14). Resolved at
+    instantiation, and used by the Modules panel to group legacy instances that
+    predate the schema (matched on their stored presetKey). */
+export const PRESET_CATEGORIES = {
+  blossom: { category: 'Personal', subcategory: 'Life', tags: ['habit', 'journal', 'wellness'] },
+  starter: { category: 'Personal', subcategory: 'Life', tags: [] },
+  study: { category: 'Work', subcategory: 'Study', tags: ['notes', 'learning'] },
+  worldbuilder: { category: 'Creative', subcategory: 'Writing', tags: ['worldbuilding', 'lore'] },
+  infinitecanvas: { category: 'Creative', subcategory: 'Art', tags: ['drawing', 'canvas'] },
+  dndcharacter: { category: 'Gaming', subcategory: 'Tabletop', tags: ['dnd', 'rpg', 'character'] },
+  dnddm: { category: 'Gaming', subcategory: 'Tabletop', tags: ['dnd', 'rpg', 'dm'] },
+  reading: { category: 'Personal', subcategory: 'Hobbies', tags: ['reading', 'books'] },
+  recipes: { category: 'Personal', subcategory: 'Home', tags: ['cooking', 'food'] },
+  budget: { category: 'Personal', subcategory: 'Finance', tags: ['money', 'budget'] },
+  musicpractice: { category: 'Creative', subcategory: 'Music', tags: ['music', 'practice'] },
+  fitness: { category: 'Personal', subcategory: 'Health', tags: ['fitness', 'health'] }
+};
+
 /** Deep-resolve '@ref' / '@today' tokens inside configs and links. */
 function resolveTokens(value, refs) {
   if (typeof value === 'string') {
@@ -43,9 +61,13 @@ export function instantiatePreset(def) {
   const refs = new Map(); // '@ref' -> widgetId
   const created = []; // every widget built in this instantiation
 
+  const cat = def.category
+    ? { category: def.category, subcategory: def.subcategory || null, tags: def.tags || [] }
+    : (PRESET_CATEGORIES[def.key] || { category: null, subcategory: null, tags: [] });
   const mod = store.put('modules', {
     id: ulid(), name: def.name, icon: def.icon || 'flower',
-    pages: [], themeOverride: def.theme || null, presetKey: def.key
+    pages: [], themeOverride: def.theme || null, presetKey: def.key,
+    category: cat.category, subcategory: cat.subcategory, tags: cat.tags || []
   });
 
   const buildWidget = (wDef, pageId, parentWidgetId) => {

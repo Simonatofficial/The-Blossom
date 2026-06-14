@@ -6,16 +6,20 @@ import { events } from '../core/events.js';
 import { ulid } from '../core/ids.js';
 import { router } from '../core/router.js';
 import { icon } from './icons.js';
-import { el, toast, confirmDialog, openDrawer, popMenu, promptText, emptyState, switchEl } from './components.js';
+import { el, toast, confirmDialog, openDrawer, popMenu, promptText, emptyState, switchEl, field, input, rangeField } from './components.js';
 import { allThemes, applyGlobalTheme, activeThemeId, getTheme, withOverrides, themeOverrides, setThemeOverride, clearThemeOverrides } from '../fx/themes.js';
-import { ATMOSPHERE_PRESETS } from '../fx/atmosphere.js';
-import { PRESET_PARTICLES, PRESET_POINTER_FX, getParticlePreset, getPointerFxPreset } from '../presets/particles.js';
+import { ATMOSPHERE_PRESETS, ATMOSPHERE_OPTIONS } from '../fx/atmosphere.js';
+import { WEATHER_EFFECTS } from '../fx/weather.js';
+import { PRESET_POINTER_FX, getParticlePreset, getPointerFxPreset } from '../presets/particles.js';
 import * as codes from '../core/codes.js';
 import * as saves from '../core/saves.js';
+import { syncStatus, accountInfo, upgradeAccount, kofiHandle } from '../core/sync.js';
 
 export function openSettings() {
   const d = openDrawer({ title: 'Settings', iconName: 'settings' });
   renderAppearanceSection(d);
+  renderAccountSection(d);
+  renderVisualEffectsSection(d);
   renderThemesSection(d);
   renderCodesSection(d);
   renderSavesSection(d);
@@ -151,6 +155,105 @@ function renderAppearanceSection(d) {
   d.body.appendChild(sec);
 }
 
+/* ---------- account / cloud sync (V2 §1) — only shown when sync is configured ---------- */
+
+function renderAccountSection(d) {
+  const info = accountInfo();
+  if (!info.configured) return; // sync not set up → hide entirely (silently disabled)
+
+  const sec = el(`<div class="dsec"><h3>Account</h3>
+    <div class="row" style="margin-bottom:10px"><span class="sync-dot"></span><span class="soft sync-label" style="font-size:0.84rem"></span></div>
+    <div class="acct-body"></div></div>`);
+  const dot = sec.querySelector('.sync-dot');
+  const label = sec.querySelector('.sync-label');
+  const paint = (s) => {
+    dot.className = `sync-dot sync-${s}`;
+    label.textContent = s === 'syncing' ? 'Syncing…' : s === 'error' ? 'Sync paused — will retry' : 'Synced';
+  };
+  paint(syncStatus());
+  events.on('sync:status', ({ status }) => { if (sec.isConnected) paint(status); });
+
+  const body = sec.querySelector('.acct-body');
+  const render = () => {
+    body.innerHTML = '';
+    const a = accountInfo();
+    if (!a.active) { body.appendChild(el('<p class="soft" style="font-size:0.84rem">Connecting…</p>')); return; }
+    if (a.anonymous) {
+      body.appendChild(el('<p class="soft" style="font-size:0.84rem;margin-bottom:8px">You’re signed in anonymously. Add an email and password to sign in on another device and keep everything in sync.</p>'));
+      const email = input('', 'you@example.com'); email.type = 'email';
+      const pass = input('', 'Password (8+ characters)'); pass.type = 'password';
+      const btn = el(`<button class="btn btn-primary" style="width:100%;margin-top:8px">${icon('check', 15)} Create account</button>`);
+      btn.onclick = async () => {
+        if (!email.value.trim() || pass.value.length < 8) { toast('Enter an email and an 8+ character password.', 'info'); return; }
+        btn.disabled = true;
+        try { await upgradeAccount(email.value.trim(), pass.value); toast('Account created — you’re synced', 'check'); render(); }
+        catch (err) { toast(err.message || 'Could not create the account.', 'info'); btn.disabled = false; }
+      };
+      body.append(field('Email', email), field('Password', pass), btn);
+    } else {
+      const p = el('<p class="soft" style="font-size:0.84rem"></p>');
+      p.textContent = `Signed in as ${a.email}. Your data syncs across your devices.`;
+      body.appendChild(p);
+    }
+  };
+  render();
+  d.body.appendChild(sec);
+}
+
+/* ---------- visual effects master toggles (V2 §5) ---------- */
+
+function renderVisualEffectsSection(d) {
+  const sec = el('<div class="dsec"><h3>Visual Effects</h3><div class="ve-rows"></div></div>');
+  const rows = sec.querySelector('.ve-rows');
+  const getFx = () => store.getMeta('settings', {})?.fx || {};
+  const setFx = (k, v, weather = false) => {
+    const s = store.getMeta('settings', {});
+    s.fx = { ...(s.fx || {}), [k]: v };
+    store.setMeta('settings', s);
+    events.emit(weather ? 'weather:changed' : 'page:changed', {});
+  };
+  const setWeatherOpt = (patch) => {
+    const s = store.getMeta('settings', {});
+    s.fx = s.fx || {}; s.fx.weather = { ...(s.fx.weather || {}), ...patch };
+    store.setMeta('settings', s);
+    events.emit('weather:changed', {});
+  };
+  const toggleRow = (label, key, hint, defaultOn, weather, onAfter) => {
+    const r = el('<div class="ve-row"><div class="grow"><div class="ve-label"></div><div class="hint"></div></div></div>');
+    r.querySelector('.ve-label').textContent = label;
+    r.querySelector('.hint').textContent = hint;
+    const on = defaultOn ? getFx()[key] !== false : getFx()[key] === true;
+    r.appendChild(switchEl(on, (v) => { setFx(key, v, weather); onAfter?.(); }));
+    return r;
+  };
+  const render = () => {
+    rows.innerHTML = '';
+    rows.append(
+      toggleRow('Particles', 'particlesEnabled', 'Drifting background particles for the active theme.', true),
+      toggleRow('Atmosphere', 'atmosphereEnabled', 'Day/night, constellations, waves and other scenes.', true),
+      toggleRow('Weather', 'weatherEnabled', 'Snow, rain, clouds, wind and fire — decorative and tappable.', false, true, render)
+    );
+    if (getFx().weatherEnabled) {
+      const wx = getFx().weather || {};
+      const chipRow = el('<div class="row" style="flex-wrap:wrap;gap:6px;margin:8px 2px"></div>');
+      const mkChip = (key, name) => {
+        const c = el(`<button class="chip ${(wx.activeEffect || null) === key ? 'accent' : ''}"></button>`);
+        c.textContent = name;
+        c.onclick = () => { setWeatherOpt({ activeEffect: key }); render(); };
+        return c;
+      };
+      chipRow.appendChild(mkChip(null, 'Off'));
+      for (const e of WEATHER_EFFECTS) chipRow.appendChild(mkChip(e.key, e.name));
+      rows.appendChild(chipRow);
+      const intBlock = el('<div style="margin:4px 2px 2px"><div class="ve-label" style="font-size:0.84rem;margin-bottom:5px">Intensity</div></div>');
+      intBlock.appendChild(rangeField({ min: 0, max: 100, step: 5, value: Math.round((wx.intensity ?? 0.5) * 100), unit: '%', onChange: (v) => setWeatherOpt({ intensity: v / 100 }) }));
+      rows.appendChild(intBlock);
+    }
+  };
+  render();
+  d.body.appendChild(sec);
+}
+
 /* ---------- themes ---------- */
 
 function renderThemesSection(d) {
@@ -229,6 +332,7 @@ function renderEffectsPanel(rerenderThemes) {
 
   const fxRow = (label, kind, presets, allowAdjust) => {
     const spec = theme[kind];
+    const wrap = el('<div></div>');
     const row = el(`<div class="row" style="margin-bottom:8px;flex-wrap:wrap">
       <span style="font-size:0.86rem;min-width:84px">${label}</span>
       <select class="select grow" style="min-width:120px;padding:6px 9px"></select>
@@ -248,28 +352,37 @@ function renderEffectsPanel(rerenderThemes) {
       setThemeOverride(raw.id, kind, on ? undefined : null); // on = back to the preset's own default
       reapply();
     }));
-    if (allowAdjust && spec) {
+    wrap.appendChild(row);
+
+    // atmosphere: a clearly-labeled slider with a numeric readout + tooltip (V2 §7)
+    if (kind === 'atmosphere' && spec?.preset && ATMOSPHERE_OPTIONS[spec.preset]) {
+      const o = ATMOSPHERE_OPTIONS[spec.preset];
+      const sliderRow = el('<div class="row" style="margin:-2px 0 12px 84px;flex-wrap:wrap;gap:5px"></div>');
+      const lbl = el('<span class="soft" style="font-size:0.78rem;flex:1 1 100%;cursor:help"></span>');
+      lbl.textContent = o.label;
+      lbl.title = o.tip;
+      const rf = rangeField({ min: o.min, max: o.max, step: o.step, value: spec.options?.[o.key] ?? o.def, unit: o.unit, onChange: (v) => {
+        setThemeOverride(raw.id, 'atmosphere', { ...spec, options: { ...(spec.options || {}), [o.key]: v } });
+        reapply();
+      } });
+      rf.style.flex = '1 1 100%';
+      sliderRow.append(lbl, rf);
+      wrap.appendChild(sliderRow);
+    }
+
+    // pointer FX: keep the adjust button (opens the particle editor)
+    if (allowAdjust && kind !== 'atmosphere' && spec) {
       const adj = el(`<button class="btn-icon" title="Adjust">${icon('sliders', 15)}</button>`);
       adj.onclick = async () => {
-        if (kind === 'atmosphere') {
-          const slider = el('<input type="range" class="range" min="0.25" max="3" step="0.25" style="width:110px" title="Speed">');
-          slider.value = spec.options?.speed || 1;
-          slider.onchange = () => {
-            setThemeOverride(raw.id, 'atmosphere', { ...spec, options: { ...(spec.options || {}), speed: Number(slider.value) } });
-            reapply();
-          };
-          adj.replaceWith(slider);
-        } else {
-          const { openParticleEditor } = await import('./particleeditor.js');
-          openParticleEditor(null, (rec) => {
-            setThemeOverride(raw.id, kind, { preset: rec.id, overrides: {} });
-            reapply();
-          }, resolveFxDef(spec));
-        }
+        const { openParticleEditor } = await import('./particleeditor.js');
+        openParticleEditor(null, (rec) => {
+          setThemeOverride(raw.id, kind, { preset: rec.id, overrides: {} });
+          reapply();
+        }, resolveFxDef(spec));
       };
       row.querySelector('.e-adjust').appendChild(adj);
     }
-    return row;
+    return wrap;
   };
 
   /* CR-7: particles are a LIST of up to three layers (first = back).
@@ -283,18 +396,20 @@ function renderEffectsPanel(rerenderThemes) {
     layers.forEach((layer, i) => {
       const row = el(`<div class="row" style="margin-bottom:8px;flex-wrap:wrap">
         <span style="font-size:0.86rem;min-width:84px">${i === 0 ? 'Particles' : `Layer ${i + 1}`}</span>
-        <select class="select grow" style="min-width:110px;padding:6px 9px"></select>
+        <button class="btn p-pick grow" style="min-width:110px;justify-content:flex-start;padding:6px 9px"></button>
         <button class="btn-icon p-adj" title="Adjust">${icon('sliders', 15)}</button>
         <button class="btn-icon p-up" title="Move back">${icon('chevron-up', 14)}</button>
         <button class="btn-icon p-down" title="Move forward">${icon('chevron-down', 14)}</button>
         <button class="btn-icon p-del" title="Remove layer">${icon('x', 14)}</button>
         <span class="p-switch"></span></div>`);
-      const sel = row.querySelector('select');
-      for (const p of PRESET_PARTICLES) sel.appendChild(new Option(p.name, p.id));
-      for (const c of store.all('themes').filter(t => t.type === 'particle')) sel.appendChild(new Option(`${c.name} (custom)`, c.id));
-      sel.value = layer.preset;
+      const pickBtn = row.querySelector('.p-pick');
+      const labelFor = (id) => getParticlePreset(id)?.name || store.get('themes', id)?.name || id;
+      pickBtn.textContent = labelFor(layer.preset);
       const next = () => layers.map(l => ({ ...l }));
-      sel.onchange = () => { const n = next(); n[i] = { ...n[i], preset: sel.value, overrides: {} }; save(n); };
+      pickBtn.onclick = async () => {
+        const { openParticlePicker } = await import('./particlepicker.js');
+        openParticlePicker({ current: layer.preset, onPick: (id) => { const n = next(); n[i] = { ...n[i], preset: id, overrides: {} }; save(n); } });
+      };
       row.querySelector('.p-switch').appendChild(switchEl(layer.enabled !== false, (on) => {
         const n = next(); n[i].enabled = on; save(n);
       }));
@@ -480,7 +595,51 @@ function renderSavesSection(d) {
   });
   status.textContent = backupLine; // shown immediately; persisted check refines it
   sec.appendChild(status);
+
+  // ---- danger zone: full reset (V2 §10) — three gated steps, red styling ----
+  const reset = el(`<button class="btn btn-danger" style="width:100%;margin-top:18px">${icon('trash', 15)} Reset all data</button>`);
+  reset.onclick = resetAllDataFlow;
+  sec.appendChild(reset);
+
   d.body.appendChild(sec);
+}
+
+/* Full reset (V2 §10): three deliberate steps so a mistap can never wipe data.
+   Only completing all three — confirm, re-confirm, then type DELETE — erases
+   everything and restarts the app fresh. */
+async function resetAllDataFlow() {
+  const step1 = await confirmDialog({
+    title: 'Reset all data?',
+    message: 'This will permanently delete all your modules, pages, widgets, objects, themes, and settings.',
+    confirmText: 'Delete everything'
+  });
+  if (!step1) return;
+  const step2 = await confirmDialog({
+    title: 'Are you absolutely sure?',
+    message: 'This cannot be undone. If you might want it back, download a backup first.',
+    confirmText: 'Yes, delete everything'
+  });
+  if (!step2) return;
+  if (!(await typeDeleteToConfirm())) return;
+  await store.resetAll();
+  location.reload();
+}
+
+/** Step 3: a typed confirmation. Resolves true only when the user types DELETE. */
+function typeDeleteToConfirm() {
+  return new Promise((resolve) => {
+    let settled = false;
+    const d = openDrawer({ title: 'Final step', iconName: 'trash', onClose: () => { if (!settled) { settled = true; resolve(false); } } });
+    d.body.appendChild(el('<p class="soft" style="margin-bottom:6px">Type <strong>DELETE</strong> to confirm. There is no undo.</p>'));
+    const inp = input('', 'DELETE');
+    const btn = el(`<button class="btn btn-danger" style="width:100%;margin-top:12px" disabled>${icon('trash', 15)} Confirm reset</button>`);
+    inp.addEventListener('input', () => { btn.disabled = inp.value !== 'DELETE'; });
+    const confirm = () => { if (inp.value === 'DELETE') { settled = true; resolve(true); d.close(); } };
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirm(); });
+    btn.onclick = confirm;
+    d.body.append(field('Confirmation', inp), btn);
+    setTimeout(() => inp.focus(), 150);
+  });
 }
 
 /* ---------- about ---------- */
@@ -495,6 +654,13 @@ function renderAboutSection(d) {
     d.close();
     initOnboarding(true);
   };
+  // Ko-fi support (V2 §1) — opt-in: only when a handle is configured
+  const handle = kofiHandle();
+  if (handle) {
+    const support = el('<a class="btn" style="width:100%;margin-top:10px;text-decoration:none" target="_blank" rel="noopener">☕ Support on Ko-fi</a>');
+    support.href = `https://ko-fi.com/${encodeURIComponent(handle)}`;
+    sec.appendChild(support);
+  }
   d.body.appendChild(sec);
 }
 

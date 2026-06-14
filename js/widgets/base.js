@@ -10,7 +10,7 @@ import { wallet } from '../core/wallet.js';
 import * as values from '../core/values.js';
 import { registry } from './registry.js';
 import { icon } from '../ui/icons.js';
-import { el, toast, confirmDialog, openDrawer, field, input, seg } from '../ui/components.js';
+import { el, toast, confirmDialog, openDrawer, field, input, seg, rangeField } from '../ui/components.js';
 import { allThemes } from '../fx/themes.js';
 import { openLinkPicker } from '../ui/picker.js';
 
@@ -200,6 +200,21 @@ export function openWidgetSettings(widget) {
     events.emit('widget:changed', { widgetId: widget.id });
   };
   body.appendChild(field('Theme', themeSel));
+
+  // appearance (V2 §5): background opacity with a live preview on the card
+  const liveCard = () => document.querySelector(`.widget-card[data-wid="${widget.id}"]`);
+  const apSec = el('<div class="dsec"><h3>Appearance</h3></div>');
+  const opSlider = rangeField({
+    min: 10, max: 100, step: 5, value: Math.round((widget.style?.opacity ?? 1) * 100), unit: '%',
+    onInput: (v) => liveCard()?.style.setProperty('--w-bg-opacity', v / 100),
+    onChange: (v) => {
+      widget.style = { ...(widget.style || {}), opacity: v / 100 };
+      store.put('widgets', widget);
+      events.emit('widget:changed', { widgetId: widget.id });
+    }
+  });
+  apSec.appendChild(field('Background opacity', opSlider, 'Lower lets the atmosphere show through the card.'));
+  body.appendChild(apSec);
 
   // type-specific settings
   if (def?.renderSettings) {
