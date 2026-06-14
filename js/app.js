@@ -48,6 +48,10 @@ events.on('storage:full', ({ quota }) => {
 });
 
 async function boot() {
+  // Register the service worker FIRST: its update detection must not depend on
+  // the rest of boot succeeding. If anything below hangs or throws, the app can
+  // still pull and activate a fix (see also the boot watchdog in index.html).
+  registerSW();
   await store.init();
 
   if (store.all('modules').length === 0) {
@@ -67,6 +71,10 @@ async function boot() {
   });
 
   initShell(document.getElementById('app'));
+  // Chrome is mounted — we're past the "stuck on a blank purple screen" failure
+  // mode, so stand down the boot watchdog (later non-fatal errors use the error
+  // safety net / update toast instead of the recovery card).
+  if (window.__blossom) window.__blossom.booted = true;
   initEngine(document.getElementById('page-host'));
   initParticles();
   initAtmosphere();
@@ -77,24 +85,36 @@ async function boot() {
   maybeBackupReminder(); // gentle off-device backup nudge when overdue
   router.init();
   initOnboarding();
-  registerSW();
   navigator.storage?.persist?.();
   initSync(); // optional cloud mirror (V2 §1) — no-op unless configured
 
 }
 
-/* ---- service worker + gentle update toast (docs/09: never auto-reload) ---- */
+/* ---- service worker + gentle update flow (docs/09) ----------------------------
+   Healthy app: a calm toast offers an instant refresh, and we quietly hand off
+   to the new version on pagehide so the *next* launch is fresh without ever
+   interrupting an entry. A genuinely *stuck* app is handled separately by the
+   boot watchdog in index.html, which can pull and activate a fix even when boot
+   never completes. We also poll for updates (cache-first won't notice on its
+   own) so a deploy lands promptly instead of on some indefinite future visit. */
+
+let pendingWorker = null;
 
 function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('./sw.js', { scope: './' }).then(reg => {
     const watch = () => {
-      if (reg.waiting && navigator.serviceWorker.controller) showUpdateToast(reg.waiting);
+      if (reg.waiting && navigator.serviceWorker.controller) onUpdateReady(reg.waiting);
     };
     watch();
     reg.addEventListener('updatefound', () => {
       reg.installing?.addEventListener('statechange', watch);
     });
+    // The page must ask for new code; the browser won't always check. Re-check
+    // when the tab regains focus and hourly, so deploys are picked up quickly.
+    const check = () => reg.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    setInterval(check, 60 * 60 * 1000);
   }).catch(err => console.warn('[sw] registration failed', err));
 
   let reloading = false;
@@ -103,6 +123,18 @@ function registerSW() {
     reloading = true;
     location.reload();
   });
+
+  // Race-free auto-update: when the user leaves, activate any waiting worker so
+  // the next open is the new version. No live reload → can't interrupt an entry
+  // and can't race the on-hide IndexedDB flush.
+  window.addEventListener('pagehide', () => {
+    if (pendingWorker) pendingWorker.postMessage('SKIP_WAITING');
+  });
+}
+
+function onUpdateReady(waiting) {
+  pendingWorker = waiting;
+  showUpdateToast(waiting);
 }
 
 function showUpdateToast(waiting) {
@@ -120,6 +152,8 @@ function showUpdateToast(waiting) {
 
 boot().catch(err => {
   console.error('[boot] failed', err);
-  document.getElementById('app').innerHTML =
+  const W = window.__blossom;
+  if (W && !W.booted && W.showRecovery) W.showRecovery();
+  else if (!W || !W.booted) document.getElementById('app').innerHTML =
     '<div style="padding:40px;text-align:center;opacity:0.8">The Blossom could not open. Please refresh.</div>';
 });

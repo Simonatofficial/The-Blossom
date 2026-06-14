@@ -644,15 +644,54 @@ function typeDeleteToConfirm() {
 
 /* ---------- about ---------- */
 
+/* Manual update check — a persistent companion to the auto-update toast, so the
+   user is never stranded on an old build waiting for a prompt that didn't show.
+   Posts SKIP_WAITING to a waiting worker; app.js's controllerchange → reload. */
+async function checkForUpdates(btn) {
+  if (!('serviceWorker' in navigator)) { toast('Updates need a browser with service workers.', 'info'); return; }
+  const label = btn.innerHTML;
+  btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) { toast('No update found — you’re on the latest version.', 'flower'); return; }
+    await reg.update().catch(() => {});
+    const waiting = reg.waiting || await new Promise((res) => {
+      const inst = reg.installing;
+      if (!inst) return res(null);
+      inst.addEventListener('statechange', () => { if (reg.waiting) res(reg.waiting); });
+      setTimeout(() => res(reg.waiting || null), 3000);
+    });
+    if (waiting) { toast('A new version is ready — updating…', 'flower'); waiting.postMessage('SKIP_WAITING'); }
+    else toast('You’re on the latest version 🌸', 'flower');
+  } catch (err) {
+    console.error('[update check]', err);
+    toast('Could not check for updates.', 'info');
+  } finally {
+    btn.disabled = false; btn.innerHTML = label;
+  }
+}
+
 function renderAboutSection(d) {
   const sec = el(`<div class="dsec"><h3>About</h3>
     <p class="soft" style="font-size:0.86rem;margin-bottom:10px">The Blossom — your cozy, all-in-one space to grow. Everything lives on your device.</p>
-    <button class="btn" style="width:100%">${icon('flower', 15)} Replay the tour</button></div>`);
-  sec.querySelector('button').onclick = async () => {
+    <button class="btn" data-act="tour" style="width:100%">${icon('flower', 15)} Replay the tour</button>
+    <button class="btn" data-act="update" style="width:100%;margin-top:10px">${icon('refresh', 15)} Check for updates</button>
+    <button class="btn" data-act="reset" style="width:100%;margin-top:10px">${icon('leaf', 15)} Reset app (keeps your data)</button>
+    <p class="soft" style="font-size:0.78rem;margin-top:8px">Stuck on an old or broken version? Reset clears the app cache and reloads. Your saved data is never touched.</p></div>`);
+  sec.querySelector('[data-act="tour"]').onclick = async () => {
     store.setMeta('onboarded', null);
     const { initOnboarding } = await import('./onboarding.js');
     d.close();
     initOnboarding(true);
+  };
+  sec.querySelector('[data-act="update"]').onclick = (e) => checkForUpdates(e.currentTarget);
+  sec.querySelector('[data-act="reset"]').onclick = async () => {
+    const ok = await confirmDialog({
+      title: 'Reset the app?',
+      message: 'This clears the cached app files and reloads the latest version. Your saved data (modules, pages, codes) stays safe.',
+      confirmText: 'Reset & reload'
+    });
+    if (ok) window.__blossom?.resetApp?.();
   };
   // Ko-fi support (V2 §1) — opt-in: only when a handle is configured
   const handle = kofiHandle();

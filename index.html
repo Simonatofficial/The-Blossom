@@ -24,6 +24,103 @@
        case sync.js disables itself silently and the app works fully offline. -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
   <script src="./config.js" defer onerror="window.BLOSSOM_CONFIG=window.BLOSSOM_CONFIG||{}"></script>
+  <!-- Boot watchdog + recovery. A classic inline script so it runs even if the
+       ES module below fails to parse, errors on import, or hangs forever (a
+       cache-first PWA can otherwise get permanently stuck on a stale broken
+       shell with no visible way out). It NEVER touches IndexedDB — only the
+       service-worker cache — so saved data is always preserved. -->
+  <script>
+  (function () {
+    var W = window.__blossom = window.__blossom || {};
+    W.booted = false;
+    var shown = false, reloading = false;
+
+    function reloadOnce() { if (reloading) return; reloading = true; location.reload(); }
+
+    // Activate a waiting/new service worker and reload into it.
+    W.applyUpdate = function () {
+      if (!('serviceWorker' in navigator)) { reloadOnce(); return; }
+      navigator.serviceWorker.addEventListener('controllerchange', reloadOnce);
+      navigator.serviceWorker.getRegistration().then(function (reg) {
+        if (!reg) { reloadOnce(); return; }
+        Promise.resolve(reg.update()).catch(function () {}).then(function () {
+          if (reg.waiting) { reg.waiting.postMessage('SKIP_WAITING'); return; }
+          if (reg.installing) {
+            reg.installing.addEventListener('statechange', function () {
+              if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
+            });
+            setTimeout(reloadOnce, 4000);
+          } else { reloadOnce(); }
+        });
+      }).catch(reloadOnce);
+    };
+
+    // Clear the app-shell cache + unregister the SW, then reload fresh.
+    // Saved data lives in IndexedDB and is left untouched.
+    W.resetApp = function () {
+      var jobs = [];
+      if (window.caches) jobs.push(caches.keys().then(function (ks) {
+        return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+      }).catch(function () {}));
+      if ('serviceWorker' in navigator) jobs.push(
+        navigator.serviceWorker.getRegistrations().then(function (rs) {
+          return Promise.all(rs.map(function (r) { return r.unregister(); }));
+        }).catch(function () {}));
+      Promise.all(jobs).then(function () { setTimeout(reloadOnce, 50); });
+    };
+
+    W.showRecovery = function () {
+      if (shown || W.booted) return;
+      shown = true;
+      var host = document.getElementById('app') || document.body;
+      host.innerHTML =
+        '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;' +
+          'font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#ece7fb;z-index:99999">' +
+          '<div style="max-width:340px;width:100%;text-align:center;background:rgba(38,28,70,0.85);' +
+            'border:1px solid rgba(167,139,250,0.22);border-radius:18px;padding:28px 24px;' +
+            'box-shadow:0 6px 24px rgba(0,0,0,0.35)">' +
+            '<div style="font-size:34px;margin-bottom:10px">&#127804;</div>' +
+            '<div style="font-size:18px;font-weight:600;margin-bottom:8px">The Blossom needs a moment</div>' +
+            '<div style="font-size:14px;line-height:1.55;color:#a99ec9;margin-bottom:20px">' +
+              'It didn’t finish opening. Your saved data is safe — this only refreshes the app.</div>' +
+            '<button id="blr-update" style="display:block;width:100%;margin:0 0 10px;padding:11px;border:0;border-radius:12px;' +
+              'background:#a78bfa;color:#1b1430;font-size:15px;font-weight:600;cursor:pointer">Update &amp; reload</button>' +
+            '<button id="blr-reload" style="display:block;width:100%;margin:0 0 10px;padding:11px;' +
+              'border:1px solid rgba(167,139,250,0.22);border-radius:12px;background:transparent;color:#ece7fb;' +
+              'font-size:15px;cursor:pointer">Just reload</button>' +
+            '<button id="blr-reset" style="display:block;width:100%;padding:11px;' +
+              'border:1px solid rgba(167,139,250,0.22);border-radius:12px;background:transparent;color:#a99ec9;' +
+              'font-size:13px;cursor:pointer">Reset &amp; fix (keeps your data)</button>' +
+          '</div></div>';
+      document.getElementById('blr-update').onclick = function () { this.textContent = 'Updating…'; W.applyUpdate(); };
+      document.getElementById('blr-reload').onclick = function () { reloadOnce(); };
+      document.getElementById('blr-reset').onclick = function () { this.textContent = 'Fixing…'; W.resetApp(); };
+    };
+
+    // If the app hasn't mounted its chrome in time, it's stuck. First try to pull
+    // a fresh version automatically (fixes a bad deploy with zero user action);
+    // if none is available, show the recovery card.
+    setTimeout(function () {
+      if (W.booted || shown) return;
+      if (!('serviceWorker' in navigator)) { W.showRecovery(); return; }
+      navigator.serviceWorker.getRegistration().then(function (reg) {
+        if (W.booted || shown) return;
+        if (!reg) { W.showRecovery(); return; }
+        navigator.serviceWorker.addEventListener('controllerchange', reloadOnce);
+        var applied = false;
+        var apply = function () { if (reg.waiting) { applied = true; reg.waiting.postMessage('SKIP_WAITING'); } };
+        reg.addEventListener('updatefound', function () {
+          var sw = reg.installing;
+          if (sw) sw.addEventListener('statechange', apply);
+        });
+        Promise.resolve(reg.update()).catch(function () {}).then(function () {
+          apply();
+          setTimeout(function () { if (!W.booted && !reloading) W.showRecovery(); }, applied ? 3500 : 200);
+        });
+      }).catch(function () { W.showRecovery(); });
+    }, 9000);
+  })();
+  </script>
   <script type="module" src="./js/app.js"></script>
 </body>
 </html>
