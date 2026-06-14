@@ -267,7 +267,8 @@ function renderThemesSection(d) {
         <span style="display:flex;gap:3px">${['bg', 'accent', 'highlight'].map(k => `<span style="width:14px;height:14px;border-radius:50%;background:${t.colors[k]};border:1px solid var(--border)"></span>`).join('')}</span>
         <span class="li-main"><span class="li-title"></span></span>
         ${customized ? '<span class="chip">customized</span>' : ''}
-        ${t.custom ? `<span class="btn-icon t-edit" title="Edit">${icon('edit', 14)}</span><span class="btn-icon t-del" title="Delete">${icon('trash', 14)}</span>` : ''}
+        <span class="btn-icon t-edit" title="${t.custom ? 'Edit' : 'Customize'}">${icon('edit', 14)}</span>
+        ${t.custom ? `<span class="btn-icon t-del" title="Delete">${icon('trash', 14)}</span>` : ''}
         ${activeThemeId() === t.id ? icon('check', 16) : ''}</button>`);
       li.querySelector('.li-title').textContent = t.name;
       li.onclick = (e) => {

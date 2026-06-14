@@ -41,6 +41,120 @@ function toHex(c) {
   return '#' + [m[1], m[2], m[3]].map(n => Number(n).toString(16).padStart(2, '0')).join('');
 }
 
+/* bgGradient is stored as [stop, …, "Ndeg"]; each stop is a colour with an
+   optional position ("#rrggbb 30%"). Parse it into {stops:[{color,pos}], angle}. */
+function parseGradient(arr, fallbackBg) {
+  const bg = toHex(fallbackBg);
+  if (!Array.isArray(arr) || arr.length < 3) return { stops: [{ color: bg, pos: 0 }, { color: bg, pos: 100 }], angle: 160 };
+  const angle = parseFloat(arr[arr.length - 1]) || 160;
+  const cols = arr.slice(0, -1), n = cols.length;
+  const stops = cols.map((s, i) => {
+    const str = String(s).trim();
+    const m = str.match(/\s([\d.]+)%$/);
+    return { color: toHex(m ? str.slice(0, m.index).trim() : str), pos: m ? parseFloat(m[1]) : Math.round((i / Math.max(1, n - 1)) * 100) };
+  });
+  return { stops, angle };
+}
+
+function serializeGradient(stops, angle) {
+  return [...[...stops].sort((a, b) => a.pos - b.pos).map(s => `${s.color} ${Math.round(s.pos)}%`), `${Math.round(angle)}deg`];
+}
+
+/* The draggable-stop gradient editor (V2 §9): a live gradient bar with movable
+   colour stops (2–6), a per-stop colour + position, and an angle control. Edits
+   write draft.colors.bgGradient and live-preview; discrete changes run the full
+   preview() so the atmosphere re-colours, drags just repaint the cheap bg vars. */
+function buildGradientEditor(draft, preview) {
+  const wrap = el('<div></div>');
+  let { stops, angle } = parseGradient(draft.colors.bgGradient, draft.colors.bg);
+  let sel = 0;
+
+  const bar = el('<div style="position:relative;height:46px;border-radius:10px;border:1px solid var(--border);margin:6px 0 4px;touch-action:none"></div>');
+  const controls = el('<div></div>');
+
+  const liveBar = () => {
+    const vars = colorVars(draft.colors);
+    for (const k of ['--bg-grad-1', '--bg-grad-2', '--bg-angle', '--bg-image']) if (vars[k]) document.documentElement.style.setProperty(k, vars[k]);
+  };
+  const commit = (full) => { draft.colors.bgGradient = serializeGradient(stops, angle); paintBar(); full ? preview() : liveBar(); };
+
+  function paintBar() {
+    const sorted = [...stops].sort((a, b) => a.pos - b.pos);
+    bar.style.background = `linear-gradient(90deg, ${sorted.map(s => `${s.color} ${s.pos}%`).join(', ')})`;
+    [...bar.querySelectorAll('.gstop')].forEach(h => h.remove());
+    stops.forEach((s, i) => {
+      const h = el('<div class="gstop" style="position:absolute;top:50%;width:18px;height:18px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.45);transform:translate(-50%,-50%);cursor:grab"></div>');
+      h.style.left = s.pos + '%';
+      h.style.background = s.color;
+      if (i === sel) { h.style.outline = '2px solid var(--accent)'; h.style.outlineOffset = '2px'; }
+      attachDrag(h, i);
+      bar.appendChild(h);
+    });
+  }
+
+  function attachDrag(h, i) {
+    h.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      sel = i; paintBar(); renderControls();
+      const rect = bar.getBoundingClientRect();
+      const move = (ev) => { stops[i].pos = Math.round(Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100))); commit(false); renderControls(); };
+      const up = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); commit(true); };
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', up);
+    });
+  }
+
+  bar.addEventListener('dblclick', (e) => {
+    if (stops.length >= 6) { toast('Up to 6 stops', 'info'); return; }
+    const rect = bar.getBoundingClientRect();
+    const pos = Math.round(Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)));
+    stops.push({ color: stops[sel]?.color || toHex(draft.colors.bg), pos });
+    sel = stops.length - 1; commit(true); renderControls();
+  });
+
+  function renderControls() {
+    controls.innerHTML = '';
+    const s = stops[sel] || stops[0];
+    const row = el(`<div class="row" style="margin:2px 0 8px;gap:8px;align-items:center">
+      <input type="color" style="width:38px;height:32px;border:1px solid var(--border);border-radius:8px;background:none;padding:2px">
+      <input class="input" type="number" min="0" max="100" style="width:62px">
+      <span class="soft" style="font-size:0.8rem">%</span>
+      <button class="btn grow" style="padding:6px">Remove stop</button>
+    </div>`);
+    const [sw, posIn, , del] = row.children;
+    sw.value = s.color; posIn.value = s.pos;
+    sw.oninput = () => { s.color = sw.value; commit(true); };
+    posIn.onchange = () => { s.pos = Math.max(0, Math.min(100, Number(posIn.value) || 0)); commit(true); };
+    del.disabled = stops.length <= 2;
+    del.onclick = () => { if (stops.length <= 2) return; stops.splice(sel, 1); sel = Math.max(0, sel - 1); commit(true); renderControls(); };
+    controls.appendChild(row);
+  }
+
+  const angleRow = el(`<div class="row" style="gap:8px;margin-bottom:8px;align-items:center">
+    <span class="soft" style="font-size:0.8rem;min-width:42px">Angle</span>
+    <input type="range" class="range grow" min="0" max="360" step="5">
+    <input class="input" type="number" min="0" max="360" style="width:62px">
+    <span class="soft" style="font-size:0.8rem">°</span>
+  </div>`);
+  const [, angR, angN] = angleRow.children;
+  angR.value = angle; angN.value = angle;
+  angR.oninput = () => { angle = Number(angR.value); angN.value = angle; commit(false); };
+  angR.addEventListener('change', () => commit(true));
+  angN.onchange = () => { angle = Math.max(0, Math.min(360, Number(angN.value) || 0)); angR.value = angle; commit(true); };
+
+  const addBtn = el(`<button class="btn" style="width:100%;margin-bottom:14px">${icon('plus', 14)} Add stop</button>`);
+  addBtn.onclick = () => {
+    if (stops.length >= 6) { toast('Up to 6 stops', 'info'); return; }
+    stops.push({ color: stops[sel]?.color || toHex(draft.colors.bg), pos: 50 });
+    sel = stops.length - 1; commit(true); renderControls();
+  };
+
+  const hint = el('<p class="soft" style="font-size:0.74rem;margin:0 0 8px">Drag the dots to move stops · double-tap the bar to add one</p>');
+  wrap.append(bar, hint, controls, angleRow, addBtn);
+  paintBar(); renderControls();
+  return wrap;
+}
+
 export function openThemeEditor(themeId = null) {
   const startFrom = themeId ? getTheme(themeId) : activeTheme();
   const draft = structuredClone({ ...startFrom, preset: undefined });
@@ -92,16 +206,9 @@ export function openThemeEditor(themeId = null) {
     d.body.appendChild(row);
   }
 
-  const genGrad = el(`<button class="btn" style="width:100%;margin:6px 0 14px">${icon('wand', 14)} Generate gradient from background</button>`);
-  genGrad.onclick = () => {
-    const bg = toHex(draft.colors.bg);
-    const accent = toHex(draft.colors.accent);
-    const mix = (a, b, f) => '#' + [0, 2, 4].map(i => Math.round(parseInt(a.slice(1 + i, 3 + i), 16) * (1 - f) + parseInt(b.slice(1 + i, 3 + i), 16) * f).toString(16).padStart(2, '0')).join('');
-    draft.colors.bgGradient = [bg, mix(bg, accent, 0.22), '160deg'];
-    preview();
-    toast('Gradient grown from your background', 'wand');
-  };
-  d.body.appendChild(genGrad);
+  // ---- gradient (V2 §9: draggable-stop editor) ----
+  d.body.appendChild(el('<h3 class="soft" style="font-size:0.78rem;margin:10px 0 4px">GRADIENT</h3>'));
+  d.body.appendChild(buildGradientEditor(draft, preview));
 
   // ---- atmosphere ----
   d.body.appendChild(el('<h3 class="soft" style="font-size:0.78rem;margin:6px 0 8px">ATMOSPHERE</h3>'));

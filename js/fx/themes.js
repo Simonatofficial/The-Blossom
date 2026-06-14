@@ -35,11 +35,14 @@ export function colorVars(colors) {
     if (colors[key]) vars[cssVar] = colors[key];
   }
   if (colors.bgGradient) {
-    // CR-4: 2–4 stops, last entry is the angle (2-stop arrays stay valid)
+    // 2–6 stops + a trailing angle (CR-4: 2-stop arrays stay valid). Each stop is
+    // a colour with an OPTIONAL position ("#rrggbb 30%" — V2 §9 gradient editor);
+    // --bg-grad-1/2 want a bare colour, so strip any trailing percentage.
     const angle = colors.bgGradient[colors.bgGradient.length - 1];
     const stops = colors.bgGradient.slice(0, -1);
-    vars['--bg-grad-1'] = stops[0];
-    vars['--bg-grad-2'] = stops[stops.length - 1];
+    const bare = (s) => String(s).trim().replace(/\s+[\d.]+%\s*$/, '');
+    vars['--bg-grad-1'] = bare(stops[0]);
+    vars['--bg-grad-2'] = bare(stops[stops.length - 1]);
     vars['--bg-angle'] = angle;
     vars['--bg-image'] = `linear-gradient(${angle}, ${stops.join(', ')})`;
   }

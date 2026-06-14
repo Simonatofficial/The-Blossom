@@ -883,4 +883,13 @@ Decisions taken where the spec left room, so later work matches:
 
 ---
 
+## Implementation notes — V2-12 Gradient editor + weather/fish tweaks (2026-06-14)
+
+- **Gradient editor (§9):** built into the existing `js/ui/themeeditor.js` drawer rather than a separate routed page (deliberate deviation — keeps the calm one-panel pattern and full live preview; a future routed `/theme/<id>/edit` page can wrap the same `buildGradientEditor`). It renders a live gradient bar with draggable colour-stop handles (2–6 stops), a per-stop colour + position input, an angle range/number, and add/remove. Drag updates only the cheap background vars (`liveBar`); discrete changes run the full `preview()` so the **atmosphere re-colours** (it already receives `theme.colors` via `applyEffects → setAtmosphere`); weather keeps running on its own layer. Every theme is now editable — the Themes list shows a **Customize** pencil on presets (opens an editable copy; presets are never mutated) as well as Edit on custom themes.
+- **bgGradient format extended:** stops may now carry a position (`"#rrggbb 30%"`). `themes.js · colorVars` strips the `%` for the bare `--bg-grad-1/2` fallback colours and passes full positioned stops to `--bg-image`. Fully backward-compatible with the old pure-colour `[c1,…,angle]` arrays (presets unchanged).
+- **Weather/particle tuning (§8 / §6):** fish (`particles.js` `swim`) now glide side-to-side with a gentle bob and flip to face travel direction. Snow icicles have a wider tap target + a bigger shatter burst. Rain spawns from the top **and** left edges (even coverage) with larger, easier-to-tap droplets. Clouds keep their behind-widget drift and gained visible **foreground clouds confined to the top of the screen**. Wind wobble is gentler/slower (`--wx-wob` ≈0.5–1.5°, 6s). Fire is wider with slider-driven height, and s'mores moved well above the bottom nav with a bigger hitbox so they're actually tappable.
+- Verified via DOM/state + `weatherTickOnce` (dev tab is `document.hidden`, so visuals/tap-feel still want an on-device pass).
+
+---
+
 **Standing rule for V2:** use the `grill-me` skill before implementing any feature in this doc that has unresolved sub-questions. If a section contradicts an existing doc (01–12), V2 wins — update the older doc to match when implementing.
