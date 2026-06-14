@@ -401,20 +401,27 @@ export class Layer {
         p.x += Math.sin(now / 1700 + p.phase) * 12 * da * dt;
         p.y += Math.cos(now / 2300 + p.phase) * 8 * da * dt;
       } else if (d.behavior === 'swim') {
-        // re-aim a target velocity at small random intervals; ease toward it
+        // glide mostly side-to-side: commit to a horizontal heading for a few
+        // seconds (usually reversing), with a gentle vertical wander + bob, so
+        // fish look like they're swimming around rather than drifting randomly.
         p.swimT -= dt;
         if (p.swimT <= 0) {
-          p.swimT = 0.3 + Math.random() * 0.9;
+          p.swimT = 1.6 + Math.random() * 2.6;
           const sp = (d.speed || 1) * 28;
-          p.svx = (Math.random() * 2 - 1) * sp;
-          p.svy = (Math.random() * 2 - 1) * sp;
+          const goRight = (Math.random() < 0.75) ? (p.vx < 0) : (p.vx >= 0); // usually turn around
+          p.svx = (goRight ? 1 : -1) * sp * (0.7 + Math.random() * 0.6);
+          p.svy = (Math.random() * 2 - 1) * sp * 0.28;
         }
-        p.vx += (p.svx - p.vx) * Math.min(1, dt * 3);
-        p.vy += (p.svy - p.vy) * Math.min(1, dt * 3);
+        p.vx += (p.svx - p.vx) * Math.min(1, dt * 1.8);
+        p.vy += (p.svy - p.vy) * Math.min(1, dt * 1.8);
         p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        if (p.x < 0 || p.x > canvas.width) { p.vx *= -1; p.svx *= -1; }
-        if (p.y < 0 || p.y > canvas.height) { p.vy *= -1; p.svy *= -1; }
+        p.y += (p.vy + Math.sin(now / 600 + p.phase) * 7) * dt; // gentle bob
+        const m = 24; // stay on screen and turn at the edges
+        if (p.x < m) { p.x = m; p.vx = Math.abs(p.vx); p.svx = Math.abs(p.svx); }
+        else if (p.x > canvas.width - m) { p.x = canvas.width - m; p.vx = -Math.abs(p.vx); p.svx = -Math.abs(p.svx); }
+        if (p.y < m) { p.y = m; p.vy = Math.abs(p.vy); p.svy = Math.abs(p.svy); }
+        else if (p.y > canvas.height - m) { p.y = canvas.height - m; p.vy = -Math.abs(p.vy); p.svy = -Math.abs(p.svy); }
+        p.faceLeft = p.vx < 0;
       } else {
         if (p.sway) p.x += Math.sin(now / 800 + p.phase) * p.sway * 26 * dt; // sway = horizontal drift
         p.x += p.vx * dt;
@@ -476,7 +483,8 @@ export class Layer {
       if (sprite) {
         g.save();
         g.translate(p.x, p.y);
-        if (d.angle != null || p.spin) g.rotate(p.rot);
+        if (d.behavior === 'swim') { if (!p.faceLeft) g.scale(-1, 1); } // emoji faces left; flip to face travel direction
+        else if (d.angle != null || p.spin) g.rotate(p.rot);
         g.drawImage(sprite, -sprite.width / 2, -sprite.height / 2);
         g.restore();
       }

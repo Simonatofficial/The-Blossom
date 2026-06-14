@@ -18,19 +18,20 @@ body.wx-snow #weather-fx {
   box-shadow: inset 0 0 70px 14px rgba(220, 235, 255, 0.18), inset 0 0 22px 5px rgba(255, 255, 255, 0.12);
 }
 
-/* Fire: a warm amber glow along the bottom edge */
+/* Fire: a wide warm amber glow along the whole bottom edge */
 body.wx-fire #weather-fx {
   opacity: 1;
-  background: radial-gradient(130% 60% at 50% 120%, rgba(255, 150, 60, 0.3), rgba(255, 120, 40, 0.1) 42%, transparent 66%);
+  background: radial-gradient(160% 70% at 50% 122%, rgba(255, 150, 60, 0.32), rgba(255, 120, 40, 0.12) 46%, transparent 72%);
 }
 
-/* Wind: a gentle widget wobble (amplitude from --wx-wob, set by intensity) */
+/* Wind: a gentle widget sway (amplitude from --wx-wob, set by intensity).
+   Kept subtle and slow so widgets drift rather than shake. */
 @keyframes wx-wobble {
-  0%, 100% { transform: rotate(calc(var(--wx-wob, 1.5deg) * -1)); }
-  50% { transform: rotate(var(--wx-wob, 1.5deg)); }
+  0%, 100% { transform: rotate(calc(var(--wx-wob, 1deg) * -1)); }
+  50% { transform: rotate(var(--wx-wob, 1deg)); }
 }
-body.wx-wind .widget-card { animation: wx-wobble 4.5s ease-in-out infinite; }
-body.wx-wind .widget-card:nth-child(even) { animation-delay: -2.2s; }
+body.wx-wind .widget-card { animation: wx-wobble 6s ease-in-out infinite; }
+body.wx-wind .widget-card:nth-child(even) { animation-delay: -3s; }
 body.wx-wind .widget-card.dragging,
 body.wx-wind .widget-card.w-holding { animation: none; }
 

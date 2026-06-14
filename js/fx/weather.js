@@ -48,7 +48,10 @@ const EFFECTS = {
       for (const ic of s.icicles) {
         if (ic.shards) {
           let alive = false;
-          for (const p of ic.shards) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 240 * dt; p.life -= dt; if (p.life > 0) { alive = true; g.globalAlpha = Math.max(0, p.life); g.fillStyle = '#cfe2ff'; g.fillRect(p.x, p.y, 3, 3); } }
+          for (const p of ic.shards) {
+            p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 280 * dt; p.life -= dt;
+            if (p.life > 0) { alive = true; g.globalAlpha = Math.max(0, p.life / (p.max || 1)); g.fillStyle = '#dcebff'; g.fillRect(p.x, p.y, p.sz, p.sz); }
+          }
           g.globalAlpha = 1;
           if (!alive && now > ic.regrow) { ic.shards = null; ic.len = 4; }
           continue;
@@ -63,8 +66,10 @@ const EFFECTS = {
     pointer(s, x, y, now) {
       for (const ic of s.icicles) {
         if (ic.shards) continue;
-        if (x > ic.x - ic.w && x < ic.x + ic.w && y < ic.len + 8) {
-          ic.shards = Array.from({ length: 10 }, () => ({ x: ic.x, y: ic.len * Math.random(), vx: rnd(-90, 90), vy: rnd(-40, 60), life: rnd(0.4, 0.8) }));
+        const hw = Math.max(ic.w, 20); // generous tap target around the icicle
+        if (x > ic.x - hw && x < ic.x + hw && y < ic.len + 28) {
+          // a clearly visible shatter burst that falls and fades on screen
+          ic.shards = Array.from({ length: 22 }, () => ({ x: ic.x + rnd(-ic.w, ic.w), y: ic.len * Math.random(), vx: rnd(-160, 160), vy: rnd(-80, 50), sz: rnd(2, 6), life: rnd(0.5, 1.0), max: 1.0 }));
           ic.regrow = now + rnd(10000, 40000);
         }
       }
@@ -75,31 +80,39 @@ const EFFECTS = {
      tapped (fg). */
   rain: {
     init(s) {
-      s.streaks = Array.from({ length: Math.round(60 + intensity * 160) }, () => ({ x: Math.random() * W(), y: Math.random() * H(), len: rnd(10, 26), v: rnd(550, 900) }));
+      // spawn each streak from EITHER the top edge (across the full width, with a
+      // little left overhang) OR the left edge — so the rain fills the whole
+      // screen evenly instead of draining toward one corner (no blank top-left).
+      s.spawn = (r) => {
+        if (Math.random() < 0.4) { r.x = -r.len; r.y = Math.random() * H() * 0.7; }
+        else { r.x = Math.random() * (W() + r.len) - r.len; r.y = -r.len; }
+      };
+      s.streaks = Array.from({ length: Math.round(60 + intensity * 160) }, () => { const r = { len: rnd(10, 26), v: rnd(550, 900) }; s.spawn(r); r.y = Math.random() * H(); return r; });
       s.drops = [];
       s.acc = 0;
     },
     tickBg(g, s, dt) {
-      g.strokeStyle = 'rgba(170,195,235,0.45)'; g.lineWidth = 1.2;
+      g.strokeStyle = 'rgba(170,195,235,0.5)'; g.lineWidth = 1.3;
       for (const r of s.streaks) {
         r.y += r.v * dt; r.x += r.v * 0.18 * dt;
-        if (r.y > H()) { r.y = -r.len; r.x = Math.random() * W(); }
+        if (r.y > H() || r.x - r.len > W()) s.spawn(r);
         g.beginPath(); g.moveTo(r.x, r.y); g.lineTo(r.x - r.len * 0.18, r.y - r.len); g.stroke();
       }
     },
     tickFg(g, s, dt) {
       s.acc += dt * (0.4 + intensity * 2.2);
-      if (s.acc > 1 && s.drops.length < 60) { s.acc = 0; s.drops.push({ x: Math.random() * W(), y: rnd(0.1, 0.85) * H(), r: rnd(3, 7), run: false, v: 0 }); }
+      if (s.acc > 1 && s.drops.length < 60) { s.acc = 0; s.drops.push({ x: Math.random() * W(), y: rnd(0.1, 0.85) * H(), r: rnd(5, 10), run: false, v: 0 }); }
       for (const d of s.drops) {
         if (d.run) { d.v += 600 * dt; d.y += d.v * dt; d.r *= 0.992; }
-        g.fillStyle = `rgba(200,220,250,${d.run ? 0.3 : 0.45})`;
+        g.fillStyle = `rgba(200,220,250,${d.run ? 0.3 : 0.5})`;
         g.beginPath(); g.arc(d.x, d.y, d.r, 0, Math.PI * 2); g.fill();
-        g.fillStyle = 'rgba(255,255,255,0.4)'; g.beginPath(); g.arc(d.x - d.r * 0.3, d.y - d.r * 0.3, d.r * 0.25, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(255,255,255,0.4)'; g.beginPath(); g.arc(d.x - d.r * 0.3, d.y - d.r * 0.3, d.r * 0.28, 0, Math.PI * 2); g.fill();
       }
       s.drops = s.drops.filter(d => d.y < H() + 10 && d.r > 1);
     },
     pointer(s, x, y) {
-      for (const d of s.drops) if (!d.run && Math.hypot(d.x - x, d.y - y) < d.r + 8) d.run = true;
+      // bigger tap radius so droplets are easy to pop, even in gaps over widgets
+      for (const d of s.drops) if (!d.run && Math.hypot(d.x - x, d.y - y) < d.r + 16) d.run = true;
     }
   },
 
@@ -107,8 +120,9 @@ const EFFECTS = {
      The cloud "type" (white peaceful → dark stormy) tracks intensity. */
   clouds: {
     init(s) {
-      s.clouds = Array.from({ length: 5 }, () => makeCloud());
-      function makeCloud() { return { x: Math.random() * 1.3 - 0.15, y: rnd(0.05, 0.4), scale: rnd(0.7, 1.5), v: rnd(0.01, 0.03), puffs: Array.from({ length: 5 }, () => ({ dx: rnd(-0.6, 0.6), dy: rnd(-0.2, 0.2), r: rnd(0.4, 1) })) }; }
+      function makeCloud(top) { return { x: Math.random() * 1.3 - 0.15, y: top ? rnd(0, 0.12) : rnd(0.05, 0.4), scale: rnd(0.7, 1.5), v: rnd(0.01, 0.03), puffs: Array.from({ length: 5 }, () => ({ dx: rnd(-0.6, 0.6), dy: rnd(-0.2, 0.2), r: rnd(0.4, 1) })) }; }
+      s.clouds = Array.from({ length: 5 }, () => makeCloud(false));   // drift behind widgets
+      s.fgClouds = Array.from({ length: 3 }, () => makeCloud(true));  // pass in front, top only
       s.makeCloud = makeCloud;
     },
     tickBg(g, s, dt) {
@@ -124,9 +138,15 @@ const EFFECTS = {
       }
     },
     tickFg(g, s, dt) {
-      // lighter wisps across the very top
-      g.fillStyle = 'rgba(255,255,255,0.06)';
-      for (const c of s.clouds) if (c.y < 0.18) { const cx = c.x * W(), base = 30 * c.scale; g.beginPath(); g.ellipse(cx, c.y * H(), base * 2.4, base * 0.7, 0, 0, Math.PI * 2); g.fill(); }
+      // clouds that pass IN FRONT of widgets, but only across the very top of the
+      // screen so they never cover content the user is working with.
+      g.fillStyle = `rgba(255,255,255,${0.2 - intensity * 0.05})`;
+      for (const c of s.fgClouds) {
+        c.x += c.v * 0.8 * dt;
+        if (c.x > 1.25) Object.assign(c, s.makeCloud(true), { x: -0.2 });
+        const cx = c.x * W(), cy = c.y * H() + 6, base = 30 * c.scale;
+        for (const p of c.puffs) { g.beginPath(); g.arc(cx + p.dx * base * 1.6, cy + Math.min(p.dy * base, base * 0.3), p.r * base, 0, Math.PI * 2); g.fill(); }
+      }
     },
     pointer(s, x, y) {
       for (let i = s.clouds.length - 1; i >= 0; i--) {
@@ -162,15 +182,18 @@ const EFFECTS = {
   fire: {
     init(s) {
       s.parts = [];
-      s.smores = Array.from({ length: 4 }, (_, i) => makeSmore(i, 4));
+      const n = 6;
+      s.smores = Array.from({ length: n }, (_, i) => makeSmore(i, n));
       s.acc = 0;
-      function makeSmore(i, n) { return { x: 0.5 + (i - (n - 1) / 2) * 0.12, cook: 0, eaten: false, born: 0 }; }
+      function makeSmore(i, n) { return { x: 0.5 + (i - (n - 1) / 2) * (0.78 / (n - 1)), cook: 0, eaten: false, born: 0 }; }
       s.makeSmore = makeSmore;
     },
     tickBg(g, s, dt, now) {
-      const cx = W() / 2, base = H() - 8, size = 0.6 + intensity;
-      s.acc += dt * (60 + intensity * 90);
-      while (s.acc > 1) { s.acc -= 1; s.parts.push({ x: cx + rnd(-22, 22) * size, y: base, vx: rnd(-14, 14), vy: rnd(-90, -150) * size, life: rnd(0.5, 1.1), max: 1.1, ember: Math.random() < 0.12 }); }
+      // a WIDE fire spanning the bottom; the slider drives both width and height.
+      const base = H() - 6, size = 0.7 + intensity * 0.9, tall = 0.7 + intensity * 2.0;
+      const cx = W() / 2, halfW = W() * (0.32 + intensity * 0.16);
+      s.acc += dt * (90 + intensity * 220);
+      while (s.acc > 1) { s.acc -= 1; s.parts.push({ x: cx + rnd(-halfW, halfW), y: base, vx: rnd(-16, 16), vy: rnd(-95, -150) * tall, life: rnd(0.5, 1.15), max: 1.15, ember: Math.random() < 0.12 }); }
       for (const p of s.parts) {
         p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 26 * dt; p.life -= dt;
         const t = 1 - p.life / p.max; // 0 hot → 1 cool
@@ -181,17 +204,17 @@ const EFFECTS = {
     },
     tickFg(g, s, dt, now) {
       const speed = (0.4 + intensity) * 0.05;
-      const baseY = H() - 26;
+      const baseY = H() - 92; // marshmallows sit well above the bottom nav so they're tappable
       for (const sm of s.smores) {
-        if (sm.eaten) { if (now > sm.born) { sm.eaten = false; sm.cook = 0; } else continue; }
+        if (sm.eaten) { if (now > sm.born) { sm.eaten = false; sm.cook = 0; sm.x = 0.11 + Math.random() * 0.78; } else continue; }
         sm.cook = Math.min(1, sm.cook + dt * speed);
         const x = sm.x * W();
-        g.strokeStyle = '#7a5230'; g.lineWidth = 3; g.beginPath(); g.moveTo(x, baseY + 26); g.lineTo(x, baseY); g.stroke(); // stick
+        g.strokeStyle = '#7a5230'; g.lineWidth = 3; g.beginPath(); g.moveTo(x, baseY + 60); g.lineTo(x, baseY); g.stroke(); // stick reaching down toward the fire
         const r = parseInt(248 - sm.cook * 120), gg = parseInt(236 - sm.cook * 150), b = parseInt(200 - sm.cook * 150);
         g.fillStyle = `rgb(${r},${gg},${b})`;
-        g.beginPath(); g.roundRect ? g.roundRect(x - 9, baseY - 16, 18, 18, 4) : g.rect(x - 9, baseY - 16, 18, 18); g.fill();
-        if (sm.cook >= 1) { g.fillStyle = `rgba(255,240,180,${0.4 + 0.4 * Math.sin(now / 200)})`; g.beginPath(); g.arc(x, baseY - 7, 3, 0, Math.PI * 2); g.fill(); }
-        sm._box = [x - 11, baseY - 18, 22, 22];
+        g.beginPath(); g.roundRect ? g.roundRect(x - 11, baseY - 20, 22, 22, 5) : g.rect(x - 11, baseY - 20, 22, 22); g.fill();
+        if (sm.cook >= 1) { g.fillStyle = `rgba(255,240,180,${0.4 + 0.4 * Math.sin(now / 200)})`; g.beginPath(); g.arc(x, baseY - 9, 4, 0, Math.PI * 2); g.fill(); }
+        sm._box = [x - 20, baseY - 30, 40, 44]; // generous tap target, clear of the nav
       }
     },
     pointer(s, x, y, now) {
@@ -227,7 +250,7 @@ export function setWeather() {
   const wx = fx.weather || {};
   intensity = wx.intensity ?? 0.5;
   for (const k of Object.keys(EFFECTS)) document.body.classList.toggle(`wx-${k}`, false);
-  document.documentElement.style.setProperty('--wx-wob', `${1 + intensity * 2}deg`);
+  document.documentElement.style.setProperty('--wx-wob', `${0.5 + intensity * 1.0}deg`); // subtle sway (≈0.5–1.5°)
   gb?.clearRect(0, 0, W(), H()); gf?.clearRect(0, 0, W(), H());
   active = null;
   if (unsub) { unsub(); unsub = null; }
