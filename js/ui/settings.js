@@ -203,7 +203,7 @@ function renderAccountSection(d) {
 /* ---------- visual effects master toggles (V2 §5) ---------- */
 
 function renderVisualEffectsSection(d) {
-  const sec = el('<div class="dsec"><h3>Visual Effects</h3><div class="ve-rows"></div></div>');
+  const sec = el('<div class="dsec"><h3>Effects</h3><div class="ve-rows"></div></div>');
   const rows = sec.querySelector('.ve-rows');
   const getFx = () => store.getMeta('settings', {})?.fx || {};
   const setFx = (k, v, weather = false) => {
@@ -218,40 +218,137 @@ function renderVisualEffectsSection(d) {
     store.setMeta('settings', s);
     events.emit('weather:changed', {});
   };
-  const toggleRow = (label, key, hint, defaultOn, weather, onAfter) => {
+  const themeId = () => activeThemeId();
+  const curTheme = () => withOverrides(getTheme(themeId()));
+  const reapply = () => { applyGlobalTheme(themeId()); render(); };
+
+  // a Weather-style block: a labelled toggle; when on, its options show below it.
+  const block = (label, hint, on, onToggle, optionsFn) => {
+    const wrap = el('<div class="ve-block" style="margin-bottom:6px"></div>');
     const r = el('<div class="ve-row"><div class="grow"><div class="ve-label"></div><div class="hint"></div></div></div>');
     r.querySelector('.ve-label').textContent = label;
     r.querySelector('.hint').textContent = hint;
-    const on = defaultOn ? getFx()[key] !== false : getFx()[key] === true;
-    r.appendChild(switchEl(on, (v) => { setFx(key, v, weather); onAfter?.(); }));
-    return r;
-  };
-  const render = () => {
-    rows.innerHTML = '';
-    rows.append(
-      toggleRow('Particles', 'particlesEnabled', 'Drifting background particles for the active theme.', true),
-      toggleRow('Atmosphere', 'atmosphereEnabled', 'Day/night, constellations, waves and other scenes.', true),
-      toggleRow('Weather', 'weatherEnabled', 'Snow, rain, clouds, wind and fire — decorative and tappable.', false, true, render)
-    );
-    if (getFx().weatherEnabled) {
-      const wx = getFx().weather || {};
-      const chipRow = el('<div class="row" style="flex-wrap:wrap;gap:6px;margin:8px 2px"></div>');
-      const mkChip = (key, name) => {
-        const c = el(`<button class="chip ${(wx.activeEffect || null) === key ? 'accent' : ''}"></button>`);
-        c.textContent = name;
-        c.onclick = () => { setWeatherOpt({ activeEffect: key }); render(); };
-        return c;
-      };
-      chipRow.appendChild(mkChip(null, 'Off'));
-      for (const e of WEATHER_EFFECTS) chipRow.appendChild(mkChip(e.key, e.name));
-      rows.appendChild(chipRow);
-      const intBlock = el('<div style="margin:4px 2px 2px"><div class="ve-label" style="font-size:0.84rem;margin-bottom:5px">Intensity</div></div>');
-      intBlock.appendChild(rangeField({ min: 0, max: 100, step: 5, value: Math.round((wx.intensity ?? 0.5) * 100), unit: '%', onChange: (v) => setWeatherOpt({ intensity: v / 100 }) }));
-      rows.appendChild(intBlock);
+    r.appendChild(switchEl(on, onToggle));
+    wrap.appendChild(r);
+    if (on && optionsFn) {
+      const opts = el('<div class="ve-options" style="margin:6px 2px 12px 2px"></div>');
+      optionsFn(opts);
+      wrap.appendChild(opts);
     }
+    rows.appendChild(wrap);
   };
+  const chips = (opts, items, current, onPick) => {
+    const cr = el('<div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>');
+    for (const it of items) {
+      const c = el(`<button class="chip ${current === it.value ? 'accent' : ''}"></button>`);
+      c.textContent = it.label;
+      c.onclick = () => onPick(it.value);
+      cr.appendChild(c);
+    }
+    opts.appendChild(cr);
+  };
+
+  function render() {
+    rows.innerHTML = '';
+    const fx = getFx();
+    const theme = curTheme();
+    const id = themeId();
+
+    // Atmosphere — pick a scene + its one slider
+    block('Atmosphere', 'A slow background scene.', fx.atmosphereEnabled !== false,
+      (v) => { setFx('atmosphereEnabled', v); render(); },
+      (opts) => {
+        const cur = theme.atmosphere?.preset || '';
+        chips(opts, [{ value: '', label: 'None' }, ...ATMOSPHERE_PRESETS.map(a => ({ value: a.key, label: a.name }))], cur,
+          (v) => { setThemeOverride(id, 'atmosphere', v ? { preset: v, options: {} } : null); reapply(); });
+        const o = cur && ATMOSPHERE_OPTIONS[cur];
+        if (o) {
+          const lbl = el('<div class="soft" style="font-size:0.8rem;margin:0 2px 4px;cursor:help"></div>');
+          lbl.textContent = o.label; lbl.title = o.tip;
+          opts.appendChild(lbl);
+          opts.appendChild(rangeField({ min: o.min, max: o.max, step: o.step, value: theme.atmosphere?.options?.[o.key] ?? o.def, unit: o.unit,
+            onChange: (v) => { setThemeOverride(id, 'atmosphere', { preset: cur, options: { ...(theme.atmosphere?.options || {}), [o.key]: v } }); applyGlobalTheme(id); } }));
+        }
+      });
+
+    // Particles — active layers + add (opens the particle picker)
+    block('Particles', 'Drifting bits for the active theme.', fx.particlesEnabled !== false,
+      (v) => { setFx('particlesEnabled', v); render(); },
+      (opts) => renderParticleLayers(opts, theme, id, reapply));
+
+    // Weather — effect chips + intensity
+    block('Weather', 'Snow, rain, clouds, wind, fire — tappable.', fx.weatherEnabled === true,
+      (v) => { setFx('weatherEnabled', v, true); render(); },
+      (opts) => {
+        const wx = fx.weather || {};
+        chips(opts, [{ value: null, label: 'Off' }, ...WEATHER_EFFECTS.map(e => ({ value: e.key, label: e.name }))], wx.activeEffect || null,
+          (v) => { setWeatherOpt({ activeEffect: v }); render(); });
+        const lbl = el('<div class="soft" style="font-size:0.8rem;margin:0 2px 4px">Intensity</div>');
+        opts.appendChild(lbl);
+        opts.appendChild(rangeField({ min: 0, max: 100, step: 5, value: Math.round((wx.intensity ?? 0.5) * 100), unit: '%', onChange: (v) => setWeatherOpt({ intensity: v / 100 }) }));
+      });
+
+    // Pointer trail — a flourish that follows touch
+    block('Pointer trail', 'A flourish that follows your touch.', !!theme.pointerFx,
+      (v) => { setThemeOverride(id, 'pointerFx', v ? { preset: PRESET_POINTER_FX[0].id, overrides: {} } : null); reapply(); },
+      (opts) => {
+        const cur = theme.pointerFx?.preset || '';
+        chips(opts, PRESET_POINTER_FX.map(p => ({ value: p.id, label: p.name })), cur,
+          (v) => { setThemeOverride(id, 'pointerFx', { preset: v, overrides: {} }); reapply(); });
+      });
+
+    if (themeOverrides(id)) {
+      const reset = el(`<button class="btn-ghost btn" style="padding:4px 10px;font-size:0.8rem;margin-top:2px">${icon('rotate-ccw', 13)} Reset to ${getTheme(id).name}'s defaults</button>`);
+      reset.onclick = async () => {
+        if (await confirmDialog({ title: 'Reset effects?', message: 'Your atmosphere, particle and pointer tweaks on this theme are cleared.', confirmText: 'Reset' })) { clearThemeOverrides(id); reapply(); }
+      };
+      rows.appendChild(reset);
+    }
+  }
   render();
   d.body.appendChild(sec);
+}
+
+/* The active theme's particle layers (up to 3): pick · on/off · adjust · remove,
+   plus an Add that opens the particle picker. Wraps on a narrow screen so no
+   control is pushed off the edge (fixes the off-screen toggle, V2 §5). */
+function renderParticleLayers(wrap, theme, id, reapply) {
+  const spec = theme.particles;
+  const layers = (Array.isArray(spec) ? spec : spec ? [spec] : []).map(l => ({ overrides: {}, enabled: true, ...l }));
+  const save = (next) => { setThemeOverride(id, 'particles', next.length ? next : null); reapply(); };
+  const labelFor = (pid) => getParticlePreset(pid)?.name || store.get('themes', pid)?.name || pid;
+  const clone = () => layers.map(l => ({ ...l }));
+
+  layers.forEach((layer, i) => {
+    const row = el(`<div class="row" style="gap:6px;margin-bottom:6px;flex-wrap:wrap;align-items:center">
+      <button class="btn p-pick grow" style="min-width:120px;justify-content:flex-start;padding:6px 10px"></button>
+      <span class="p-switch"></span>
+      <button class="btn-icon p-adj" title="Adjust">${icon('sliders', 15)}</button>
+      <button class="btn-icon p-del" title="Remove">${icon('x', 14)}</button>
+    </div>`);
+    const pick = row.querySelector('.p-pick');
+    pick.textContent = labelFor(layer.preset);
+    pick.onclick = async () => {
+      const { openParticlePicker } = await import('./particlepicker.js');
+      openParticlePicker({ current: layer.preset, onPick: (pid) => { const n = clone(); n[i] = { ...n[i], preset: pid, overrides: {} }; save(n); } });
+    };
+    row.querySelector('.p-switch').appendChild(switchEl(layer.enabled !== false, (on) => { const n = clone(); n[i].enabled = on; save(n); }));
+    row.querySelector('.p-adj').onclick = async () => {
+      const { openParticleEditor } = await import('./particleeditor.js');
+      openParticleEditor(null, (rec) => { const n = clone(); n[i] = { preset: rec.id, overrides: {}, enabled: true }; save(n); }, resolveFxDef(layer));
+    };
+    row.querySelector('.p-del').onclick = () => { const n = clone(); n.splice(i, 1); save(n); };
+    wrap.appendChild(row);
+  });
+
+  if (layers.length < 3) {
+    const add = el(`<button class="btn-soft-wide" style="margin-top:2px">${icon('plus', 14)} Add particle</button>`);
+    add.onclick = async () => {
+      const { openParticlePicker } = await import('./particlepicker.js');
+      openParticlePicker({ current: '', onPick: (pid) => save([...layers, { preset: pid, overrides: {}, enabled: true }]) });
+    };
+    wrap.appendChild(add);
+  }
 }
 
 /* ---------- themes ---------- */
@@ -291,7 +388,6 @@ function renderThemesSection(d) {
       });
       list.appendChild(li);
     }
-    list.appendChild(renderEffectsPanel(render));
     const newBtn = el(`<button class="btn-soft-wide">${icon('plus', 15)} New theme</button>`);
     newBtn.onclick = async () => {
       const { openThemeEditor } = await import('./themeeditor.js');
