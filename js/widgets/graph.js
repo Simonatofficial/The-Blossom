@@ -27,7 +27,25 @@ function seriesColor(i, theme, override) {
 }
 
 function newGraph(kind = 'line') {
-  return { id: ulid(), kind, series: [], range: 'week', aggregate: 'raw', style: kind === 'flower' ? 'botanical' : 'plain' };
+  return { id: ulid(), kind, series: [], range: 'week', aggregate: 'raw', style: kind === 'flower' ? 'botanical' : 'plain', valueLabels: true, legend: true, smooth: false };
+}
+
+/** V2 §19: a small legend along the bottom (colour swatch + series name). */
+function drawLegend(g, seriesData, theme, W, H) {
+  g.font = '10px system-ui';
+  g.textAlign = 'left';
+  g.textBaseline = 'middle';
+  const items = seriesData.map(s => ({ c: s.color, t: s.label }));
+  const widths = items.map(it => 16 + g.measureText(it.t).width + 12);
+  let x = Math.max(8, (W - widths.reduce((a, b) => a + b, 0)) / 2);
+  const y = H - 7;
+  for (let i = 0; i < items.length; i++) {
+    g.fillStyle = items[i].c;
+    g.beginPath(); g.roundRect(x, y - 4, 9, 9, 2); g.fill();
+    g.fillStyle = theme.textSoft;
+    g.fillText(items[i].t, x + 13, y + 1);
+    x += widths[i];
+  }
 }
 
 /** Sub-particles for a series whose source is a composite Skill (docs/05). */
@@ -69,7 +87,7 @@ function renderGraph(holder, widget, gdef, ctx, big) {
     const color = seriesColor(i, theme, s.color);
     const src = store.get('widgets', s.link.sourceWidgetId);
     const label = s.label || src?.name || '?';
-    if (gdef.kind === 'flower' || gdef.kind === 'pie') {
+    if (gdef.kind === 'flower' || gdef.kind === 'pie' || gdef.kind === 'donut') {
       return { color, label, link: s.link, now: values.getValue(s.link) ?? 0, particles: gdef.kind === 'flower' ? complexParticles(s.link) : null };
     }
     let pts = values.getSeries(s.link, from, todayStr()).map(p => ({ ...p, value: p.value ?? 0 }));
@@ -132,12 +150,15 @@ function renderGraph(holder, widget, gdef, ctx, big) {
     }
 
     const pad = { l: 30, r: 10, t: 12, b: 20 };
+    const showLegend = gdef.legend && seriesData.length > 0;
+    if (showLegend) pad.b += 14;
+    const showLabels = gdef.valueLabels !== false;
     const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
     const allPts = seriesData.flatMap(s => s.pts || []);
     const maxV = Math.max(1, ...allPts.map(p => p.value));
 
-    if (gdef.kind === 'pie') {
-      const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2 - 16;
+    if (gdef.kind === 'pie' || gdef.kind === 'donut') {
+      const cx = W / 2, cy = (H - (showLegend ? 14 : 0)) / 2, R = Math.min(W, H - (showLegend ? 14 : 0)) / 2 - 16;
       const total = Math.max(0.001, seriesData.reduce((a, s) => a + Math.max(0, s.now), 0));
       let a0 = -Math.PI / 2;
       const sweep = reduced ? 1 : Math.min(1, t / 0.5);
@@ -170,6 +191,12 @@ function renderGraph(holder, widget, gdef, ctx, big) {
       });
       function a0r(i) { return bounds[i][0]; }
       function a1r(i) { return bounds[i][1]; }
+      if (gdef.kind === 'donut') { // punch a transparent hole so the surface shows through
+        g.save(); g.globalCompositeOperation = 'destination-out';
+        g.beginPath(); g.arc(cx, cy, R * 0.56, 0, Math.PI * 2); g.fill();
+        g.restore();
+      }
+      if (showLegend) drawLegend(g, seriesData, theme, W, H);
       return !reduced && t < 0.55;
     }
 
@@ -195,6 +222,7 @@ function renderGraph(holder, widget, gdef, ctx, big) {
 
     if (gdef.kind === 'bar') {
       const bw = Math.min(26, (plotW / nPts) * 0.7 / seriesData.length);
+      const done = reduced || t >= 1;
       seriesData.forEach((s, i) => {
         (s.pts || []).forEach((p, j) => {
           const rise = reduced ? 1 : Math.min(1, Math.max(0, (t - j * 0.02) / 0.4));
@@ -204,36 +232,54 @@ function renderGraph(holder, widget, gdef, ctx, big) {
           g.beginPath();
           g.roundRect(x, pad.t + plotH - h, bw - 2, h, 3);
           g.fill();
+          if (showLabels && done && p.value) { // numeric value above the bar (§19)
+            g.fillStyle = theme.textSoft; g.font = '9px system-ui'; g.textAlign = 'center'; g.textBaseline = 'bottom';
+            g.fillText(String(Math.round(p.value * 10) / 10), x + (bw - 2) / 2, pad.t + plotH - h - 2);
+          }
           hits.push({ kind: 'pt', i, j, test: (px, py) => px >= x && px <= x + bw && py >= pad.t && py <= pad.t + plotH });
         });
       });
+      if (showLegend) drawLegend(g, seriesData, theme, W, H);
       return !reduced && t < 1;
     }
 
-    // line (default)
+    // line (default) / area (filled) / scatter (points only) — §19
+    const isArea = gdef.kind === 'area';
+    const isScatter = gdef.kind === 'scatter';
     seriesData.forEach((s, i) => {
       const pts = s.pts || [];
       const prog = reduced ? 1 : Math.min(1, t / 0.4);
-      g.strokeStyle = s.color;
-      g.lineWidth = 2;
-      g.beginPath();
-      const upto = Math.max(1, Math.floor(pts.length * prog));
-      pts.slice(0, upto).forEach((p, j) => {
-        const x = xAt(j), y = pad.t + plotH - (p.value / maxV) * plotH;
-        j ? g.lineTo(x, y) : g.moveTo(x, y);
-      });
-      g.stroke();
+      const coords = pts.map((p, j) => [xAt(j), pad.t + plotH - (p.value / maxV) * plotH]);
+      const shown = coords.slice(0, Math.max(1, Math.floor(coords.length * prog)));
+      const trace = () => {
+        g.beginPath();
+        if (gdef.smooth && shown.length > 2) { // bezier midpoint smoothing
+          g.moveTo(shown[0][0], shown[0][1]);
+          for (let j = 1; j < shown.length - 1; j++) {
+            const mx = (shown[j][0] + shown[j + 1][0]) / 2, my = (shown[j][1] + shown[j + 1][1]) / 2;
+            g.quadraticCurveTo(shown[j][0], shown[j][1], mx, my);
+          }
+          g.lineTo(shown.at(-1)[0], shown.at(-1)[1]);
+        } else shown.forEach((c, j) => j ? g.lineTo(c[0], c[1]) : g.moveTo(c[0], c[1]));
+      };
+      if (!isScatter && shown.length > 1) {
+        if (isArea) { trace(); g.lineTo(shown.at(-1)[0], pad.t + plotH); g.lineTo(shown[0][0], pad.t + plotH); g.closePath(); g.fillStyle = hexA(s.color, 0.18); g.fill(); }
+        g.strokeStyle = s.color; g.lineWidth = 2; trace(); g.stroke();
+      }
       if (prog >= 1) {
-        pts.forEach((p, j) => {
-          const x = xAt(j), y = pad.t + plotH - (p.value / maxV) * plotH;
+        coords.forEach((c, j) => {
           g.beginPath();
-          g.arc(x, y, selected?.i === i && selected?.j === j ? 4 : 2.5, 0, Math.PI * 2);
-          g.fillStyle = s.color;
-          g.fill();
-          hits.push({ kind: 'pt', i, j, test: (px, py) => Math.hypot(px - x, py - y) < 12 });
+          g.arc(c[0], c[1], selected?.i === i && selected?.j === j ? 4 : (isScatter ? 3.5 : 2.5), 0, Math.PI * 2);
+          g.fillStyle = s.color; g.fill();
+          if (showLabels && coords.length <= 14 && pts[j]?.value != null) {
+            g.fillStyle = theme.textSoft; g.font = '9px system-ui'; g.textAlign = 'center'; g.textBaseline = 'bottom';
+            g.fillText(String(Math.round(pts[j].value * 10) / 10), c[0], c[1] - 5);
+          }
+          hits.push({ kind: 'pt', i, j, test: (px, py) => Math.hypot(px - c[0], py - c[1]) < 12 });
         });
       }
     });
+    if (showLegend) drawLegend(g, seriesData, theme, W, H);
     return !reduced && t < 0.5;
   };
 
@@ -277,7 +323,7 @@ registry.register({
   type: 'graph',
   name: 'Graph',
   icon: 'bar-chart',
-  description: 'Lines, bars, pies — and the Flower Graph',
+  description: 'Lines, areas, bars, scatter, pies, donuts — and the Flower Graph',
   linkable: false,
   external: true, internal: true,
   defaultConfig: () => ({ graphs: [newGraph('line')] }),
@@ -307,10 +353,11 @@ registry.register({
         panel.appendChild(holder);
 
         const controls = el('<div class="row" style="flex-wrap:wrap;margin-top:10px;gap:8px"></div>');
+        const seriesKinds = ['pie', 'donut', 'flower'];
         controls.appendChild(seg(
-          ['line', 'bar', 'pie', 'flower'].map(k => ({ value: k, label: k[0].toUpperCase() + k.slice(1) })),
+          ['line', 'area', 'bar', 'scatter', 'pie', 'donut', 'flower'].map(k => ({ value: k, label: k[0].toUpperCase() + k.slice(1) })),
           gdef.kind, (v) => { gdef.kind = v; if (v === 'flower') gdef.style = gdef.style || 'botanical'; save(); renderAll(); }));
-        if (gdef.kind !== 'flower' && gdef.kind !== 'pie') {
+        if (!seriesKinds.includes(gdef.kind)) {
           controls.appendChild(seg(
             [{ value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, { value: 'quarter', label: 'Quarter' }],
             gdef.range, (v) => { gdef.range = v; save(); renderAll(); }));
@@ -323,12 +370,33 @@ registry.register({
         }
         panel.appendChild(controls);
 
+        // display toggles (V2 §19): value labels, legend, and (line/area) smoothing
+        if (gdef.kind !== 'flower') {
+          const toggles = el('<div class="row" style="flex-wrap:wrap;margin-top:8px;gap:6px"></div>');
+          const tog = (label, key, def) => {
+            const on = gdef[key] !== false && (gdef[key] !== undefined || def);
+            const chip = el(`<button class="chip ${on ? 'accent' : ''}" style="cursor:pointer"></button>`);
+            chip.textContent = label;
+            chip.onclick = () => { gdef[key] = !(gdef[key] !== false && (gdef[key] !== undefined || def)); save(); renderAll(); };
+            return chip;
+          };
+          toggles.append(tog('Value labels', 'valueLabels', true), tog('Legend', 'legend', true));
+          if (gdef.kind === 'line' || gdef.kind === 'area') toggles.append(tog('Smooth', 'smooth', false));
+          panel.appendChild(toggles);
+        }
+
         const chips = el('<div class="row" style="flex-wrap:wrap;margin-top:10px;gap:6px"></div>');
         gdef.series.forEach((s, i) => {
           const src = store.get('widgets', s.link.sourceWidgetId);
-          const chip = el(`<button class="chip" style="cursor:pointer;border-color:${seriesColor(i, themeColors(host), s.color)}">${src?.name || '?'} ×</button>`);
+          const grp = el('<span class="row" style="gap:4px"></span>');
+          const color = el('<input type="color" title="Series colour" style="width:22px;height:22px;border:none;background:none;padding:0;cursor:pointer">');
+          const cur = seriesColor(i, themeColors(host), s.color);
+          if (/^#([0-9a-f]{6})$/i.test(cur)) color.value = cur;
+          color.oninput = () => { s.color = color.value; save(); renderAll(); };
+          const chip = el(`<button class="chip" style="cursor:pointer">${src?.name || '?'} ×</button>`);
           chip.onclick = () => { gdef.series.splice(i, 1); save(); renderAll(); };
-          chips.appendChild(chip);
+          grp.append(color, chip);
+          chips.appendChild(grp);
         });
         const addData = el(`<button class="chip accent" style="cursor:pointer">${icon('plus', 11)} Add data</button>`);
         addData.onclick = () => openLinkPicker({
