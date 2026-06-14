@@ -397,8 +397,9 @@ export class Layer {
         p.x = p.cx + Math.cos(p.orbitA) * p.orbitR;
         p.y = p.cy + Math.sin(p.orbitA) * p.orbitR * 0.5;
       } else if (d.behavior === 'drift') {
-        p.x += Math.sin(now / 1700 + p.phase) * 12 * dt;
-        p.y += Math.cos(now / 2300 + p.phase) * 8 * dt;
+        const da = d.driftAmp ?? 1; // Stars use a low amp for a subtler drift (V2 §6)
+        p.x += Math.sin(now / 1700 + p.phase) * 12 * da * dt;
+        p.y += Math.cos(now / 2300 + p.phase) * 8 * da * dt;
       } else if (d.behavior === 'swim') {
         // re-aim a target velocity at small random intervals; ease toward it
         p.swimT -= dt;

@@ -74,7 +74,7 @@ export const PRESET_THEMES = [
       success: '#9fce8f', warn: '#ffc46b', glow: 'rgba(255,138,92,0.42)'
     },
     atmosphere: { preset: 'sunset', options: {} },
-    particles: { preset: 'dustMotes', overrides: {} },
+    particles: { preset: 'fireflies', overrides: {} },
     pointerFx: { preset: 'glowRing', overrides: {} }
   },
   {
@@ -100,7 +100,7 @@ export const PRESET_THEMES = [
       success: '#76b97c', warn: '#d99a4e', glow: 'rgba(238,106,78,0.30)'
     },
     atmosphere: { preset: 'waves', options: { edge: 'bottom', intensity: 0.5, clouds: true } },
-    particles: { preset: 'dustMotes', overrides: {} },
+    particles: { preset: 'fireflies', overrides: {} },
     pointerFx: { preset: 'sandFlick', overrides: {} }
   },
   {
