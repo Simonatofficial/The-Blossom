@@ -1616,6 +1616,8 @@ Shows: today's date + a count of pending items for today (incomplete sets, tasks
 
 **Accept when:** user opens the Overview, sees today's flashcard sessions and quiz scores; taps a quiz → starts the quiz; navigates back; taps ← to see yesterday's activity.
 
+**Implementation notes (2026-06-15):** Rewrote overview.js from the old stat-grid into a day-by-day activity feed. Date nav (← prev / label / next →), default Today. Rich activity providers for Flashcard (studyDay reviews), Quiz (quizResult score/time per day), Notebook (topicNote.editedAt → "Edited {topic}"); a **generic provider** reads any widget's non-zero day-keyed `outputs` (Skill/Habit/Quest/Counter/Tracker/Health/…). Empty widgets hidden unless "Show empty" (settings). **Navigation is widget-level** — tapping an item `goWidget`s to the source widget (router back returns to the Overview); deep-linking to start a *specific* set/quiz or open a *specific* topic in edit mode is deferred (would need an open-target hook in those widgets). Card view: today's weekday/date + activity count + "View today". SW v57.
+
 ---
 
 ### §W-4 — Flashcard Widget Overhaul
@@ -1960,7 +1962,7 @@ Implement §W items in this order. Mark ✅ date when acceptance criteria pass.
 |---|---|---|---|
 | W-1 | Notebook Widget overhaul | `js/widgets/notebook.js`, `notebook-editor.js`, `notebook-parse.js` | ✅ 2026-06-15 |
 | W-2 | Study Notes Widget (rename + source picker + format) | `js/widgets/study-notes.js` | ✅ 2026-06-15 |
-| W-3 | Overview Widget (daily dashboard + hyperlinks) | `js/widgets/overview.js` | ⬜ |
+| W-3 | Overview Widget (daily dashboard + hyperlinks) | `js/widgets/overview.js` | ✅ 2026-06-15 |
 | W-4 | Flashcard Widget overhaul | `flashcards.js`, `flashcards-model.js`, `flashcards-study.js` | ✅ 2026-06-15 (core+sets) |
 | W-5 | Quiz Widget overhaul | `quiz.js`, `quiz-build.js`, `quiz-run.js` | ✅ 2026-06-15 (MC/TF/Fill/Dropdown+sets) |
 | W-6 | Graph Widget overhaul | `js/widgets/graph.js` | ⬜ |

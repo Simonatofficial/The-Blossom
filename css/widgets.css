@@ -674,6 +674,12 @@ span.anno { padding: 0 3px; }
 .sn-src-row { padding: 4px 0; }
 .sn-card-results { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
 
+/* V2 §W-3 Overview daily dashboard */
+.ov-datenav { align-items: center; margin-bottom: 12px; }
+.ov-datenav .ov-date { font-size: 1rem; }
+.ov-today strong { font-size: 0.95rem; }
+.ov-panel .ov-wname { font-size: 0.92rem; }
+
 .fc-stage { max-width: 460px; margin: 0 auto; }
 .fc-card { perspective: 900px; cursor: pointer; height: 220px; }
 .fc-inner {
