@@ -1357,4 +1357,609 @@ Add these rows to the §15 work order table:
 
 ---
 
+---
+
+## COMPLETION STATUS — READ THIS FIRST
+
+Legend: ✅ done · 🟡 partially done · ⬜ not started · 🔴 needs rework (superseded by §W)
+
+### Already complete (do not re-implement)
+- V2-1 Supabase sync + Ko-fi ✅
+- V2-2 FAB (+) button ✅
+- V2-3 Settings/module button repositioning ✅
+- V2-4 Widget hold threshold + context menu ✅
+- V2-5 Widget opacity setting ✅
+- V2-6 Sliders with numeric readouts ✅
+- V2-7 Atmosphere/particle/weather toggles ✅
+- V2-8 Particles overhaul ✅
+- V2-9 Atmospheres overhaul ✅
+- V2-10 Weather system ✅
+- V2-11 Theme transitions ✅
+- V2-13 Full data reset ✅
+- V2-14 Module categories/subcategories/tags ✅
+- V2-15 Home star indicator ✅
+- V2-17 Alarm widget overhaul ✅
+- V2-18 Calculator widget overhaul ✅
+- V2-19 Calendar widget ✅
+- V2-20 Canvas pointer fix ✅
+- V2-22 Tabletop/D&D rename + SRD data ✅
+- V2-24 Canva Board widget ✅
+- V2-27 Quests overhaul ✅
+- V2-28 Snake + Solitaire game widgets ✅
+- Blossoms game MVP ✅
+
+### Partially done — needs a follow-up pass
+- V2-12 Theme gradient page editor 🟡 (drawer editor works; draggable-stop page editor still TODO)
+- V2-16 Category Dividers 🟡 (renamed, count badge, fold; drag-into-divider still TODO)
+- V2-26 Graphs overhaul 🟡 (Area/Scatter/Donut done; Radar/Spider, Sparkline, horizontal bar, full dimension system still TODO — see §W-6 which supersedes this)
+
+### Not started — pending
+- P-1 Landscape rotation fix ⬜
+- P-2 Widget tap-to-use UX ⬜
+- P-3 Widget list grouped + collapsed in FAB ⬜
+- P-4 Page Blossom code paste bug ⬜
+- V2-21 Character Sheet multi-system ⬜
+- V2-23 World Map overhaul ⬜
+- V2-25 Tracker overhaul (§22 spec) ⬜
+- V2-25a Library widget groups ⬜
+- V2-24a Hub Widget ⬜
+- V2-24b Page Widget ⬜
+- V2-24c Characteristics Widget ⬜
+- V2-24d Skill sub-widget references ⬜
+- V2-24e Quest Board Widget ⬜
+- V2-24f Overview Widget (see §W-3 for full spec) ⬜
+- V2-25b Notebook Widget (see §W-1 for full spec) ⬜
+- V2-25c Study Notes Widget / Elements Widget rename (see §W-2) ⬜
+- V2-26 Flash Card Widget (see §W-4 for full spec) ⬜
+- V2-27x Quiz Widget (see §W-5 for full spec) ⬜
+- §W-6 Graph Widget overhaul (full spec) ⬜
+- §W-7 Reminder Widget (new) ⬜
+- Study Module preset ⬜
+
+### Work order for next session
+
+**Do these first, in order:**
+1. §P bugs: P-1 → P-2 → P-3 → P-4
+2. §W widget overhauls (this section, immediately below): W-1 → W-2 → W-3 → W-4 → W-5 → W-6 → W-7
+3. Remaining pending items from the table above
+
+---
+
+## §W — Widget Overhaul Sprint (TOP PRIORITY — supersedes earlier specs)
+
+*These specs replace the corresponding earlier sections for these widgets. Earlier §25/§26/§27/§23 text is superseded by §W-1 through §W-7.*
+
+---
+
+### §W-1 — Notebook Widget Overhaul
+
+File: `js/widgets/notebook.js`
+
+The Notebook keeps its three-level structure: **Classes → Units → Topics → Notes**. Everything below is about fixing the notes editor *inside* Topics.
+
+#### Notes editor inside a Topic
+
+The notes editor is a rich text editor equivalent to the existing Notes widget in capability, plus the study-specific additions below. **Do not remove any tools that were previously present.** Toolbar items are all accessible at the top of the editor:
+
+| Tool | Description |
+|---|---|
+| Title | Large heading text (H1) |
+| Heading | Section heading (H2) |
+| Subheading | Subsection (H3) |
+| Bold | `**text**` rendered bold |
+| Italic | `_text_` rendered italic |
+| Underline | Underline |
+| Strikethrough | Strikethrough |
+| Color | Text color picker |
+| Highlight | Background color on selected text (generic yellow default) |
+| Checklist | Checkbox list item |
+| Bullet list | Unordered list |
+| Numbered list | Ordered list |
+| Dropdown | Collapsible section (click to expand/collapse in preview) |
+| Separator | Horizontal rule |
+| Key Term | Study annotation (see below) |
+| Theme | Study annotation |
+| Concept | Study annotation |
+| Idea | Study annotation |
+| Comment | Study annotation |
+
+#### Study annotations (Key Terms, Themes, Concepts, Ideas, Comments)
+
+These are **highlight-only** annotations — they add a colored background to the selected text and register the annotation in the data store. They must **never** insert bracket syntax (`[[...]]`) or change the text content in any way. The text is stored as-is; the annotation is stored separately as metadata referencing the text range.
+
+**Highlight colors:**
+- Key Term → yellow (`#FFF176` or theme equivalent)
+- Theme → red (`#FFCDD2`)
+- Concept → blue (`#BBDEFB`)
+- Idea → orange (`#FFE0B2`)
+- Comment → green (`#C8E6C9`)
+
+**How to apply a study annotation:**
+1. User selects text in the editor.
+2. User clicks the annotation button in the toolbar (e.g. "Key Term").
+3. The selected text is highlighted with the corresponding color. Text content is unchanged.
+4. The annotation is saved to `topic.annotations[]` with `{ type, text, startOffset, endOffset, … }`.
+
+**Key Term structure:** When a Key Term annotation is applied, the editor additionally parses the selected block for the standard structure and stores the parsed fields — but does NOT alter the visible formatting:
+- Line 1 pattern `Term: definition text` → stores `term` and `definition`.
+- Subsequent `- detail` / `— detail` / `— detail` lines → stored as `details[]`.
+- Subsequent `1.` / `2.` numbered lines → stored as `examples[]`.
+- Inline compact pattern (`Term: definition. - detail. 1. example.`) → same parsing.
+- If the block doesn't follow the pattern exactly, the entire selected text is stored as the definition. No error is shown.
+
+The highlighted range covers **all lines of the key term block** — term + definition + details + examples — not just the first line.
+
+**Comment behavior:**
+- In **edit mode**: comment text is visible and editable like normal text, shown with green highlight.
+- In **preview mode**: comment text is shown as a green highlight only. Clicking/tapping the highlight opens a small popover showing the comment text (read-only in preview).
+
+#### Preview / Edit mode
+
+There is **one** view at a time — not a side-by-side split:
+
+- **Preview mode (default when opening a Topic):** renders the full note content as formatted, readable text. Annotations appear as colored highlights. Clicking a Comment highlight shows its popover. Dropdowns are interactive. An "Edit" button (pencil icon, top right of the notes area) switches to edit mode.
+- **Edit mode:** replaces the preview with a rich text editor. The same content is editable. An "Done" / "Preview" button (top right) returns to preview mode. All toolbar items are visible and active in edit mode.
+
+#### Card view
+
+Shows: current breadcrumb (Class → Unit → Topic) + a snippet of the last-edited note + last-edited timestamp.
+
+#### Full-page view (primary tap)
+
+Three-column layout on desktop (Class list | Unit list | Topic list + Notes). Drill-down on mobile. The notes area (preview/edit) occupies the right column or full screen on mobile.
+
+**Accept when:** user creates a Topic, writes rich text with a Title, a bullet list, a separator, bold, and a colored highlight; selects "Photosynthesis: the process by which plants..." and clicks Key Term — the entire paragraph is highlighted yellow, no [[]] appears, and the term is findable in the Study Notes widget.
+
+---
+
+### §W-2 — Study Notes Widget (renamed from Elements Widget)
+
+File: `js/widgets/study-notes.js` (rename from `elements.js`)
+
+**Rename:** "Elements Widget" → "Study Notes Widget" everywhere in the UI and codebase.
+
+#### Source selection
+
+The widget has a **Sources** configuration section (in widget Edit settings). The user adds one or more Notebook widget instances as sources. Each source is shown as a row: Notebook widget name + toggle (on/off). Sources can be added, removed, reordered. When no sources are configured, the widget shows "Link a Notebook to get started."
+
+#### Display
+
+Four tabs across the top: **Terms · Themes · Concepts · Ideas**.
+
+Filter bar below tabs: filter by **Class** (dropdown) and **Unit** (dropdown, updates based on selected Class). Clearing filters shows all.
+
+#### Key Terms tab format
+
+Each term is displayed as a card with this exact structure:
+
+```
+[Term]          ← Title style (bold, larger)
+[Definition]    ← Subtitle style (regular weight, slightly smaller)
+
+Notes:          ← Header label
+• [detail 1]
+• [detail 2]
+• [detail 3]
+(etc.)
+
+Examples:       ← Header label
+1. [example 1]
+2. [example 2]
+3. [example 3]
+(etc.)
+```
+
+Cards are sorted alphabetically by Term by default. A search bar searches across all Term text content.
+
+#### Themes / Concepts / Ideas tabs
+
+Each annotation is displayed as a card: the highlighted text (quoted, styled with the annotation's color) + source breadcrumb (Class → Unit → Topic → "line N").
+
+#### Card view (widget on page)
+
+Shows the count of stored terms/themes/concepts/ideas from linked notebooks, and a search bar that searches inline. Tapping a result opens the full Study Notes page.
+
+**Accept when:** user links two Notebook widgets; the Study Notes widget shows terms from both; filtering by Class narrows to that class's terms; terms display with the full Notes/Examples structure.
+
+---
+
+### §W-3 — Overview Widget (Study Dashboard)
+
+File: `js/widgets/overview.js`
+
+#### Purpose
+
+The Overview Widget is a day-by-day activity dashboard. It shows what happened on a given day across all linked widgets, and acts as a launchpad to jump directly into those items.
+
+#### Linked widgets
+
+User configures which widgets to pull activity from (Edit settings → Sources). Any widget type can be linked. Each linked widget has a display name and a toggle.
+
+#### Daily view
+
+The widget displays activity for **one day at a time**. A date navigation bar at the top lets the user swipe or tap arrows to move between days (← yesterday | today | tomorrow →). Today is the default.
+
+For each linked widget, the daily view shows what happened that day:
+- **Flashcard widget:** active study sets, decks studied, score/completion for each session.
+- **Quiz widget:** quizzes taken, score, completion time.
+- **Notebook widget:** Topics that were edited or created that day.
+- **Skill widget:** XP gained, level ups.
+- **Habit widget:** completion status for that day.
+- **Quest widget:** steps completed, quests finished.
+- Other widgets: their primary value or event for that day (if they track time-series data).
+
+Items that have no activity on a day are collapsed (show a dim "No activity" line) or hidden (user setting: Show empty / Hide empty).
+
+#### Navigation (hyperlink behavior)
+
+Tapping any item in the daily view **navigates directly to that thing**:
+- Flashcard set → starts that study session immediately.
+- Quiz → starts that quiz immediately.
+- Notebook Topic → opens that Topic in the Notebook's edit view.
+- Skill / Habit / Quest → navigates to that widget's internal page.
+
+This is a router navigation (CR-11 Page), not a panel. The Overview's back button returns to the Overview.
+
+#### Card view (widget on page)
+
+Shows: today's date + a count of pending items for today (incomplete sets, tasks due, etc.) + a "View Today" button.
+
+**Accept when:** user opens the Overview, sees today's flashcard sessions and quiz scores; taps a quiz → starts the quiz; navigates back; taps ← to see yesterday's activity.
+
+---
+
+### §W-4 — Flashcard Widget Overhaul
+
+File: `js/widgets/flashcard.js`
+
+#### Organization model
+
+Groups contain Groups or Decks. A Deck contains individual cards. The hierarchy has no depth limit.
+
+```
+[Group]
+  ├── [Group]
+  │     └── [Deck] ← cards live here
+  └── [Deck]
+```
+
+*The old model (Deck contains Groups) is removed.*
+
+#### Linking Notebooks
+
+In widget settings → Sources, the user links one or more Notebook widgets. Each linked Notebook auto-generates a matching group hierarchy:
+
+```
+[Notebook name] (auto-group, read-only label)
+  └── [Class 1] (group)
+        └── [Unit 1] (group)
+              └── [Topic 1] (deck, auto-generated from Key Terms + annotations)
+              └── [Topic 2] (deck)
+        └── [Unit 2] (group)
+```
+
+Auto-generated decks can be opened and their cards edited (edited cards are stored as overrides; the auto-generation doesn't overwrite manual edits on re-sync).
+
+#### Card content
+
+Each card has two sides: **Front** and **Back**. Content is drawn from:
+- **Term**, **Definition**, **Details** (all bullet points), **Examples** (all numbered items)
+
+When generated from a Key Term, the card stores all four fields separately. The user then configures what appears on Front and Back (see Starting a Study below).
+
+Custom cards (created from scratch) have free-form text on Front and Back, with rich-text formatting.
+
+#### Custom decks
+
+The user can create a Group or Deck anywhere in the hierarchy:
+- "New Group" → adds a named folder in the current location.
+- "New Deck" → adds a new empty deck in the current location. Naming it and adding cards manually.
+- "Generate Deck from Notebook" → opens a picker: select a Notebook → select Class/Unit/Topic → generates a deck with cards from that scope's Key Terms.
+
+#### Study Sets
+
+A Study Set is a saved configuration: a named collection of Groups and/or Decks selected for study, with preset study settings (see below). Study Sets appear in the widget's main view as "active sets to start."
+
+Study Set settings:
+- **Name and color.**
+- **Contents:** one or more Groups/Decks selected from the full hierarchy.
+- **Schedule:** optional — assign days of the week and a time; or a repetition goal ("complete 50 times", "complete until 10 correct in a row", "complete until 80%+ score"); or both.
+- **Front** and **Back** configuration (see below).
+- **Card order:** In Order · Random · Hardest First · Easiest First.
+- **Color theme:** inherits widget theme by default; can override per group/deck/set.
+
+#### Starting a Study session
+
+When the user taps a Group, Deck, or Study Set to start studying, a "Study Options" sheet appears (unless a Study Set already has settings saved, in which case it starts immediately):
+- **Front of card** (multi-select): Term · Definition · Details · Examples.
+- **Back of card** (multi-select): Term · Definition · Details · Examples.
+- **Card order:** In Order · Random · Hardest First · Easiest First.
+
+#### During a study session
+
+- Cards are shown one at a time. Tap to flip (reveal back).
+- After flipping, the user rates the card: **Hard** · **Good** · **Easy**.
+- A progress bar shows cards remaining.
+- **Pause:** pauses the session, saves progress. User can resume later or delete the session.
+- **Close:** same as Pause — progress is saved, user chooses resume or delete.
+
+#### After a study session
+
+Results screen: counts of Hard / Good / Easy.
+Options: **Restart** (redo all) · **Redo Missed** (Hard only) · **Redo Hard + Good** · **Done**.
+
+Study Sets with completion goals track cumulative progress toward the goal.
+
+#### Color themes
+
+Groups and Decks have a color theme setting (dropdown: inherit theme / Flower / Space / Forest / Ocean / Sunset / etc.). When studying, cards display with their source deck's color theme (mixed themes within a session are fine — card appearance changes per card's theme).
+
+**Accept when:** user links a Notebook, sees auto-generated groups/decks for each Class→Unit→Topic; starts studying "Biology 101 Unit 3 Mitosis" with Front = Term, Back = Definition + Details; rates 5 cards; pauses; resumes; finishes and redoes Hard cards.
+
+---
+
+### §W-5 — Quiz Widget Overhaul
+
+File: `js/widgets/quiz.js`
+
+#### Relationship to Flashcard Widget
+
+The Quiz Widget is linked to one or more Flashcard Widget instances (not directly to Notebooks — it gets its content through the Flashcard widget's group/deck hierarchy). In widget settings → Sources, the user links Flashcard widgets. The Quiz widget then displays the same Group/Deck hierarchy from those Flashcard widgets (same structure, same cards).
+
+#### Quiz Sets
+
+Quiz Sets are identical in concept to Flashcard Study Sets: saved configurations with a name, deck selection, settings, and optional schedule/goal. Quiz Sets appear in the widget's main view as launchable active tests.
+
+Quiz Set settings:
+- **Name and color.**
+- **Contents:** groups/decks from linked Flashcard widgets.
+- **Schedule/goal:** same options as Flashcard Study Sets.
+- **Question type** and **format settings** (see below).
+
+#### Question / Answer format
+
+The user configures what information appears in the question and what is the correct answer:
+- **Question content** (select one or more): Term · Definition · Details · Examples.
+- **Answer content** (select one or more): Term · Definition · Details · Examples.
+- **How many Details to show** (if Details selected): 1 / 2 / 3 / All (default: 1).
+- **How many Examples to show** (if Examples selected): 1 / 2 / 3 / All (default: 1).
+
+#### Wrong answer randomization
+
+For question types that have wrong options (Multiple Choice, True/False, Dropdown, Ordering), the user configures where wrong answers come from:
+- **Same Topic** (default) — wrong answers are drawn from other Key Terms in the same Topic.
+- **Same Unit** — from the same Unit (broader pool).
+- **Same Class** — from the same Class.
+- **Random** — anywhere in the selected decks.
+
+If the pool is too small (e.g. testing a Topic with only 2 key terms and 4 choices are requested), the quiz automatically pulls from the next scope up.
+
+#### Question types
+
+**Multiple Choice:**
+- User sets number of answer choices (2–8, default 4).
+- One correct answer. Wrong answers drawn from the randomization scope.
+- Wrong answers have the same fields randomized that the user configured (e.g. a wrong answer might have a random definition but correct details — creating plausibly confusing options).
+- User selects one choice.
+
+**True/False:**
+- A statement is generated using the configured Question + Answer fields.
+- If true: all fields are from the same Key Term.
+- If false: one or more fields are swapped with random content from the randomization scope.
+- User selects True or False.
+
+**Fill in the Blank:**
+- A sentence is shown with one or more blanks (user configures which fields can be blanked: Term · Definition · Details · Examples).
+- User types the answer for each blank.
+- Graded by string matching (case-insensitive, minor typo tolerance optional).
+
+**Dropdown:**
+- Same as Fill in the Blank but each blank is a dropdown selector with multiple options instead of a text input.
+
+**Ordering:**
+- A set of items is shown in a scrambled order. The user drags them into the correct order.
+- Items can be: multiple Key Terms sorted alphabetically, or a Key Term's Definition + Details + Examples sorted in their correct sequence.
+
+#### During a quiz
+
+- Progress bar (questions remaining).
+- If "Show result immediately" is on: after answering, the button turns green (correct) or red (incorrect) and the correct answer is displayed before moving on.
+- If "Show result at end" is on: no immediate feedback, review at the end.
+- **Pause / Save progress:** same as Flashcard sessions.
+
+#### After a quiz
+
+Results screen: score (X/Y, %), time taken.
+Full review: every question with the user's answer (highlighted green/red) and the correct answer (always shown if wrong).
+Items grouped into: **Correct** · **Semi-correct** · **Incorrect**.
+- Semi-correct: the user got some fields right in a multi-field question.
+
+Options: **Restart** · **Redo Incorrect** · **Redo Incorrect + Semi-correct** · **Done**.
+
+#### Quiz history
+
+Every completed quiz is saved with: date, deck selection, all questions, user answers, correct answers. User can open any past quiz from a history panel and see the full review.
+
+**Accept when:** user links a Flashcard widget, creates a Quiz Set for "Biology 101" with Multiple Choice (4 options, same-topic wrong answers, Term as question / Definition as answer); completes 10 questions; sees the color-coded result immediately; views the full post-quiz review.
+
+---
+
+### §W-6 — Graph Widget Overhaul
+
+File: `js/widgets/graph.js`
+
+*Supersedes §19 and §23. This is the definitive Graph spec.*
+
+#### UI: drop-down controls, not small buttons
+
+All configuration is done through clearly labeled dropdown menus:
+
+```
+[Chart Type ▾]  [X Axis ▾]  [Y Axis ▾]  [Dataset ▾]  [Date Range ▾]
+```
+
+Each control is a full-width dropdown on mobile, an inline select on desktop. No icon-only buttons for these choices.
+
+#### Chart type selector
+
+The chart type dropdown shows chart names with a small inline icon/thumbnail. Types are grouped:
+
+- **Standard:** Line · Bar (Vertical) · Bar (Horizontal) · Area · Pie · Donut · Scatter · Bubble
+- **Comparison:** Radar/Spider · Histogram · Polar Area · Dual-Axis · Venn · Mekko
+- **Distribution:** Funnel · Pyramid · Cone · Pictogram · Gauge
+- **Blossom Specials:** Flower · Solar System
+
+#### X-axis dimension
+
+The X-axis dimension is always selected from a dropdown. Options:
+
+**Time** — a time axis. Sub-option: granularity.
+- Day view: hours of the day (0–23h). Each data point plotted at the hour it was created.
+- Week view: Sunday → Saturday columns.
+- Month view: each week in the month (Week 1, Week 2, …).
+- Year view: each month (Jan–Dec).
+- Time graphs are navigable: a date/week/month/year picker lets the user browse to any past period. Data is always saved with a timestamp, so past views are accurate.
+
+**Category** — a list of named items (e.g. "Class 1, Class 2, Class 3"). User defines the category labels.
+
+**Count** — sequential number (1, 2, 3 …) useful for "session number" type tracking.
+
+#### Y-axis dimension
+
+**Amount:**
+- Completed (how many of something happened)
+- Streak (current/longest streak count)
+- Measurement (decimal value with unit: kg, km, hours, reps, etc. — user sets unit)
+- Score (percentage 0–100%)
+- Custom (user types the label)
+
+**Level** — the level of a linked widget (Skill, Characteristic).
+
+**Time Duration** — how long something took (in minutes or hours).
+
+**Custom** — user types the label and unit.
+
+#### Datasets
+
+A dataset links the graph to a source and tells it what data to extract. User adds datasets in the Dataset panel.
+
+Each dataset: **Name · Color · Source widget · Data field.**
+
+Data fields available per widget type:
+- **Flashcard widget:** cards studied (count, by hour/day), session score (%), decks completed.
+- **Quiz widget:** quizzes taken (count), quiz score (%), quiz completion time.
+- **Notebook widget:** topics edited (count), key terms added (count) — by day.
+- **Skill widget:** current level, total XP, XP gained today.
+- **Habit widget:** daily completion (yes/no), streak count.
+- **Counter widget:** current count, count change per day.
+- **Tracker widget:** any tracked item's current value.
+- **Quest widget:** steps completed today (count), quests completed.
+- **Health widget:** current HP, damage taken/healed.
+
+One graph can display multiple datasets simultaneously (multi-series). Each dataset gets its own color and appears in the legend.
+
+**Example:** A bar graph on the Study module Overview page:
+- Dataset 1 "Flashcard sessions" (blue) → X: Day, Y: count of sessions.
+- Dataset 2 "Quiz score" (green) → X: Day, Y: average score %.
+
+Both datasets appear as separate bars (or a bar + line combo if Dual-Axis is chosen) grouped by day.
+
+#### Always-visible elements
+
+- **Legend** — always shown. Color swatches + dataset names. Tap a legend item to hide/show that dataset.
+- **Labels** — value labels on data points (on by default, can be toggled off per dataset).
+- **Grid lines** — always shown (subtle, 1px, `--border` color).
+- **Axis labels** — always shown (user-configured label text + unit).
+
+#### Effects (visual only, not data)
+
+Optional per-dataset effects (no performance cost — CSS/canvas):
+- **Glow on high values:** data points above a configurable threshold glow with the dataset's color.
+- **Color gradient:** bar/area color shifts from `--accent` at low values to a brighter tint at high values.
+- **Pulse animation:** high-value points pulse gently (once, on render).
+- **Opacity fade:** lower values are slightly more transparent.
+
+Effects are configured in Dataset settings. All are off by default.
+
+#### Data entry (manual datasets)
+
+When no widget is linked (manual dataset), the user taps "Add data point" → enters a value (and optionally a date/time if not "now"). Data is stored in `widget.config.datasets[n].points[]` as `{ ts, value }`.
+
+**Accept when:** user creates a bar graph with Time (Day) on X-axis and Amount (Completed) on Y-axis, links a Flashcard widget as the dataset, sees a bar appear at the hour they studied, navigates to yesterday, sees empty bars, and the legend shows the dataset name with correct color.
+
+---
+
+### §W-7 — Reminder Widget (New)
+
+File: `js/widgets/reminder.js`
+
+#### Purpose
+
+A Reminder is like an alarm, but instead of just making noise, it tells you *what* needs to be done and *when*, with context from linked widgets.
+
+#### Card view (widget on page)
+
+Shows: upcoming reminders for today, in chronological order. Each shows: time · title · source widget icon and name. A count badge shows how many are due in the next hour.
+
+#### Full-page view (primary tap)
+
+Three tabs: **Upcoming** · **Today** · **All**.
+
+- **Upcoming:** reminders in the next 24 hours, sorted by time.
+- **Today:** all reminders for today (past + future), grouped by hour.
+- **All:** full list, sortable by date.
+
+#### Creating a Reminder
+
+A Reminder has:
+- **Title** (text, required).
+- **Time** — specific time of day (12h AM/PM, per P-1 rule).
+- **Date** — specific date OR recurrence (daily / specific days of week / every N days at [time]).
+- **Lead notifications** — alert the user before the reminder fires: choose any combination of: At time · 5 min before · 15 min before · 1 hour before · 1 day before. Each sends an in-app notification (and OS notification if permission granted).
+- **Linked widget (optional)** — attach any widget to this reminder. The reminder card shows relevant info from the linked widget:
+  - Flashcard widget → shows the Study Set or Deck name + how many cards are in it.
+  - Quiz widget → shows the Quiz Set name + last score.
+  - Quest widget → shows the quest name + steps remaining.
+  - Habit widget → shows today's completion status.
+  - Any other widget → shows the widget name + its primary value.
+- **Notes** — optional free text.
+
+#### Notification
+
+In-app notification (feed-style, same as existing notification system):
+- Shows Reminder title + time + linked widget info.
+- Action buttons: **Dismiss** · **Snooze 10 min** · and if a linked widget is attached: **Open [widget]** (navigates to the linked widget's page).
+
+OS notification (if `Notification.requestPermission()` granted): same content, tapping opens the app to the Reminder or the linked widget.
+
+**Accept when:** user creates a reminder "Study Biology" at 7:00 PM linked to a Flashcard widget's "Biology 101" deck; at 6:45 PM an in-app notification fires "15 min until Study Biology — Biology 101 (42 cards)"; tapping "Open Flashcard" starts the study session.
+
+---
+
+## §W — Work Order
+
+Implement §W items in this order. Mark ✅ date when acceptance criteria pass.
+
+| # | Feature | File(s) | Status |
+|---|---|---|---|
+| W-1 | Notebook Widget overhaul | `js/widgets/notebook.js` | ⬜ |
+| W-2 | Study Notes Widget (rename + source picker + format) | `js/widgets/study-notes.js` | ⬜ |
+| W-3 | Overview Widget (daily dashboard + hyperlinks) | `js/widgets/overview.js` | ⬜ |
+| W-4 | Flashcard Widget overhaul | `js/widgets/flashcard.js` | ⬜ |
+| W-5 | Quiz Widget overhaul | `js/widgets/quiz.js` | ⬜ |
+| W-6 | Graph Widget overhaul | `js/widgets/graph.js` | ⬜ |
+| W-7 | Reminder Widget (new) | `js/widgets/reminder.js` | ⬜ |
+
+After all §W items are ✅, resume the pending items from the main §15 table in this order:
+1. V2-25 Tracker overhaul (§22)
+2. V2-24a–f new organizational widgets (§24)
+3. V2-21 Character Sheet
+4. V2-23 World Map overhaul
+5. V2-12 Theme gradient page editor (the remaining draggable-stop page editor)
+6. V2-16 Category Dividers drag-into-divider pass
+7. Study Module preset assembly (§25)
+8. Everything else in the §15 table
+
+---
+
 **Standing rule for V2:** use the `grill-me` skill before implementing any feature in this doc that has unresolved sub-questions. If a section contradicts an existing doc (01–12), V2 wins — update the older doc to match when implementing.
