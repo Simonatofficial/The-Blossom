@@ -3,7 +3,7 @@
 
 importScripts('./sw-assets.js'); // defines self.SW_ASSETS (generated list)
 
-const CACHE = 'blossom-v57';
+const CACHE = 'blossom-v58';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(self.SW_ASSETS)));

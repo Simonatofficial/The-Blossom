@@ -10,8 +10,15 @@ import { loop } from '../fx/loop.js';
 import { icon } from '../ui/icons.js';
 import { el, field, seg, input, openDrawer, popMenu, toast } from '../ui/components.js';
 import { openLinkPicker } from '../ui/picker.js';
-import { CHART_TYPES, RANGES, chartType, newGraph, newDataset, datasetColor, resolveGraph, parseCSV, normalizeGraph } from './graph-data.js';
+import { CHART_TYPES, RANGES, X_DIMENSIONS, GRAINS, Y_DIMENSIONS, periodLabelFor, chartType, newGraph, newDataset, datasetColor, resolveGraph, parseCSV, normalizeGraph } from './graph-data.js';
 import { drawChart } from './graph-engine.js';
+
+/** A labeled dropdown column (§W-6: clearly-labeled controls, not icon buttons). */
+function labeledControl(label, ctrl) {
+  const w = el(`<label class="graph-ctl"><span class="soft" style="font-size:0.7rem">${label}</span></label>`);
+  w.appendChild(ctrl);
+  return w;
+}
 
 function themeColors(host) {
   const s = getComputedStyle(host);
@@ -216,26 +223,74 @@ registry.register({
         const holder = el('<div></div>');
         panel.appendChild(holder);
 
-        // top controls: chart type + range
-        const top = el('<div class="row" style="flex-wrap:wrap;margin-top:10px;gap:8px"></div>');
-        const typeBtn = el(`<button class="chip accent" style="cursor:pointer">${icon('bar-chart', 12)} ${chartType(gdef.kind).name}</button>`);
-        typeBtn.onclick = () => chartTypePicker(gdef, (k) => { gdef.kind = k; if (k === 'flower') gdef.rotationDeg = gdef.rotationDeg || 0; save(); renderAll(); });
-        top.appendChild(typeBtn);
-        if (['line', 'area', 'bar', 'scatter', 'bubble', 'dualaxis'].includes(gdef.kind)) {
-          top.appendChild(seg(RANGES.map(r => ({ value: r.key, label: r.label })), gdef.range, (v) => { gdef.range = v; save(); renderAll(); }));
+        // §W-6 dropdown controls: Chart type · X dimension · granularity · Y dimension · range
+        const isSeries = ['line', 'area', 'bar', 'dualaxis'].includes(gdef.kind);
+        const isXY = ['scatter', 'bubble'].includes(gdef.kind);
+        const controls = el('<div class="graph-controls"></div>');
+        const typeSel = el('<select class="select"></select>');
+        for (const grp of [...new Set(CHART_TYPES.map(c => c.group))]) {
+          const og = document.createElement('optgroup'); og.label = grp;
+          for (const c of CHART_TYPES.filter(x => x.group === grp)) og.appendChild(new Option(c.name, c.key));
+          typeSel.appendChild(og);
         }
-        panel.appendChild(top);
+        typeSel.value = gdef.kind;
+        typeSel.onchange = () => { gdef.kind = typeSel.value; if (gdef.kind === 'flower') gdef.rotationDeg = gdef.rotationDeg || 0; save(); renderAll(); };
+        controls.appendChild(labeledControl('Chart type', typeSel));
 
-        // axis labels (skip for round single-value charts)
-        if (!['pie', 'donut', 'gauge', 'pictogram', 'venn', 'flower', 'solar'].includes(gdef.kind)) {
+        if (isSeries) {
+          const xSel = el('<select class="select"></select>');
+          for (const x of X_DIMENSIONS) xSel.appendChild(new Option(x.label, x.key));
+          xSel.value = gdef.xAxis?.type === 'time' ? 'time' : (gdef.xAxis?.type || 'time');
+          xSel.onchange = () => { gdef.xAxis = { ...gdef.xAxis, type: xSel.value }; save(); renderAll(); };
+          controls.appendChild(labeledControl('X axis', xSel));
+
+          if (gdef.xAxis?.type === 'time') {
+            const grainSel = el('<select class="select"></select>');
+            grainSel.appendChild(new Option('Rolling range', ''));
+            for (const gr of GRAINS) grainSel.appendChild(new Option(gr.label, gr.key));
+            grainSel.value = gdef.xAxis?.grain || '';
+            grainSel.onchange = () => { gdef.xAxis = { ...gdef.xAxis, grain: grainSel.value || null, period: 0 }; save(); renderAll(); };
+            controls.appendChild(labeledControl('Granularity', grainSel));
+          }
+
+          const ySel = el('<select class="select"></select>');
+          for (const y of Y_DIMENSIONS) ySel.appendChild(new Option(y.label, y.key));
+          ySel.value = gdef.yAxis?.dim || 'custom';
+          ySel.onchange = () => { const yd = Y_DIMENSIONS.find(y => y.key === ySel.value); gdef.yAxis = { ...gdef.yAxis, dim: yd.key, label: yd.key === 'custom' ? (gdef.yAxis?.label || '') : yd.label, unit: yd.key === 'custom' ? (gdef.yAxis?.unit || '') : yd.unit }; save(); renderAll(); };
+          controls.appendChild(labeledControl('Y axis', ySel));
+        }
+
+        if (isXY || (isSeries && gdef.xAxis?.type === 'time' && !gdef.xAxis?.grain)) {
+          const rSel = el('<select class="select"></select>');
+          for (const r of RANGES) rSel.appendChild(new Option(r.label, r.key));
+          rSel.value = gdef.range;
+          rSel.onchange = () => { gdef.range = rSel.value; save(); renderAll(); };
+          controls.appendChild(labeledControl('Date range', rSel));
+        }
+        panel.appendChild(controls);
+
+        // period navigation (Time + granularity)
+        if (isSeries && gdef.xAxis?.type === 'time' && gdef.xAxis?.grain) {
+          const nav = el(`<div class="graph-period row-between"><button class="btn-icon gp-prev" title="Previous">${icon('chevron-left', 16)}</button><strong class="gp-label"></strong><button class="btn-icon gp-next" title="Next">${icon('chevron-right', 16)}</button></div>`);
+          nav.querySelector('.gp-label').textContent = periodLabelFor(gdef);
+          nav.querySelector('.gp-prev').onclick = () => { gdef.xAxis.period = (gdef.xAxis.period || 0) - 1; save(); renderAll(); };
+          nav.querySelector('.gp-next').onclick = () => { gdef.xAxis.period = (gdef.xAxis.period || 0) + 1; save(); renderAll(); };
+          panel.appendChild(nav);
+        }
+
+        // axis label/unit text (X label always; Y label/unit only for the Custom dimension)
+        if (isSeries) {
           const ax = el('<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px"></div>');
           const xl = input(gdef.xAxis?.label || '', 'X label'); xl.style.width = '110px';
-          xl.addEventListener('change', () => { gdef.xAxis = { ...gdef.xAxis, label: xl.value }; save(); renderAll(); });
-          const yl = input(gdef.yAxis?.label || '', 'Y label'); yl.style.width = '110px';
-          yl.addEventListener('change', () => { gdef.yAxis = { ...gdef.yAxis, label: yl.value }; save(); renderAll(); });
-          const yu = input(gdef.yAxis?.unit || '', 'Y unit'); yu.style.width = '80px';
-          yu.addEventListener('change', () => { gdef.yAxis = { ...gdef.yAxis, unit: yu.value }; save(); renderAll(); });
-          ax.append(xl, yl, yu);
+          xl.addEventListener('change', () => { gdef.xAxis = { ...gdef.xAxis, label: xl.value }; save(); });
+          ax.append(xl);
+          if ((gdef.yAxis?.dim || 'custom') === 'custom') {
+            const yl = input(gdef.yAxis?.label || '', 'Y label'); yl.style.width = '110px';
+            yl.addEventListener('change', () => { gdef.yAxis = { ...gdef.yAxis, label: yl.value }; save(); renderAll(); });
+            const yu = input(gdef.yAxis?.unit || '', 'Y unit'); yu.style.width = '80px';
+            yu.addEventListener('change', () => { gdef.yAxis = { ...gdef.yAxis, unit: yu.value }; save(); renderAll(); });
+            ax.append(yl, yu);
+          }
           panel.appendChild(ax);
         }
         if (gdef.kind === 'gauge') {

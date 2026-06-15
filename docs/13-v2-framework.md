@@ -1903,6 +1903,8 @@ When no widget is linked (manual dataset), the user taps "Add data point" → en
 
 **Accept when:** user creates a bar graph with Time (Day) on X-axis and Amount (Completed) on Y-axis, links a Flashcard widget as the dataset, sees a bar appear at the hour they studied, navigates to yesterday, sees empty bars, and the legend shows the dataset name with correct color.
 
+**Implementation notes (2026-06-15) — built on the §23 engine (which already had ~19 types + datasets):** Added dropdown-style controls (Chart type · X axis · Granularity · Y axis · Date range), the **X-axis dimension system** (Time / Category / Count) with Time **granularity** (Day=hours, Week=Sun–Sat, Month=weeks, Year=months) + **period navigation** (‹ label › to browse past periods) — daily linked/manual series are re-bucketed per period in `graph-data.js` (`periodRange` / `bucketTime`); the **Y-axis dimension presets** (Completed/Streak/Measurement/Score/Level/Duration/Custom → label+unit); chart types regrouped to Standard/Comparison/Distribution/Blossom Specials; and the **Cone** type (aliases the pyramid renderer). **Data-resolution caveat:** linked widget outputs are day-keyed, so Time→Day (hourly) granularity only spreads across hours for manual points that carry a time; day-keyed series land in the hour-of-creation bucket. **Deferred (per scope decision):** per-dataset visual effects (glow-on-high / low→high color gradient / pulse-on-render / opacity fade), and separate Bar-Vertical/Bar-Horizontal entries (kept the Horizontal toggle). SW v58.
+
 ---
 
 ### §W-7 — Reminder Widget (New)
@@ -1965,7 +1967,7 @@ Implement §W items in this order. Mark ✅ date when acceptance criteria pass.
 | W-3 | Overview Widget (daily dashboard + hyperlinks) | `js/widgets/overview.js` | ✅ 2026-06-15 |
 | W-4 | Flashcard Widget overhaul | `flashcards.js`, `flashcards-model.js`, `flashcards-study.js` | ✅ 2026-06-15 (core+sets) |
 | W-5 | Quiz Widget overhaul | `quiz.js`, `quiz-build.js`, `quiz-run.js` | ✅ 2026-06-15 (MC/TF/Fill/Dropdown+sets) |
-| W-6 | Graph Widget overhaul | `js/widgets/graph.js` | ⬜ |
+| W-6 | Graph Widget overhaul | `graph.js`, `graph-data.js`, `graph-engine.js` | ✅ 2026-06-15 (dims+nav, effects deferred) |
 | W-7 | Reminder Widget (new) | `js/widgets/reminder.js` | ⬜ |
 
 After all §W items are ✅, resume the pending items from the main §15 table in this order:

@@ -13,24 +13,35 @@ import * as values from '../core/values.js';
     graph's datasets are consumed. */
 export const CHART_TYPES = [
   { key: 'line', name: 'Line', group: 'Standard', mode: 'series' },
-  { key: 'area', name: 'Area', group: 'Standard', mode: 'series' },
   { key: 'bar', name: 'Bar', group: 'Standard', mode: 'series' },
+  { key: 'area', name: 'Area', group: 'Standard', mode: 'series' },
   { key: 'pie', name: 'Pie', group: 'Standard', mode: 'parts' },
   { key: 'donut', name: 'Donut', group: 'Standard', mode: 'parts' },
   { key: 'scatter', name: 'Scatter', group: 'Standard', mode: 'xy' },
   { key: 'bubble', name: 'Bubble', group: 'Standard', mode: 'xy' },
-  { key: 'radar', name: 'Radar', group: 'Standard', mode: 'axes' },
-  { key: 'histogram', name: 'Histogram', group: 'Standard', mode: 'values' },
-  { key: 'polar', name: 'Polar Area', group: 'Standard', mode: 'parts' },
-  { key: 'gauge', name: 'Gauge', group: 'Advanced', mode: 'single' },
-  { key: 'funnel', name: 'Funnel', group: 'Advanced', mode: 'parts' },
-  { key: 'pyramid', name: 'Pyramid', group: 'Advanced', mode: 'parts' },
-  { key: 'mekko', name: 'Mekko', group: 'Advanced', mode: 'parts' },
-  { key: 'dualaxis', name: 'Dual-Axis', group: 'Advanced', mode: 'series' },
-  { key: 'venn', name: 'Venn', group: 'Advanced', mode: 'parts' },
-  { key: 'pictogram', name: 'Pictogram', group: 'Advanced', mode: 'parts' },
-  { key: 'flower', name: 'Flower', group: 'Blossom', mode: 'parts' },
-  { key: 'solar', name: 'Solar System', group: 'Blossom', mode: 'parts' }
+  { key: 'radar', name: 'Radar / Spider', group: 'Comparison', mode: 'axes' },
+  { key: 'histogram', name: 'Histogram', group: 'Comparison', mode: 'values' },
+  { key: 'polar', name: 'Polar Area', group: 'Comparison', mode: 'parts' },
+  { key: 'dualaxis', name: 'Dual-Axis', group: 'Comparison', mode: 'series' },
+  { key: 'venn', name: 'Venn', group: 'Comparison', mode: 'parts' },
+  { key: 'mekko', name: 'Mekko', group: 'Comparison', mode: 'parts' },
+  { key: 'funnel', name: 'Funnel', group: 'Distribution', mode: 'parts' },
+  { key: 'pyramid', name: 'Pyramid', group: 'Distribution', mode: 'parts' },
+  { key: 'cone', name: 'Cone', group: 'Distribution', mode: 'parts' },
+  { key: 'pictogram', name: 'Pictogram', group: 'Distribution', mode: 'parts' },
+  { key: 'gauge', name: 'Gauge', group: 'Distribution', mode: 'single' },
+  { key: 'flower', name: 'Flower', group: 'Blossom Specials', mode: 'parts' },
+  { key: 'solar', name: 'Solar System', group: 'Blossom Specials', mode: 'parts' }
+];
+
+/** X-axis dimensions + Time granularities, and Y-axis dimension presets (§W-6). */
+export const X_DIMENSIONS = [{ key: 'time', label: 'Time' }, { key: 'category', label: 'Category' }, { key: 'count', label: 'Count' }];
+export const GRAINS = [{ key: 'day', label: 'Day' }, { key: 'week', label: 'Week' }, { key: 'month', label: 'Month' }, { key: 'year', label: 'Year' }];
+export const Y_DIMENSIONS = [
+  { key: 'completed', label: 'Completed', unit: '' }, { key: 'streak', label: 'Streak', unit: '' },
+  { key: 'measurement', label: 'Measurement', unit: '' }, { key: 'score', label: 'Score', unit: '%' },
+  { key: 'level', label: 'Level', unit: '' }, { key: 'duration', label: 'Duration', unit: 'min' },
+  { key: 'custom', label: 'Custom', unit: '' }
 ];
 
 export function chartType(kind) { return CHART_TYPES.find(c => c.key === kind) || CHART_TYPES[0]; }
@@ -42,13 +53,44 @@ export const RANGES = [
 ];
 function rangeDays(key) { return (RANGES.find(r => r.key === key) || RANGES[1]).days; }
 
+/* ---- Time dimension: navigable period + buckets (§W-6) ---- */
+/** The date span + label for a Time grain at a period offset (0 = current). */
+export function periodRange(grain, offset = 0) {
+  const now = new Date(); now.setHours(12, 0, 0, 0);
+  if (grain === 'week') { const s = new Date(now); s.setDate(s.getDate() - s.getDay() + offset * 7); const e = new Date(s); e.setDate(e.getDate() + 6); return { start: s, end: e, label: `Week of ${s.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` }; }
+  if (grain === 'month') { const s = new Date(now.getFullYear(), now.getMonth() + offset, 1, 12); const e = new Date(s.getFullYear(), s.getMonth() + 1, 0, 12); return { start: s, end: e, label: s.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) }; }
+  if (grain === 'year') { const s = new Date(now.getFullYear() + offset, 0, 1, 12); const e = new Date(now.getFullYear() + offset, 11, 31, 12); return { start: s, end: e, label: String(s.getFullYear()) }; }
+  const d = new Date(now); d.setDate(d.getDate() + offset); return { start: d, end: d, label: d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) };
+}
+export function periodLabelFor(gdef) { return periodRange(gdef.xAxis?.grain, gdef.xAxis?.period || 0).label; }
+
+function bucketsFor(grain, end) {
+  if (grain === 'week') return { labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], idx: (dt) => dt.getDay() };
+  if (grain === 'year') return { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], idx: (dt) => dt.getMonth() };
+  if (grain === 'month') { const n = Math.ceil(end.getDate() / 7); return { labels: Array.from({ length: n }, (_, i) => `W${i + 1}`), idx: (dt) => Math.min(n - 1, Math.floor((dt.getDate() - 1) / 7)) }; }
+  return { labels: Array.from({ length: 24 }, (_, i) => `${i}h`), idx: (dt) => dt.getHours() };
+}
+/** Bucket a dataset's points into the period's buckets (sum per bucket). */
+export function bucketTime(points, grain, offset = 0) {
+  const { start, end } = periodRange(grain, offset);
+  const { labels, idx } = bucketsFor(grain, end);
+  const out = labels.map(l => ({ x: l, label: l, y: 0 }));
+  const lo = new Date(start); lo.setHours(0, 0, 0, 0); const hi = new Date(end); hi.setHours(23, 59, 59, 999);
+  for (const p of points) {
+    const dt = p.date ? new Date(p.date + 'T12:00:00') : new Date(p.x);
+    if (isNaN(dt) || dt < lo || dt > hi) continue;
+    const i = idx(dt); if (out[i]) out[i].y += (Number(p.y) || 0);
+  }
+  return out;
+}
+
 /** A fresh empty graph definition. */
 export function newGraph(kind = 'line') {
   return {
     id: ulid(), kind, datasets: [],
     range: '30d',
-    xAxis: { type: kind === 'scatter' || kind === 'bubble' ? 'value' : 'time', label: '', unit: '' },
-    yAxis: { label: '', unit: '' },
+    xAxis: { type: kind === 'scatter' || kind === 'bubble' ? 'value' : 'time', grain: null, period: 0, label: '', unit: '' },
+    yAxis: { dim: 'custom', label: '', unit: '' },
     legend: true, valueLabels: true, gridlines: true, smooth: false, animate: true,
     stacked: false, horizontal: false, background: 'transparent',
     gauge: { min: 0, max: 100 }
@@ -115,6 +157,14 @@ export function resolveGraph(gdef, theme) {
     }
     return { id: ds.id, name, color, points, now };
   });
+
+  // §W-6 time dimension: re-bucket linked/manual points into the navigable period.
+  const xa = gdef.xAxis || {};
+  if (xa.type === 'time' && xa.grain) {
+    for (const d of datasets) { d.points = bucketTime(d.points, xa.grain, xa.period || 0); d.now = d.points.at(-1)?.y ?? d.now; }
+  } else if (xa.type === 'count') {
+    for (const d of datasets) d.points = d.points.map((p, j) => ({ ...p, x: j + 1, label: String(j + 1) }));
+  }
 
   // Part-to-whole segments: one dataset with multiple points → its points;
   // otherwise each dataset contributes a single segment (its `now`).

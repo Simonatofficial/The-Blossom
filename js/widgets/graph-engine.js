@@ -28,7 +28,7 @@ export function drawChart(g, p) {
     case 'radar': return radar(g, p, hits, prog);
     case 'gauge': return gauge(g, p, hits, prog);
     case 'funnel': return funnel(g, p, hits, prog);
-    case 'pyramid': return pyramid(g, p, hits, prog);
+    case 'pyramid': case 'cone': return pyramid(g, p, hits, prog);
     case 'pictogram': return pictogram(g, p, hits);
     case 'venn': return venn(g, p, hits, prog);
     case 'mekko': return mekko(g, p, hits, prog);
