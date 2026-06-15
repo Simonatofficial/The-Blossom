@@ -1340,7 +1340,7 @@ Add these rows to the §15 work order table:
 | P-3 | Widget list grouped + collapsed in FAB | `js/ui/navpanels.js`, `js/widgets/registry.js` | ✅ done (v38) |
 | P-4 | Page Blossom code paste bug | `js/core/codes.js`, `js/ui/settings.js` | ✅ done (v38) |
 | V2-22 | Tracker revised spec (§22) | `js/widgets/tracker.js` | ✅ done (v39) |
-| V2-23x | Graph full overhaul (§23) | `js/widgets/graph.js` | pending |
+| V2-23x | Graph full overhaul (§23) | `js/widgets/graph.js`, `graph-data.js`, `graph-engine.js` | ✅ done (v40) |
 | V2-24a | Hub Widget (§24) | `js/widgets/hub.js` | pending |
 | V2-24b | Page Widget (§24) | `js/widgets/page-widget.js` | pending |
 | V2-24c | Characteristics Widget (§24) | `js/widgets/characteristic.js` | pending |

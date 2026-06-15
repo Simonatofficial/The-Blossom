@@ -402,6 +402,16 @@
   pointer-events: none;
   box-shadow: var(--shadow-soft);
 }
+/* V2 §23 chart-type picker + dataset manager */
+.chart-type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.chart-type-cell {
+  padding: 12px 6px; border-radius: 10px; cursor: pointer;
+  background: var(--surface-alt); border: 1px solid var(--border); color: var(--text);
+  font-size: 0.82rem; text-align: center; transition: background .15s ease, border-color .15s ease;
+}
+.chart-type-cell:hover { border-color: var(--accent); }
+.chart-type-cell.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.ds-manager .ds-src { font-size: 0.72rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---- Dice widget ---- */
 .dice-widget .d-result {

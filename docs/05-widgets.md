@@ -52,27 +52,29 @@ Per-widget primary taps: Counter → increment · Dice → re-roll last formula 
 - **Settings:** add/remove items; per item set type, unit, goal, Scale max, and Yes/No sub-items. Legacy `bool` items read as single Yes/No (no data loss).
 
 ## Graph Widget
-*External + internal · Consumer of links · Multiple graphs per widget*
+*External + internal · Multiple graphs per widget*
 
-The visualization engine. A Graph widget holds 1+ **graph definitions**; the card shows them in a user-arranged layout (stacked, side-by-side, or grid for 3+).
+**Overhauled in V2 §23.** The visualization engine. A Graph widget holds 1+ **graph definitions**; the card lays them out (stacked, or grid for 3+). Data layer in `graph-data.js`, canvas renderers in `graph-engine.js`.
 
 ```js
 graph: {
-  kind: 'line'|'bar'|'pie'|'scatter'|'bubble'|'radar'|'flower',
-  series: [Link...],                 // what to plot (docs/02)
-  range: 'week'|'month'|'quarter'|'year'|'custom',
-  aggregate: 'raw'|'sum'|'avg',      // month view compiles weeks via this
-  encode: {                          // how value maps to visuals (per series)
-    position: true, size: false, brightness: false,
-    glow: false, opacity: false
-  },
-  complex: [ComplexParticle...]      // see below
+  kind,                              // see chart types below
+  datasets: [{ id, name, color, source:'manual'|'link', link?, points:[{x,y,r?}] }],
+  range: '7d'|'30d'|'90d'|'1y'|'all',
+  xAxis: { type:'time'|'category'|'value', label, unit },
+  yAxis: { label, unit },
+  legend, valueLabels, gridlines, smooth, stacked, horizontal, animate,
+  gauge: { min, max }, rotationDeg   // type-specific
 }
 ```
 
-- **Rendering:** custom canvas renderer (no chart libs). Theme-colored, animated draw-in (lines grow, petals bloom, bars rise — 400ms ease-out). Axes minimal: hairline gridlines in `border`, labels in `textSoft`.
-- **Interactivity:** tap a data point/petal/bar → tooltip panel (value, source name, date breakdown). Tap the same element again → navigate to the source widget. Tap empty space → dismiss. (Same pattern app-wide.)
-- **Series picker UI:** "+ Add data" → link picker with live preview; per-series color (defaults to theme accent rotation), label, and encode toggles.
+- **Datasets (persisted):** each graph holds its own data. A dataset is **manual** (its own stored `{x,y}` points, edited in a small table — bubble adds a size column), **linked** (pulled live from another widget's output via the value system), or **CSV-imported** (first column X, each further column a dataset). Legacy linked-`series` graphs migrate automatically (`normalizeGraph`).
+- **Chart types (19):** *Standard* — Line, Area, Bar (grouped/stacked, vertical/horizontal), Pie, Donut, Scatter, Bubble, Radar, Histogram, Polar Area. *Advanced* — Gauge (min/max, colour zones), Funnel (conversion %), Pyramid, Mekko, Dual-Axis, Venn, Pictogram. *Blossom* — Flower, Solar System.
+- **Linking dimensions:** a linked dataset can pull any output a source widget exposes — current value, Skill/Characteristic level, item count, streak, XP, daily completion %.
+- **Axes & range:** X (time/category/value) and Y both labelled with optional units; a 7d/30d/90d/1y/All range filter drives time-series.
+- **Rendering:** custom canvas renderer (no chart libs). Theme-coloured, animated draw-in, hairline gridlines in `border`, labels in `textSoft`. Empty state: "No data yet — add a dataset to grow this graph."
+- **Interactivity:** tap a point/bar/segment → tooltip (series, label, value); tap again → navigate to the source widget (linked datasets only). Tap empty space → dismiss.
+- **Settings:** chart-type grid picker · per-dataset colour/name/edit/delete + Add dataset (link / manual / CSV) · axis labels & units · range · display toggles (legend, value labels, gridlines, smooth, stacked, horizontal) · gauge min/max · flower rotation.
 
 ### Flower Graph (the signature graph — get this right)
 
