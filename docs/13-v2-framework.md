@@ -1794,6 +1794,8 @@ Every completed quiz is saved with: date, deck selection, all questions, user an
 
 **Accept when:** user links a Flashcard widget, creates a Quiz Set for "Biology 101" with Multiple Choice (4 options, same-topic wrong answers, Term as question / Definition as answer); completes 10 questions; sees the color-coded result immediately; views the full post-quiz review.
 
+**Implementation notes (2026-06-15) — scope: MC + True/False + Fill-blank + Dropdown + Quiz Sets:** Split into `quiz-build.js` (sources cards from linked Flashcard widgets via flashcards-model, builds serializable question descriptors, grades) + `quiz-run.js` (one-at-a-time session per type, feedback, pause/resume `quizSession` snapshot, results + review) + `quiz.js` (setup/scope-tree/Q-A config/sets/history). **Distractor scope is structural** — a card's deck = Topic, its parent group = Unit, grandparent = Class (auto-widens topic→unit→class→random). Custom front/back cards map front→Term, back→Definition. Semi-correct arises in multi-blank Fill/Dropdown (per-blank grading). Quiz Sets are config-stored, launchable, via "Save as Quiz Set" (captures current decks+settings). Single-format (one-at-a-time) across all types — the old §27 list/scroll formats dropped (MC-only, awkward for fill/dropdown). **Deferred (noted):** Ordering question type (drag), per-set schedules + completion goals, fill-blank typo tolerance (uses normalized equality). SW v56.
+
 ---
 
 ### §W-6 — Graph Widget Overhaul
@@ -1960,7 +1962,7 @@ Implement §W items in this order. Mark ✅ date when acceptance criteria pass.
 | W-2 | Study Notes Widget (rename + source picker + format) | `js/widgets/study-notes.js` | ✅ 2026-06-15 |
 | W-3 | Overview Widget (daily dashboard + hyperlinks) | `js/widgets/overview.js` | ⬜ |
 | W-4 | Flashcard Widget overhaul | `flashcards.js`, `flashcards-model.js`, `flashcards-study.js` | ✅ 2026-06-15 (core+sets) |
-| W-5 | Quiz Widget overhaul | `js/widgets/quiz.js` | ⬜ |
+| W-5 | Quiz Widget overhaul | `quiz.js`, `quiz-build.js`, `quiz-run.js` | ✅ 2026-06-15 (MC/TF/Fill/Dropdown+sets) |
 | W-6 | Graph Widget overhaul | `js/widgets/graph.js` | ⬜ |
 | W-7 | Reminder Widget (new) | `js/widgets/reminder.js` | ⬜ |
 
