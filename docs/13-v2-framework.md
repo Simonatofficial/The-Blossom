@@ -1569,6 +1569,8 @@ Shows the count of stored terms/themes/concepts/ideas from linked notebooks, and
 
 **Accept when:** user links two Notebook widgets; the Study Notes widget shows terms from both; filtering by Class narrows to that class's terms; terms display with the full Notes/Examples structure.
 
+**Implementation notes (2026-06-15):** Registered under `type: 'elements'` (kept for data compatibility with existing instances); file/display/keywords renamed to Study Notes. Sources are explicit per-instance Notebook links (`config.sources = [{ notebookId, on }]`, add/remove/reorder/toggle in settings via `popMenu`); read through `moduleElements(widget, { notebookIds })`, so linking works **cross-module**. Per decision, **all** widgets (incl. existing ones) start empty with a "Link a Notebook to get started" state — no auto-seed. Tag-card breadcrumb is Class › Unit › Topic (no "line N" — the new annotation model doesn't track line numbers). Export-study-sheet from the old Elements widget was dropped (not in spec). Study preset's widget renamed + pre-wired to its notebook via `@nb`.
+
 ---
 
 ### §W-3 — Overview Widget (Study Dashboard)
@@ -1951,7 +1953,7 @@ Implement §W items in this order. Mark ✅ date when acceptance criteria pass.
 | # | Feature | File(s) | Status |
 |---|---|---|---|
 | W-1 | Notebook Widget overhaul | `js/widgets/notebook.js`, `notebook-editor.js`, `notebook-parse.js` | ✅ 2026-06-15 |
-| W-2 | Study Notes Widget (rename + source picker + format) | `js/widgets/study-notes.js` | ⬜ |
+| W-2 | Study Notes Widget (rename + source picker + format) | `js/widgets/study-notes.js` | ✅ 2026-06-15 |
 | W-3 | Overview Widget (daily dashboard + hyperlinks) | `js/widgets/overview.js` | ⬜ |
 | W-4 | Flashcard Widget overhaul | `js/widgets/flashcard.js` | ⬜ |
 | W-5 | Quiz Widget overhaul | `js/widgets/quiz.js` | ⬜ |

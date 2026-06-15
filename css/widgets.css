@@ -661,6 +661,19 @@ span.anno { padding: 0 3px; }
 .nb-card-snip { font-size: 0.9rem; max-height: 3.4em; overflow: hidden; line-height: 1.35; }
 .nb-card-time { font-size: 0.72rem; }
 
+/* V2 §W-2 Study Notes widget: term cards, tag cards, source rows */
+.sn-term { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px; }
+.sn-term-name { font-weight: 700; font-size: 1rem; }
+.sn-term-def { font-size: 0.9rem; color: var(--text-soft); margin-top: 2px; }
+.sn-ctx { font-size: 0.72rem; margin-top: 4px; }
+.sn-label { font-size: 0.78rem; font-weight: 600; margin: 8px 0 2px; }
+.sn-bullets, .sn-examples { margin: 2px 0 0 18px; font-size: 0.86rem; color: var(--text-soft); }
+.sn-tag { display: flex; flex-direction: column; gap: 3px; border-radius: 12px; padding: 10px 12px; }
+.sn-tag-text { font-size: 0.92rem; }
+.sn-sources { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.sn-src-row { padding: 4px 0; }
+.sn-card-results { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+
 .fc-stage { max-width: 460px; margin: 0 auto; }
 .fc-card { perspective: 900px; cursor: pointer; height: 220px; }
 .fc-inner {

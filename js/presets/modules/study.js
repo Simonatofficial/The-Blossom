@@ -6,14 +6,14 @@ export const STUDY_PRESET = {
   key: 'study',
   name: 'Study',
   icon: 'book-open',
-  description: 'Classes→Units→Topics notes with key-term parsing, an Elements glossary, flashcards, quizzes, and a dashboard.',
+  description: 'Classes→Units→Topics notes with key-term parsing, a Study Notes glossary, flashcards, quizzes, and a dashboard.',
   pages: [
     {
       name: 'Notes', icon: 'book-open',
       widgets: [
         { type: 'docshelf', name: 'Library', ref: 'lib' },
         { type: 'notebook', name: 'Notebook', ref: 'nb' },
-        { type: 'elements', name: 'Elements' },
+        { type: 'elements', name: 'Study Notes', config: { sources: [{ notebookId: '@nb', on: true }] } },
         { type: 'graph', name: 'Key terms by class', config: { graphs: [{ id: 'g_terms', kind: 'bar', range: '30d', datasets: [{ id: 'd_terms', name: 'Topics', source: 'link', link: { sourceWidgetId: '@nb', output: 'topics', transform: { scale: 1 } }, points: [] }] }] } }
       ]
     },

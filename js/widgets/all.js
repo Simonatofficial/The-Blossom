@@ -51,7 +51,7 @@ import './pagewidget.js';
 import './characteristic.js';
 import './questboard.js';
 import './overview.js';
-import './elements.js';
+import './study-notes.js'; // V2 §W-2 (renamed from elements.js; registers type 'elements')
 import './snake.js';
 import './solitaire.js';
 import './canvaboard.js';
