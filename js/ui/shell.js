@@ -66,9 +66,9 @@ function renderTabs() {
     tab.querySelector('.tab-name').textContent = page.name;
     if (page.id === pageId) { tab.classList.add('active'); tab.setAttribute('aria-current', 'page'); }
     if (mod.homePageId === page.id) {
+      // V2 §25d: the home page is shown by tinting its icon accent — no house badge.
       tab.classList.add('home');
       tab.setAttribute('aria-label', `${page.name}, home page`);
-      tab.insertAdjacentHTML('afterbegin', `<span class="tab-home" aria-hidden="true">${icon('home', 11)}</span>`);
     }
     tab.onclick = () => router.go(mod.id, page.id);
     longPress(tab, () => pageMenu(tab, mod, page));

@@ -106,6 +106,7 @@ export function instantiatePreset(def) {
     page.widgets = (pDef.widgets || []).map(wDef => buildWidget(wDef, page.id, null).id);
     store.put('pages', page);
     mod.pages.push(page.id);
+    if (pDef.home) mod.homePageId = page.id; // V2 §25: a preset can mark its home page
   }
   store.put('modules', mod);
 

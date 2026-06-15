@@ -1347,11 +1347,11 @@ Add these rows to the §15 work order table:
 | V2-24d | Skill widget sub-widget references (§24) | `js/widgets/skill.js` | ✅ done (v41) |
 | V2-24e | Quest Board Widget (§24) | `js/widgets/questboard.js` | ✅ done (v41) |
 | V2-24f | Overview Widget (§24) | `js/widgets/overview.js` | ✅ done (v41) |
-| V2-25 | Study Module (§25) | `js/presets/modules/study.js` | pending |
-| V2-25a | Library widget groups (§25) | `js/widgets/library.js` | pending |
+| V2-25 | Study Module (§25) | `js/presets/modules/study.js`, `index.js` (home) | ✅ done (v45) |
+| V2-25a | Library widget groups (§25) | `js/widgets/docshelf.js` | ✅ done (v45) |
 | V2-25b | Notebook Widget (§25) | `js/widgets/notebook.js`, `notebook-parse.js` | ✅ done (v42) |
 | V2-25c | Elements Widget (§25) | `js/widgets/elements.js` | ✅ done (v42) |
-| V2-25d | Study Overview page config (§25) | `js/presets/modules/study.js` | pending |
+| V2-25d | Study Overview page config (§25) | `js/presets/modules/study.js`, `shell.js` (home icon) | ✅ done (v45) |
 | V2-26 | Flash Card Widget overhaul (§26) | `js/widgets/flashcards.js` | ✅ done (v43) |
 | V2-27 | Quiz Widget overhaul (§27) | `js/widgets/quiz.js` | ✅ done (v44) |
 
