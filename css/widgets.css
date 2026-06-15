@@ -709,6 +709,13 @@ span.anno { padding: 0 3px; }
 .fc-card.anim-slide:not(.flipped) .fc-back { transform: translateX(40px); opacity: 0; }
 .fc-card.anim-slide.flipped .fc-front { transform: translateX(-40px); opacity: 0; }
 
+/* V2 §W-4 multi-field faces, progress bar, study-set editor tree */
+.fc-face { white-space: pre-wrap; }
+.fc-progress { height: 5px; border-radius: 3px; background: var(--surface-alt); overflow: hidden; margin-bottom: 12px; }
+.fc-progress > span { display: block; height: 100%; background: var(--accent); transition: width 200ms var(--ease); }
+.fc-set-tree { max-height: 40vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; }
+.fc-set .li-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .qz-match { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .qz-cell {
   padding: 12px 10px;

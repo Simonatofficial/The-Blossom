@@ -29,7 +29,7 @@ export const STUDY_PRESET = {
     {
       name: 'Study', icon: 'layers',
       widgets: [
-        { type: 'flashcards', name: 'Flashcards', ref: 'fc' },
+        { type: 'flashcards', name: 'Flashcards', ref: 'fc', config: { sources: [{ notebookId: '@nb', on: true }] } },
         { type: 'quiz', name: 'Quiz', ref: 'qz' }
       ]
     }

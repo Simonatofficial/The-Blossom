@@ -1,269 +1,230 @@
-/* Flashcard widget (docs/05 + V2 §26): cards live in infinitely-nested groups
-   (Deck → Group → Subgroup → …). "Generate from Notebook" mirrors a topic's
-   Class→Unit→Topic structure and builds cards from its parsed Elements with a
-   chosen field mapping. After flipping, rate Hard / Good / Easy; a follow-up
-   session can be filtered to just one bucket. SM-2 light still schedules due. */
+/* Flashcard widget (V2 §W-4): Groups contain Groups or Decks; Decks hold cards.
+   Linked Notebooks contribute a live read-only auto-tree (Notebook→Class→Unit→
+   Topic). Study Sets are saved, launchable configurations. Data + resolution live
+   in flashcards-model.js; the study runtime in flashcards-study.js. */
 
 import { registry } from './registry.js';
 import { store } from '../core/store.js';
-import { ulid } from '../core/ids.js';
 import { icon } from '../ui/icons.js';
-import { el, toast, promptText, confirmDialog, emptyState, openDrawer, seg, popMenu } from '../ui/components.js';
-import { objectsOf, createObject, saveObject, dayObject, todayStr, dateAdd, bloomBurst } from './base.js';
+import { el, popMenu, promptText, confirmDialog, emptyState, toast, openDrawer, seg } from '../ui/components.js';
+import { objectsOf, todayStr } from './base.js';
 import { topicsOf } from './notebook.js';
 import { moduleElements } from './notebook-parse.js';
+import * as M from './flashcards-model.js';
+import { startStudy, resumeSession, openStudySetEditor } from './flashcards-study.js';
 
-/* ---- node tree (flat list with parentId; null = a root deck) ---- */
-function nodes(widget) {
-  const c = widget.config;
-  if (!c.nodes) { c.nodes = (c.decks || []).map(d => ({ id: d.id, name: d.name, parentId: null })); delete c.decks; store.put('widgets', widget); }
-  return c.nodes;
+function dueCount(widget) { const t = todayStr(); return objectsOf(widget.id, 'flashcard').filter(c => (c.data.due || t) <= t).length; }
+function nbLabel(nb) {
+  const page = store.all('pages').find(p => p.widgets.includes(nb.id));
+  const mod = page && store.all('modules').find(m => m.pages.includes(page.id));
+  return [mod?.name, page?.name, nb.name].filter(Boolean).join(' › ');
 }
-function childrenOf(widget, parentId) { return nodes(widget).filter(n => (n.parentId || null) === (parentId || null)); }
-function descendantIds(widget, id) {
-  const out = [id]; const walk = (p) => { for (const n of nodes(widget)) if (n.parentId === p) { out.push(n.id); walk(n.id); } }; walk(id); return out;
-}
-function cardsIn(widget, ids) { const set = new Set(ids); return objectsOf(widget.id, 'flashcard').filter(c => set.has(c.data.nodeId || c.data.deckId)); }
-function nodeCards(widget, id) { return cardsIn(widget, descendantIds(widget, id)); }
-function dueIn(widget, ids) { const t = todayStr(); return cardsIn(widget, ids).filter(c => (c.data.due || t) <= t); }
-function ensureChild(widget, parentId, name) {
-  let n = childrenOf(widget, parentId).find(x => x.name === name);
-  if (!n) { n = { id: ulid(), name, parentId: parentId || null }; nodes(widget).push(n); }
-  return n;
-}
-
-/* ---- SM-2 light + Hard/Good/Easy bucket ---- */
-export function gradeCard(card, grade) {
-  const d = card.data;
-  d.ease = d.ease ?? 2.3; d.interval = d.interval ?? 0; d.reps = (d.reps || 0) + 1;
-  if (grade === 'hard') { d.interval = Math.max(1, Math.round(d.interval * 1.2)) || 1; d.ease = Math.max(1.3, d.ease - 0.15); }
-  else if (grade === 'good') { d.interval = d.interval ? Math.round(d.interval * d.ease) : 1; }
-  else { d.interval = Math.max(2, Math.round((d.interval || 1) * d.ease * 1.3)); d.ease = Math.min(3, d.ease + 0.1); } // easy
-  d.bucket = grade;
-  d.due = dateAdd(todayStr(), d.interval);
-  saveObject(card);
-}
-
-const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
 registry.register({
   type: 'flashcards',
   name: 'Flashcards',
   icon: 'layers',
-  description: 'Nested decks; grow cards from your notes; Hard/Good/Easy',
+  description: 'Groups & decks, grown from your notes; Study Sets; Hard/Good/Easy',
   keywords: ['study', 'srs', 'memorize', 'deck', 'anki', 'review'],
   external: true, internal: true,
-  defaultConfig: () => ({ nodes: [] }),
+  defaultConfig: () => ({ nodes: [], sources: [], studySets: [], fcV2: true }),
 
   outputs: (widget) => [
     { key: 'reviewsToday', name: 'Cards reviewed', dayKeyed: true, get: (d) => store.all('objects').find(o => o.widgetId === widget.id && o.kind === 'studyDay' && o.date === (d || todayStr()))?.data.reviews || 0 },
-    { key: 'dueNow', name: 'Cards due', dayKeyed: false, get: () => dueIn(widget, nodes(widget).map(n => n.id)).length }
+    { key: 'dueNow', name: 'Cards due', dayKeyed: false, get: () => dueCount(widget) }
   ],
 
   renderCard(host, widget) {
+    M.ensureModel(widget);
     host.innerHTML = '';
-    const roots = childrenOf(widget, null);
-    if (!roots.length) { host.appendChild(el('<p class="soft">Tap to plant your first deck.</p>')); return; }
-    const due = dueIn(widget, nodes(widget).map(n => n.id)).length;
-    host.appendChild(el(`<div class="row-between"><span style="font-size:0.92rem">${roots.length} deck${roots.length === 1 ? '' : 's'} · ${objectsOf(widget.id, 'flashcard').length} cards</span><span class="chip ${due ? 'accent' : ''}">${due} due</span></div>`));
+    const all = M.allNodes(widget);
+    const roots = M.childNodes(all, null);
+    if (!roots.length) { host.appendChild(el('<p class="soft">Tap to plant your first deck, or link a Notebook.</p>')); return; }
+    const cards = objectsOf(widget.id, 'flashcard').length;
+    const sets = M.studySets(widget).length;
+    host.appendChild(el(`<div class="row-between"><span style="font-size:0.92rem">${roots.length} top-level · ${cards} cards${sets ? ` · ${sets} set${sets === 1 ? '' : 's'}` : ''}</span><span class="chip ${dueCount(widget) ? 'accent' : ''}">${dueCount(widget)} due</span></div>`));
   },
 
   renderFull(host, widget, ctx) {
-    const save = () => store.put('widgets', widget);
-    let parentStack = [null]; // breadcrumb of node ids
+    M.ensureModel(widget);
+    const env = { widget, ctx, host, render: () => render() };
+    let stack = [null];
+    const cur = () => stack[stack.length - 1];
 
-    const cur = () => parentStack[parentStack.length - 1];
+    const setCardsFor = (set) => {
+      const all = M.allNodes(widget);
+      const out = []; const seen = new Set();
+      for (const id of set.contents) { const n = all.find(x => x.id === id); if (!n) continue; for (const c of M.collectCards(widget, n, all)) if (!seen.has(c.id)) { seen.add(c.id); out.push(c); } }
+      return out;
+    };
 
     const render = () => {
       host.innerHTML = '';
+      const all = M.allNodes(widget);
       const parentId = cur();
+      const node = parentId ? all.find(n => n.id === parentId) : null;
+
       if (parentId) {
-        const node = nodes(widget).find(n => n.id === parentId);
         const back = el(`<button class="btn btn-ghost" style="margin-bottom:8px">${icon('arrow-left', 14)} Back</button>`);
-        back.onclick = () => { parentStack.pop(); render(); };
+        back.onclick = () => { stack.pop(); render(); };
         host.appendChild(back);
-        host.appendChild(el(`<h2 style="margin-bottom:10px"></h2>`)).textContent = node?.name || 'Deck';
+        host.appendChild(el('<h2 style="margin-bottom:10px"></h2>')).textContent = node?.name || '';
+        if (node?.kind === 'deck') return renderDeck(node);
       }
 
-      // child groups
-      for (const n of childrenOf(widget, parentId)) {
-        const total = nodeCards(widget, n.id).length, due = dueIn(widget, descendantIds(widget, n.id)).length;
-        const li = el(`<button class="list-item">${icon('layers', 18)}<span class="li-main"><span class="li-title"></span><span class="li-sub">${total} cards · ${childrenOf(widget, n.id).length} groups</span></span>
-          ${due ? `<span class="chip accent">${due} due</span>` : ''}
-          <span class="btn-icon n-study" title="Study">${icon('play', 15)}</span>
-          <span class="btn-icon n-menu">${icon('more', 14)}</span></button>`);
+      if (!parentId) { renderStudySets(); renderResumable(); }
+
+      for (const n of M.childNodes(all, parentId)) {
+        const cnt = M.cardCount(widget, n, all), sub = n.kind === 'group' ? `${M.childNodes(all, n.id).length} inside · ${cnt} cards` : `${cnt} card${cnt === 1 ? '' : 's'}`;
+        const li = el(`<button class="list-item">${icon(n.auto ? 'book-open' : (n.kind === 'group' ? 'layers' : 'note'), 18)}<span class="li-main"><span class="li-title"></span><span class="li-sub">${sub}${n.auto ? ' · auto' : ''}</span></span>
+          <span class="btn-icon n-study" title="Study">${icon('play', 15)}</span>${n.auto ? '' : `<span class="btn-icon n-menu">${icon('more', 14)}</span>`}</button>`);
         li.querySelector('.li-title').textContent = n.name;
-        li.onclick = (e) => { if (e.target.closest('.btn-icon')) return; parentStack.push(n.id); render(); };
-        li.querySelector('.n-study').addEventListener('click', (e) => { e.stopPropagation(); sessionSetup([n.id], n.name); });
-        li.querySelector('.n-menu').addEventListener('click', (e) => { e.stopPropagation(); nodeMenu(e.currentTarget, n); });
+        li.onclick = (e) => { if (e.target.closest('.btn-icon')) return; stack.push(n.id); render(); };
+        li.querySelector('.n-study').addEventListener('click', (e) => { e.stopPropagation(); startStudy(env, { label: n.name, cards: M.collectCards(widget, n, all) }); });
+        li.querySelector('.n-menu')?.addEventListener('click', (e) => { e.stopPropagation(); nodeMenu(e.currentTarget, n); });
         host.appendChild(li);
       }
 
-      // cards directly in this node
-      const here = cardsIn(widget, [parentId]).filter(c => (c.data.nodeId || c.data.deckId) === parentId);
-      for (const c of here) {
-        const row = el(`<div class="list-item" style="cursor:default">${icon('note', 15)}<span class="li-main"><span class="li-title"></span><span class="li-sub"></span></span>${c.data.bucket ? `<span class="chip">${c.data.bucket}</span>` : ''}<span class="btn-icon fc-del">${icon('trash', 13)}</span></div>`);
-        row.querySelector('.li-title').textContent = c.data.front;
-        row.querySelector('.li-sub').textContent = c.data.back;
-        row.querySelector('.fc-del').onclick = () => { store.trash('objects', c.id); render(); };
-        host.appendChild(row);
+      // actions (groups/root can hold groups & decks; you can't add into an auto node)
+      if (!node?.auto) {
+        const addGroup = el(`<button class="btn-soft-wide">${icon('plus', 15)} New group</button>`);
+        addGroup.onclick = async () => { const n = await promptText({ title: 'New group', label: 'Name' }); if (n) { M.addNode(widget, parentId, n, 'group'); render(); } };
+        const addDeck = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('note', 15)} New deck</button>`);
+        addDeck.onclick = async () => { const n = await promptText({ title: 'New deck', label: 'Name' }); if (n) { M.addNode(widget, parentId, n, 'deck'); render(); } };
+        host.append(addGroup, addDeck);
       }
-
-      // actions
-      const addGroup = el(`<button class="btn-soft-wide">${icon('plus', 15)} ${parentId ? 'Add subgroup' : 'New deck'}</button>`);
-      addGroup.onclick = async () => { const n = await promptText({ title: parentId ? 'New subgroup' : 'New deck', label: 'Name' }); if (n) { ensureChild(widget, parentId, n); save(); render(); } };
-      host.appendChild(addGroup);
-      if (parentId) {
-        const addCard = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('note', 15)} Add card</button>`);
-        addCard.onclick = async () => {
-          const front = await promptText({ title: 'Card front', label: 'Question / term', confirmText: 'Next' }); if (!front) return;
-          const back = await promptText({ title: 'Card back', label: 'Answer / definition', confirmText: 'Add' }); if (!back) return;
-          createObject(widget.id, 'flashcard', { nodeId: parentId, front, back, due: todayStr(), ease: 2.3, interval: 0, reps: 0 });
-          render();
-        };
-        host.appendChild(addCard);
-      }
-      const study = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('play', 15)} Study ${parentId ? 'this group' : 'decks…'}</button>`);
-      study.onclick = () => parentId ? sessionSetup([parentId], nodes(widget).find(n => n.id === parentId)?.name) : multiDeckPicker();
-      host.appendChild(study);
-      const gen = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('wand', 15)} Generate from Notebook</button>`);
-      gen.onclick = () => generate(parentId);
+      const gen = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('wand', 15)} Generate deck from Notebook</button>`);
+      gen.onclick = () => generate(node?.auto ? null : parentId);
       host.appendChild(gen);
     };
 
     const nodeMenu = (anchor, n) => popMenu(anchor, [
-      { label: 'Rename', iconName: 'edit', fn: async () => { const nm = await promptText({ title: 'Rename', value: n.name }); if (nm) { n.name = nm; save(); render(); } } },
-      { label: 'Delete', iconName: 'trash', danger: true, fn: async () => { if (await confirmDialog({ title: `Delete “${n.name}”?`, message: 'Its subgroups and cards go to the trash.' })) {
-        const ids = descendantIds(widget, n.id);
-        for (const c of cardsIn(widget, ids)) store.trash('objects', c.id);
-        widget.config.nodes = nodes(widget).filter(x => !ids.includes(x.id)); save(); render();
-      } } }
+      { label: 'Rename', iconName: 'edit', fn: async () => { const nm = await promptText({ title: 'Rename', value: n.name }); if (nm) { n.name = nm; store.put('widgets', widget); render(); } } },
+      { label: 'Delete', iconName: 'trash', danger: true, fn: async () => { if (await confirmDialog({ title: `Delete “${n.name}”?`, message: 'Its contents go to the trash.' })) { M.deleteNode(widget, n.id); render(); } } }
     ]);
 
-    /* ---- multi-deck picker (any combination) ---- */
-    const multiDeckPicker = () => {
-      const d = openDrawer({ title: 'Study decks', iconName: 'layers' });
-      const chosen = new Set();
-      const list = el('<div></div>');
-      for (const n of nodes(widget)) {
-        const depth = (() => { let p = n.parentId, k = 0; while (p) { k++; p = nodes(widget).find(x => x.id === p)?.parentId; } return k; })();
-        const row = el(`<label class="row" style="gap:8px;padding:5px 0;padding-left:${depth * 16}px"><input type="checkbox"><span></span><span class="soft" style="font-size:0.76rem">${nodeCards(widget, n.id).length}</span></label>`);
-        row.querySelector('span').textContent = n.name;
-        row.querySelector('input').onchange = (e) => { e.target.checked ? chosen.add(n.id) : chosen.delete(n.id); };
-        list.appendChild(row);
+    const renderDeck = (node) => {
+      const cards = M.deckCards(widget, node);
+      if (!node.auto) {
+        const study = el(`<button class="btn-soft-wide" style="margin-bottom:8px">${icon('play', 15)} Study deck</button>`);
+        study.onclick = () => startStudy(env, { label: node.name, cards });
+        host.appendChild(study);
+      } else host.appendChild(el('<p class="soft" style="font-size:0.82rem;margin-bottom:8px">Auto-generated from your Notebook — study it directly, or use “Generate deck” for an editable copy.</p>'));
+      for (const c of cards) {
+        const faces = M.cardFaces(c, ['term'], ['definition']);
+        const row = el(`<div class="list-item" style="cursor:${node.auto ? 'default' : 'pointer'}">${icon('note', 15)}<span class="li-main"><span class="li-title"></span><span class="li-sub"></span></span>${c.bucket ? `<span class="chip">${c.bucket}</span>` : ''}${node.auto ? '' : `<span class="btn-icon fc-del">${icon('trash', 13)}</span>`}</div>`);
+        row.querySelector('.li-title').textContent = faces.front || '(card)';
+        row.querySelector('.li-sub').textContent = faces.back;
+        if (!node.auto) { row.querySelector('.fc-del').onclick = (e) => { e.stopPropagation(); store.trash('objects', c.real); render(); }; row.onclick = () => editCard(node, c); }
+        host.appendChild(row);
       }
-      d.body.appendChild(list);
-      const go = el('<button class="btn btn-primary" style="width:100%;margin-top:10px">Study selected</button>');
-      go.onclick = () => { if (!chosen.size) { toast('Pick at least one deck.', 'info'); return; } d.close(); sessionSetup([...chosen], `${chosen.size} decks`); };
-      d.body.appendChild(go);
+      if (!node.auto) {
+        const add = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('plus', 15)} Add card</button>`);
+        add.onclick = () => editCard(node, null);
+        host.appendChild(add);
+        if (cards.length) { const s2 = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('play', 15)} Study deck</button>`); s2.onclick = () => startStudy(env, { label: node.name, cards: M.deckCards(widget, node) }); host.appendChild(s2); }
+      }
     };
 
-    /* ---- session setup: count, shuffle, bucket filter, flip style ---- */
-    const sessionSetup = (nodeIds, label) => {
-      const ids = nodeIds.flatMap(id => descendantIds(widget, id));
-      const pool = cardsIn(widget, ids);
-      if (!pool.length) { toast('No cards here yet.', 'info'); return; }
-      const opts = { count: 0, shuffle: true, bucket: 'all', anim: 'flip' };
-      const d = openDrawer({ title: `Study — ${label || ''}`, iconName: 'play' });
-      d.body.appendChild(el(`<p class="soft" style="font-size:0.85rem;margin-bottom:8px">${pool.length} cards available.</p>`));
-      const countIn = el(`<input class="input" type="number" min="0" placeholder="All" style="width:100px">`);
-      d.body.appendChild((() => { const f = el('<div style="margin-bottom:10px"></div>'); f.appendChild(el('<label class="soft" style="font-size:0.8rem">How many (blank = all)</label>')); f.appendChild(countIn); return f; })());
-      d.body.appendChild(el('<label class="soft" style="font-size:0.8rem">Only cards rated</label>'));
-      d.body.appendChild(seg([['all', 'All'], ['hard', 'Hard'], ['good', 'Good'], ['easy', 'Easy']].map(([value, l]) => ({ value, label: l })), 'all', (v) => opts.bucket = v));
-      let shuffleOn = true;
-      const sh = el(`<button class="chip accent" style="cursor:pointer;margin:8px 0">${icon('check', 11)} Shuffle</button>`);
-      sh.onclick = () => { shuffleOn = !shuffleOn; sh.classList.toggle('accent', shuffleOn); };
-      d.body.appendChild(sh);
-      d.body.appendChild(el('<label class="soft" style="font-size:0.8rem;display:block">Flip animation</label>'));
-      d.body.appendChild(seg([['flip', 'Flip'], ['fade', 'Fade'], ['slide', 'Slide']].map(([value, l]) => ({ value, label: l })), 'flip', (v) => opts.anim = v));
-      const go = el('<button class="btn btn-primary" style="width:100%;margin-top:12px">Start</button>');
-      go.onclick = () => { opts.count = Number(countIn.value) || 0; opts.shuffle = shuffleOn; d.close(); runSession(ids, opts); };
-      d.body.appendChild(go);
+    const editCard = async (deck, card) => {
+      const front = await promptText({ title: card ? 'Edit front' : 'Card front', label: 'Front', value: card?.front || card?.term || '', confirmText: 'Next' }); if (front == null) return;
+      const back = await promptText({ title: card ? 'Edit back' : 'Card back', label: 'Back', value: card?.back || card?.definition || '', confirmText: 'Save' }); if (back == null) return;
+      if (card?.real) { const o = store.get('objects', card.real); o.data.front = front; o.data.back = back; delete o.data.term; delete o.data.definition; delete o.data.details; delete o.data.examples; store.put('objects', o); }
+      else M.addCard(widget, deck.id, { front, back });
+      render();
     };
 
-    const runSession = (ids, opts) => {
-      let queue = cardsIn(widget, ids);
-      if (opts.bucket !== 'all') queue = queue.filter(c => (c.data.bucket || '') === opts.bucket);
-      if (!queue.length) { toast('No cards match that filter.', 'info'); return; }
-      if (opts.shuffle) shuffle(queue);
-      if (opts.count) queue = queue.slice(0, opts.count);
-      let i = 0, reviewed = 0, flipped = false; const tally = { hard: 0, good: 0, easy: 0 };
-      host.innerHTML = '';
-      const stage = el('<div class="fc-stage"></div>');
-      const face = () => {
-        const c = queue[i];
-        stage.innerHTML = `
-          <div class="soft" style="text-align:center;font-size:0.78rem;margin-bottom:8px">${i + 1} / ${queue.length}</div>
-          <div class="fc-card anim-${opts.anim} ${flipped ? 'flipped' : ''}"><div class="fc-inner">
-            <div class="fc-face fc-front"></div><div class="fc-face fc-back"></div></div></div>
-          <div class="fc-grades ${flipped ? '' : 'hidden'}">
-            <button class="btn" data-g="hard">Hard</button><button class="btn" data-g="good">Good</button><button class="btn" data-g="easy">Easy</button></div>
-          ${flipped ? '' : '<p class="soft" style="text-align:center;font-size:0.8rem;margin-top:10px">Tap the card to flip</p>'}`;
-        stage.querySelector('.fc-front').textContent = c.data.front;
-        stage.querySelector('.fc-back').textContent = c.data.back;
-        stage.querySelector('.fc-card').onclick = () => { flipped = !flipped; face(); };
-        for (const b of stage.querySelectorAll('[data-g]')) b.onclick = () => {
-          gradeCard(c, b.dataset.g); tally[b.dataset.g]++; reviewed++;
-          const day = dayObject(widget.id, 'studyDay', todayStr(), { reviews: 0 }); day.data.reviews += 1; saveObject(day);
-          flipped = false; i++;
-          if (i >= queue.length) return summary(); face();
-        };
-      };
-      const summary = () => {
-        stage.innerHTML = `<div class="empty-state">${icon('sprout', 32)}<h3 style="margin:8px 0 4px">The garden grew</h3>
-          <p>You tended ${reviewed} card${reviewed === 1 ? '' : 's'} — ${tally.hard} hard · ${tally.good} good · ${tally.easy} easy.</p></div>`;
-        const wrap = el('<div class="row" style="justify-content:center;gap:8px;margin-top:10px"></div>');
-        if (tally.hard) { const h = el('<button class="btn">Redo Hard cards</button>'); h.onclick = () => runSession(ids, { ...opts, bucket: 'hard' }); wrap.appendChild(h); }
-        const back = el('<button class="btn btn-primary">Back to decks</button>'); back.onclick = render; wrap.appendChild(back);
-        stage.appendChild(wrap); bloomBurst(stage);
-      };
-      host.appendChild(stage); face();
+    const renderStudySets = () => {
+      const sets = M.studySets(widget);
+      if (sets.length) {
+        host.appendChild(el('<h3 class="soft" style="font-size:0.74rem;letter-spacing:.05em;margin:2px 0 6px">STUDY SETS</h3>'));
+        for (const set of sets) {
+          const n = setCardsFor(set).length;
+          const row = el(`<button class="list-item fc-set">${icon('layers', 16)}<span class="li-main"><span class="li-title"></span><span class="li-sub">${n} card${n === 1 ? '' : 's'} · ${set.front.join('+')} → ${set.back.join('+')}</span></span><span class="btn-icon set-edit">${icon('edit', 14)}</span><span class="btn-icon set-go" title="Start">${icon('play', 15)}</span></button>`);
+          row.querySelector('.li-title').textContent = set.name;
+          row.querySelector('.set-edit').onclick = (e) => { e.stopPropagation(); openStudySetEditor(env, set); };
+          const start = () => startStudy(env, { label: set.name, cards: setCardsFor(set), front: set.front, back: set.back, order: set.order, startNow: true });
+          row.querySelector('.set-go').onclick = (e) => { e.stopPropagation(); start(); };
+          row.onclick = (e) => { if (e.target.closest('.btn-icon')) return; start(); };
+          host.appendChild(row);
+        }
+      }
+      const add = el(`<button class="btn-soft-wide" style="margin-bottom:10px">${icon('plus', 15)} New study set</button>`);
+      add.onclick = () => openStudySetEditor(env, null);
+      host.appendChild(add);
     };
 
-    /* ---- generate from notebook (mirrors Class→Unit→Topic, maps fields) ---- */
-    const FIELD = { term: d => d.term, definition: d => d.definition, details: d => (d.details || []).join('; '), examples: d => (d.examples || []).join('; ') };
+    const renderResumable = () => {
+      const sessions = M.savedSessions(widget);
+      if (!sessions.length) return;
+      host.appendChild(el('<h3 class="soft" style="font-size:0.74rem;letter-spacing:.05em;margin:6px 0 6px">RESUME</h3>'));
+      for (const s of sessions) {
+        const row = el(`<div class="list-item">${icon('play', 15)}<span class="li-main"><span class="li-title"></span><span class="li-sub">${s.data.index} / ${s.data.cards.length} done</span></span><span class="btn-icon res-del">${icon('trash', 13)}</span></div>`);
+        row.querySelector('.li-title').textContent = s.data.label || 'Study session';
+        row.querySelector('.res-del').onclick = (e) => { e.stopPropagation(); store.trash('objects', s.id); render(); };
+        row.onclick = (e) => { if (e.target.closest('.res-del')) return; resumeSession(env, s); };
+        host.appendChild(row);
+      }
+    };
+
     const generate = (intoParent) => {
       const topics = moduleTopics();
-      if (!topics.length) { host.innerHTML = ''; host.appendChild(emptyState('book-open', 'No notebook topics in this module yet.', 'Back', render)); return; }
-      const d = openDrawer({ title: 'Generate from Notebook', iconName: 'wand' });
+      if (!topics.length) { toast('No notebook topics found. Link or fill a Notebook first.', 'info'); return; }
+      const d = openDrawer({ title: 'Generate deck from Notebook', iconName: 'wand' });
       d.body.appendChild(el('<label class="soft" style="font-size:0.8rem">Topic</label>'));
       const topicSel = el('<select class="select"></select>');
       topics.forEach((t, i) => topicSel.appendChild(new Option(`${t.className} › ${t.unitName} › ${t.name}`, i)));
       d.body.appendChild(topicSel);
-      const map = { front: 'term', back: 'definition' };
-      d.body.appendChild(el('<label class="soft" style="font-size:0.8rem;display:block;margin-top:8px">Card front</label>'));
-      d.body.appendChild(seg(Object.keys(FIELD).map(k => ({ value: k, label: k })), 'term', (v) => map.front = v));
-      d.body.appendChild(el('<label class="soft" style="font-size:0.8rem;display:block;margin-top:8px">Card back</label>'));
-      d.body.appendChild(seg(Object.keys(FIELD).map(k => ({ value: k, label: k })), 'definition', (v) => map.back = v));
       const go = el('<button class="btn btn-primary" style="width:100%;margin-top:12px">Generate</button>');
       go.onclick = () => {
         const t = topics[Number(topicSel.value)];
         const terms = moduleElements(widget, { type: 'term' }).filter(e => e.topicId === t.id);
         if (!terms.length) { toast('That topic has no key terms yet.', 'info'); return; }
-        // mirror structure: class → unit → topic (under the current parent)
-        const cls = ensureChild(widget, intoParent || null, t.className);
-        const unit = ensureChild(widget, cls.id, t.unitName);
-        const topicNode = ensureChild(widget, unit.id, t.name);
-        let made = 0;
-        for (const e of terms) {
-          const front = FIELD[map.front](e), back = FIELD[map.back](e);
-          if (!front || !back) continue;
-          createObject(widget.id, 'flashcard', { nodeId: topicNode.id, front, back, due: todayStr(), ease: 2.3, interval: 0, reps: 0 });
-          made++;
-        }
-        save(); d.close();
-        toast(`Generated ${made} card${made === 1 ? '' : 's'}`, 'layers');
-        parentStack = [null, cls.id, unit.id, topicNode.id]; render();
+        const cls = M.ensureChild(widget, intoParent || null, t.className, 'group');
+        const unit = M.ensureChild(widget, cls.id, t.unitName, 'group');
+        const deck = M.ensureChild(widget, unit.id, t.name, 'deck');
+        for (const e of terms) M.addCard(widget, deck.id, { term: e.term, definition: e.definition, details: e.details || [], examples: e.examples || [] });
+        d.close(); toast(`Generated ${terms.length} card${terms.length === 1 ? '' : 's'}`, 'layers');
+        stack = [null, cls.id, unit.id, deck.id]; render();
       };
       d.body.appendChild(go);
     };
     const moduleTopics = () => {
       const mod = store.all('modules').find(m => m.pages.some(p => store.get('pages', p)?.widgets.includes(widget.id)));
-      if (!mod) return [];
-      return mod.pages.flatMap(pid => store.get('pages', pid)?.widgets || []).map(id => store.get('widgets', id))
-        .filter(w => w?.type === 'notebook').flatMap(nb => topicsOf(nb));
+      const fromModule = mod ? mod.pages.flatMap(pid => store.get('pages', pid)?.widgets || []).map(id => store.get('widgets', id)).filter(w => w?.type === 'notebook') : [];
+      const fromSources = M.sourceIds(widget).map(id => store.get('widgets', id)).filter(Boolean);
+      const nbs = [...new Set([...fromModule, ...fromSources])];
+      return nbs.flatMap(nb => topicsOf(nb));
     };
 
+    render();
+  },
+
+  renderSettings(host, widget, ctx) {
+    M.ensureModel(widget);
+    const render = () => {
+      host.innerHTML = '';
+      host.appendChild(el('<p class="soft" style="font-size:0.84rem;margin-bottom:8px">Link Notebook widgets to auto-generate a Class→Unit→Topic deck tree.</p>'));
+      const sources = widget.config.sources;
+      const list = el('<div class="sn-sources"></div>');
+      if (!sources.length) list.appendChild(el('<p class="soft" style="font-size:0.84rem">No notebooks linked.</p>'));
+      const commit = () => { store.put('widgets', widget); ctx.refreshCard?.(widget); render(); };
+      sources.forEach((s, i) => {
+        const nb = store.get('widgets', s.notebookId);
+        const row = el(`<div class="row-between sn-src-row"><label class="row" style="gap:8px;min-width:0"><input type="checkbox" ${s.on ? 'checked' : ''}><span class="sn-src-name" style="overflow:hidden;text-overflow:ellipsis"></span></label><button class="btn-icon sn-rm" title="Remove">${icon('x', 14)}</button></div>`);
+        row.querySelector('.sn-src-name').textContent = nb ? nbLabel(nb) : '(missing notebook)';
+        row.querySelector('input').onchange = (e) => { s.on = e.target.checked; commit(); };
+        row.querySelector('.sn-rm').onclick = () => { sources.splice(i, 1); commit(); };
+        list.appendChild(row);
+      });
+      const add = el(`<button class="btn-soft-wide">${icon('plus', 15)} Add Notebook</button>`);
+      add.onclick = () => {
+        const avail = store.all('widgets').filter(w => w.type === 'notebook' && !sources.some(s => s.notebookId === w.id));
+        if (!avail.length) { toast('No other Notebook widgets to add.', 'info'); return; }
+        popMenu(add, avail.map(nb => ({ label: nbLabel(nb), fn: () => { sources.push({ notebookId: nb.id, on: true }); commit(); } })));
+      };
+      host.append(list, add);
+    };
     render();
   }
 });

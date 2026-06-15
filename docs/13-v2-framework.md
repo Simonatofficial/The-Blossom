@@ -1706,6 +1706,8 @@ Groups and Decks have a color theme setting (dropdown: inherit theme / Flower / 
 
 **Accept when:** user links a Notebook, sees auto-generated groups/decks for each Class→Unit→Topic; starts studying "Biology 101 Unit 3 Mitosis" with Front = Term, Back = Definition + Details; rates 5 cards; pauses; resumes; finishes and redoes Hard cards.
 
+**Implementation notes (2026-06-15) — scope: core + Study Sets:** Model split into `flashcards-model.js` (data) + `flashcards-study.js` (session) + `flashcards.js` (UI). Nodes are `{id,name,parentId,kind:'group'|'deck'}`; legacy decks/nodes migrate (kind inferred from structure; loose cards on groups reparented to a "Cards" deck). Linked Notebooks render a **live, read-only virtual auto-tree** (Notebook→Class→Unit→Topic) computed from key terms — no persistence, always fresh, so the deferred override/re-sync problem is sidestepped. "Generate deck from Notebook" materializes an editable real deck. Multi-field Front/Back via `cardFaces`. Sessions persist a snapshot object (`fcSession`) for pause/resume. Study Sets are config-stored, launchable, with their own front/back/order. **Deferred (noted):** per-set schedules + completion goals, per-group/deck color themes, override-preserving re-sync of auto decks (auto cards are study-only + their SRS doesn't persist). SW v55. Study preset's flashcards pre-wired to `@nb`.
+
 ---
 
 ### §W-5 — Quiz Widget Overhaul
@@ -1950,12 +1952,14 @@ OS notification (if `Notification.requestPermission()` granted): same content, t
 
 Implement §W items in this order. Mark ✅ date when acceptance criteria pass.
 
+> **Reorder (2026-06-15):** after W-1/W-2, build **W-4 → W-5 → W-3 → W-6 → W-7**. The Overview (W-3), Graph (W-6) and Reminder (W-7) all consume flashcard/quiz activity, so the Flashcard (W-4) and Quiz (W-5) data models must be finalized first to avoid building those widgets twice.
+
 | # | Feature | File(s) | Status |
 |---|---|---|---|
 | W-1 | Notebook Widget overhaul | `js/widgets/notebook.js`, `notebook-editor.js`, `notebook-parse.js` | ✅ 2026-06-15 |
 | W-2 | Study Notes Widget (rename + source picker + format) | `js/widgets/study-notes.js` | ✅ 2026-06-15 |
 | W-3 | Overview Widget (daily dashboard + hyperlinks) | `js/widgets/overview.js` | ⬜ |
-| W-4 | Flashcard Widget overhaul | `js/widgets/flashcard.js` | ⬜ |
+| W-4 | Flashcard Widget overhaul | `flashcards.js`, `flashcards-model.js`, `flashcards-study.js` | ✅ 2026-06-15 (core+sets) |
 | W-5 | Quiz Widget overhaul | `js/widgets/quiz.js` | ⬜ |
 | W-6 | Graph Widget overhaul | `js/widgets/graph.js` | ⬜ |
 | W-7 | Reminder Widget (new) | `js/widgets/reminder.js` | ⬜ |

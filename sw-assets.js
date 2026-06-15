@@ -76,6 +76,8 @@ self.SW_ASSETS = [
   './js/widgets/docshelf.js',
   './js/widgets/encounter.js',
   './js/widgets/flashcards.js',
+  './js/widgets/flashcards-model.js',
+  './js/widgets/flashcards-study.js',
   './js/widgets/flowergraph.js',
   './js/widgets/gallery.js',
   './js/widgets/goal.js',
