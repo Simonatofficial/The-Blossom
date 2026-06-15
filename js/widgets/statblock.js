@@ -7,12 +7,29 @@
 import { registry } from './registry.js';
 import { store } from '../core/store.js';
 import { icon } from '../ui/icons.js';
-import { el, toast, confirmDialog, popMenu } from '../ui/components.js';
+import { el, toast, confirmDialog, popMenu, openDrawer } from '../ui/components.js';
 import { objectsOf, createObject, saveObject } from './base.js';
 import { ABILITIES, mod, fmtMod, rollD20, rollFormula } from './dnd-shared.js';
 import { siblingWidgets } from './wb-shared.js';
+import { CONDITIONS, SKILLS } from '../presets/tabletop/srd5e.js';
 
 const blocks = (w) => objectsOf(w.id, 'statblock');
+
+/** SRD rules reference (V2 §13): system-accurate conditions + skills, offline. */
+function openRulesReference() {
+  const d = openDrawer({ title: 'Rules reference (5e SRD)', iconName: 'shield' });
+  d.body.appendChild(el('<h3 class="soft" style="font-size:0.76rem;margin:2px 0 8px">CONDITIONS</h3>'));
+  for (const c of CONDITIONS) {
+    const det = el('<details class="el-card" style="margin-bottom:6px"><summary><strong></strong></summary><p class="soft" style="font-size:0.85rem;margin:6px 0 0"></p></details>');
+    det.querySelector('strong').textContent = c.name;
+    det.querySelector('p').textContent = c.effect;
+    d.body.appendChild(det);
+  }
+  d.body.appendChild(el('<h3 class="soft" style="font-size:0.76rem;margin:14px 0 8px">SKILLS → ABILITY</h3>'));
+  const grid = el('<div class="row" style="flex-wrap:wrap;gap:5px"></div>');
+  for (const s of SKILLS) grid.appendChild(el(`<span class="chip">${s.name} · ${s.ability.toUpperCase()}</span>`));
+  d.body.appendChild(grid);
+}
 
 const FRESH = () => ({
   name: 'New creature', meta: 'Medium humanoid', ac: 12, hp: 11, hpFormula: '2d8+2',
@@ -67,8 +84,9 @@ registry.register({
 
     const showGrid = () => {
       wrap.innerHTML = '';
-      const head = el(`<div class="row" style="gap:8px;margin-bottom:12px"><input class="input grow" placeholder="Find a creature…"><button class="btn btn-primary">${icon('plus', 15)} Creature</button></div>`);
-      const [search, add] = head.children;
+      const head = el(`<div class="row" style="gap:8px;margin-bottom:12px"><input class="input grow" placeholder="Find a creature…"><button class="btn-icon" title="Rules reference">${icon('book-open', 16)}</button><button class="btn btn-primary">${icon('plus', 15)} Creature</button></div>`);
+      const search = head.querySelector('input'), add = head.querySelector('.btn-primary');
+      head.querySelector('[title="Rules reference"]').onclick = openRulesReference;
       add.onclick = () => { const o = createObject(widget.id, 'statblock', FRESH()); showBlock(o.id, true); };
       wrap.appendChild(head);
       const grid = el('<div class="dm-blocks"></div>');

@@ -7,7 +7,7 @@
 
 export const DND_DM_PRESET = {
   key: 'dnddm',
-  name: 'D&D Campaign',
+  name: 'Tabletop Campaign',
   icon: 'dice',
   description: 'Run a whole campaign — story, world, NPCs, encounters, live combat, and session logs.',
   pages: [

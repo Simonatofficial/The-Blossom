@@ -37,6 +37,7 @@ self.SW_ASSETS = [
   './js/presets/modules/worldbuilder.js',
   './js/presets/particles.js',
   './js/presets/prompts.js',
+  './js/presets/tabletop/srd5e.js',
   './js/presets/themes.js',
   './js/ui/components.js',
   './js/ui/fab.js',

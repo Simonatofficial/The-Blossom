@@ -3,7 +3,7 @@
 
 export const DND_CHARACTER_PRESET = {
   key: 'dndcharacter',
-  name: 'D&D Character',
+  name: 'Tabletop Character',
   icon: 'shield',
   description: 'A living character sheet — tap to roll, rest to recover, plan the build.',
   pages: [

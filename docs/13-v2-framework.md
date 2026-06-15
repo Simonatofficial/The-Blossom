@@ -837,7 +837,7 @@ Work in this sequence. Mark each `✅ date` when acceptance criteria pass on 360
 | V2-19 | Calendar widget | `js/widgets/calendar.js` | ✅ done (v47) |
 | V2-20 | Canvas widget pointer fix | `js/widgets/canvas-core.js` | ✅ 2026-06-13 (drawing maps via getBoundingClientRect; card already shows live drawing + taps to full editor) |
 | V2-21 | Character Sheet (multi-system) | `js/widgets/character-sheet.js` | pending |
-| V2-22 | D&D → Tabletop widgets rename + SRD data | `js/presets/tabletop/` | pending |
+| V2-22 | D&D → Tabletop widgets rename + SRD data | `js/presets/tabletop/srd5e.js`, presets, `statblock.js` | ✅ done (v52); presets→Tabletop, 5e SRD conditions/skills/XP reference in bestiary. Deeper per-edition wiring tracked under §12e |
 | V2-23 | World Map overhaul | `js/modules/worldmap/` | pending |
 | V2-24 | Canva Board widget | `js/widgets/canvaboard.js`, `canvaboard-render.js` | ✅ done (v51) |
 | V2-25 | Tracker overhaul | `js/widgets/tracker.js` | pending |

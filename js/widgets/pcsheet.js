@@ -51,7 +51,7 @@ registry.register({
   type: 'pcsheet',
   name: 'PC Sheet',
   icon: 'shield',
-  description: 'Import a player’s D&D character code and see their full sheet',
+  description: 'Import a player’s character code and see their full sheet',
   keywords: ['dnd', 'd&d', 'pc', 'player', 'character', 'import', 'sheet', 'dm'],
   external: true, internal: true,
   defaultConfig: () => ({ selfContained: true, playMode: true, filter: 'all' }),
