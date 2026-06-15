@@ -493,6 +493,25 @@
   padding: 0 4px;
   color: inherit;
 }
+/* V2 §25 Notebook preview + Theme/Concept/Idea tags + Elements widget */
+.nb-preview { line-height: 1.7; font-size: 0.92rem; padding: 8px 0; }
+mark.tag-theme { background: color-mix(in srgb, #7cc4ff 30%, transparent); border-radius: 4px; padding: 0 4px; color: inherit; }
+mark.tag-concept { background: color-mix(in srgb, #9be3b4 30%, transparent); border-radius: 4px; padding: 0 4px; color: inherit; }
+mark.tag-idea { background: color-mix(in srgb, #ffd28a 35%, transparent); border-radius: 4px; padding: 0 4px; color: inherit; }
+.el-tabs { width: 100%; }
+.el-list { display: flex; flex-direction: column; gap: 8px; }
+.el-card { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+.el-card.el-term > summary { cursor: pointer; display: flex; flex-direction: column; gap: 2px; list-style: none; }
+.el-card.el-term > summary::-webkit-details-marker { display: none; }
+.el-term-name { font-size: 0.96rem; }
+.el-ctx { font-size: 0.72rem; }
+.el-body { margin-top: 8px; }
+.el-def { margin: 0 0 6px; font-size: 0.9rem; }
+.el-details, .el-examples { margin: 4px 0 0 18px; font-size: 0.86rem; color: var(--text-soft); }
+.el-tag { display: flex; flex-direction: column; gap: 3px; border-left: 3px solid var(--accent); }
+.el-tag.tag-theme { border-left-color: #7cc4ff; }
+.el-tag.tag-concept { border-left-color: #9be3b4; }
+.el-tag.tag-idea { border-left-color: #ffd28a; }
 
 .fc-stage { max-width: 460px; margin: 0 auto; }
 .fc-card { perspective: 900px; cursor: pointer; height: 220px; }

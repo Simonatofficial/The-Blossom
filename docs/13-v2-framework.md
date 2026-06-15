@@ -1349,8 +1349,8 @@ Add these rows to the §15 work order table:
 | V2-24f | Overview Widget (§24) | `js/widgets/overview.js` | ✅ done (v41) |
 | V2-25 | Study Module (§25) | `js/presets/modules/study.js` | pending |
 | V2-25a | Library widget groups (§25) | `js/widgets/library.js` | pending |
-| V2-25b | Notebook Widget (§25) | `js/widgets/notebook.js` | pending |
-| V2-25c | Elements Widget (§25) | `js/widgets/elements.js` | pending |
+| V2-25b | Notebook Widget (§25) | `js/widgets/notebook.js`, `notebook-parse.js` | ✅ done (v42) |
+| V2-25c | Elements Widget (§25) | `js/widgets/elements.js` | ✅ done (v42) |
 | V2-25d | Study Overview page config (§25) | `js/presets/modules/study.js` | pending |
 | V2-26 | Flash Card Widget overhaul (§26) | `js/widgets/flashcard.js` | pending |
 | V2-27 | Quiz Widget overhaul (§27) | `js/widgets/quiz.js` | pending |

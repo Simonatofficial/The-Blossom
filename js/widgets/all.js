@@ -51,3 +51,4 @@ import './pagewidget.js';
 import './characteristic.js';
 import './questboard.js';
 import './overview.js';
+import './elements.js';

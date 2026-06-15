@@ -11,6 +11,7 @@ import { icon } from '../ui/icons.js';
 import { el, toast, promptText, confirmDialog, emptyState } from '../ui/components.js';
 import { objectsOf, createObject, saveObject, dayObject, todayStr, dateAdd, bloomBurst } from './base.js';
 import { topicNote, topicsOf } from './notebook.js';
+import { parseNote, noteText } from './notebook-parse.js';
 
 function decks(widget) { return widget.config.decks || (widget.config.decks = []); }
 function cards(widget, deckId = null) {
@@ -35,26 +36,13 @@ export function gradeCard(card, grade) {
   saveObject(card);
 }
 
-/* ---- generate proposals from notebook topics ---- */
-function harvest(html) {
-  const div = document.createElement('div');
-  div.innerHTML = html || '';
-  const proposals = [];
-  // key-term marks: "term — definition" (also ':' and ' - ')
-  for (const mark of div.querySelectorAll('mark.key-term')) {
-    const txt = mark.textContent.trim();
-    const m = txt.split(/\s*(?:—|–| - |:)\s*/);
-    if (m.length >= 2 && m[0] && m[1]) proposals.push({ front: m[0], back: m.slice(1).join(' — ') });
-  }
-  // Q:/A: line pairs (block tags become line breaks — innerText is unreliable
-  // on detached elements, so lines are derived from the markup itself)
-  const text = (html || '')
-    .replace(/<\/(p|li|div|h[1-6])>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, '');
-  const decode = document.createElement('textarea');
-  decode.innerHTML = text;
-  const lines = decode.value.split('\n').map(l => l.trim()).filter(Boolean);
+/* ---- generate proposals from a notebook topic note (V2 §25 parser) ---- */
+function harvest(note) {
+  const text = noteText(note);
+  const { terms } = parseNote(text);
+  const proposals = terms.map(t => ({ front: t.term, back: [t.definition, ...(t.details || [])].filter(Boolean).join(' — ') }));
+  // Q:/A: line pairs as a bonus
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   for (let i = 0; i < lines.length - 1; i++) {
     const q = lines[i].match(/^Q[:.)]\s*(.+)/i);
     const a = lines[i + 1].match(/^A[:.)]\s*(.+)/i);
@@ -218,7 +206,7 @@ registry.register({
       host.appendChild(back);
 
       const review = (t) => {
-        const proposals = harvest(topicNote(t.nb, t.id).data.html);
+        const proposals = harvest(topicNote(t.nb, t.id));
         host.innerHTML = '';
         if (!proposals.length) {
           host.appendChild(emptyState('wand', 'No key terms or Q/A pairs found in this topic yet.', 'Back', generate));
