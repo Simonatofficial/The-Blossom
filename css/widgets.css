@@ -1,6 +1,15 @@
 /* ============ The Blossom — widgets.css ============
    Widget chrome + per-widget styles. */
 
+/* ---- V2 §12a Alarm ---- */
+.alarm-card .al-next { margin-top: 8px; }
+#alarm-banners { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; flex-direction: column; gap: 8px; width: min(420px, 92vw); }
+.alarm-banner { background: var(--surface); border: 1px solid var(--accent); border-radius: 14px; padding: 12px 14px; box-shadow: var(--shadow-soft); backdrop-filter: blur(10px); animation: ab-in 0.25s var(--ease); }
+@keyframes ab-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.alarm-banner .ab-main { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.alarm-banner .ab-actions { display: flex; gap: 8px; }
+.alarm-banner .ab-actions .btn { flex: 1; padding: 6px; }
+
 /* ---- V2 §21 game widgets: Snake + Solitaire ---- */
 .snake-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .snake-score { width: 100%; font-size: 0.82rem; color: var(--text-soft); font-variant-numeric: tabular-nums; }
