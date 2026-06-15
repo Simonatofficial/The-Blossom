@@ -30,6 +30,28 @@ const KEYWORDS = {
   notifications: ['inbox', 'alerts', 'milestones', 'feed']
 };
 
+/* Category per type (P-3 / V2 §11). Lets the FAB Widgets panel and the widget
+   gallery group long lists into collapsible sections. A widget def may override
+   by passing its own `category`; unknown types fall through to 'Other'. */
+const CATEGORIES = {
+  tracker: 'Productivity', quest: 'Productivity', habit: 'Productivity',
+  routine: 'Productivity', goal: 'Productivity', calendar: 'Productivity', alarm: 'Productivity',
+  questboard: 'Productivity',
+  notes: 'Notes & Writing', journal: 'Notes & Writing', docshelf: 'Notes & Writing', library: 'Notes & Writing',
+  skill: 'Growth & Rewards', health: 'Growth & Rewards', market: 'Growth & Rewards',
+  characteristic: 'Growth & Rewards',
+  graph: 'Data & Charts', counter: 'Data & Charts', flowergraph: 'Data & Charts', overview: 'Data & Charts',
+  canvas: 'Creative', infcanvas: 'Creative', gallery: 'Creative', music: 'Creative', pinboard: 'Creative',
+  notebook: 'Study', quiz: 'Study', flashcards: 'Study', elements: 'Study',
+  calculator: 'Utility', dice: 'Utility', time: 'Utility', notifications: 'Utility', separator: 'Utility',
+  hub: 'Organization', pagewidget: 'Organization',
+  statblock: 'Tabletop', loottable: 'Tabletop', sessionlog: 'Tabletop', initiative: 'Tabletop',
+  encounter: 'Tabletop', dndinventory: 'Tabletop', dndcombat: 'Tabletop', dndstory: 'Tabletop',
+  dndsheet: 'Tabletop', spellbook: 'Tabletop', pcsheet: 'Tabletop', levelplanner: 'Tabletop',
+  worldmap: 'World', worldchars: 'World', civprofile: 'World', wtimeline: 'World',
+  lorewiki: 'World', relationshipweb: 'World'
+};
+
 export const registry = {
   /**
    * @param {{
@@ -51,6 +73,11 @@ export const registry = {
 
   /** @returns {object|undefined} */
   get(type) { return types.get(type); },
+
+  /** Category for a widget type, for grouping long lists (P-3). @returns {string} */
+  categoryOf(type) {
+    return types.get(type)?.category || CATEGORIES[type] || 'Other';
+  },
 
   /** @returns {object[]} all registered widget types. */
   all() { return [...types.values()]; }

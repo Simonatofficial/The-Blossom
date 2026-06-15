@@ -52,6 +52,9 @@ async function boot() {
   // the rest of boot succeeding. If anything below hangs or throws, the app can
   // still pull and activate a fix (see also the boot watchdog in index.html).
   registerSW();
+  // P-1: lock to portrait where supported (Android Chrome browser tab + installed
+  // PWA). The .catch swallows the DOMException on desktop / unsupported browsers.
+  try { screen.orientation?.lock?.('portrait').catch(() => {}); } catch { /* unsupported */ }
   await store.init();
 
   if (store.all('modules').length === 0) {

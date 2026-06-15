@@ -40,6 +40,12 @@ registry.register({
     get: (date) => readCount(widget, date)
   }],
 
+  // P-2: tapping the card body increments (the − / + buttons and the long-press
+  // number keep their own behaviour, so this only fires on the surrounding card).
+  primaryTap(widget, ctx) {
+    writeCount(widget, readCount(widget) + (widget.config.step || 1), ctx);
+  },
+
   renderCard(host, widget, ctx) {
     host.innerHTML = '';
     const count = readCount(widget);
@@ -47,7 +53,7 @@ registry.register({
     const card = el(`<div class="counter-widget ${met ? 'met' : ''}">
       <button class="c-btn" data-d="-1" aria-label="Decrease">−</button>
       <div>
-        <div class="c-value"></div>
+        <div class="c-value no-open"></div>
         ${widget.config.target != null ? `<div class="c-target">of ${widget.config.target}</div>` : ''}
       </div>
       <button class="c-btn" data-d="1" aria-label="Increase">+</button>

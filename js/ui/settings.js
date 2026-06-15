@@ -760,9 +760,15 @@ function renderImportPreview(d, type, payload, { pageId = null, name = null } = 
     ok.onclick = () => {
       const target = {};
       if (type === 'wgt') target.pageId = pageId || router.current().pageId;
+      if (type === 'pg') target.moduleId = router.current().moduleId;
       const res = codes.importNode(type, payload, target);
       if (res.droppedLinks) toast(`${res.droppedLinks} link${res.droppedLinks === 1 ? '' : 's'} pointed outside this code and ${res.droppedLinks === 1 ? 'was' : 'were'} removed.`, 'info');
-      else toast('Imported', 'flower');
+      else if (type === 'pg') {
+        // P-4: confirm the page landed in the current module, and jump to it.
+        const mod = store.get('modules', target.moduleId);
+        toast(`Page added to ${mod?.name || 'module'}`, 'flower');
+        if (mod && res.rootId) router.go(mod.id, res.rootId);
+      } else toast('Imported', 'flower');
       events.emit('module:changed', {});
       events.emit('page:changed', {});
       d.close();

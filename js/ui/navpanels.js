@@ -67,8 +67,11 @@ export function openModulesPanel() {
       subs.get(sub).push(m);
     }
     const curMod = router.current().moduleId;
+    // P-3: collapse categories by default; a single category stays open so a
+    // short list isn't needlessly folded.
+    const startOpen = groups.size <= 1;
     for (const [cat, subs] of [...groups].sort((a, b) => a[0].localeCompare(b[0]))) {
-      const det = el(`<details class="nav-group" open><summary><span class="nav-chev">${icon('chevron-right', 14)}</span><span class="grow"></span><span class="nav-count"></span></summary><div class="nav-group-body"></div></details>`);
+      const det = el(`<details class="nav-group"${startOpen ? ' open' : ''}><summary><span class="nav-chev">${icon('chevron-right', 14)}</span><span class="grow"></span><span class="nav-count"></span></summary><div class="nav-group-body"></div></details>`);
       det.querySelector('summary .grow').textContent = cat;
       const body = det.querySelector('.nav-group-body');
       let count = 0;
@@ -295,40 +298,62 @@ export function openWidgetsPanel() {
   const list = el('<div class="nav-list"></div>');
   d.body.appendChild(list);
 
+  const widgetRow = (w) => {
+    const def = registry.get(w.type);
+    const row = el(`<div class="nav-row">
+      <span class="nav-ic" style="color:var(--accent)">${icon(def?.icon || 'circle', 18)}</span>
+      <span class="nav-main"><span class="nav-title"></span><span class="nav-sub"></span></span>
+      <button class="btn-icon nav-menu" aria-label="Widget menu">${icon('more', 16)}</button></div>`);
+    row.querySelector('.nav-title').textContent = w.name;
+    row.querySelector('.nav-sub').textContent = def?.name || w.type;
+    const openIt = async () => {
+      const { openInternal } = await import('../modules/engine.js');
+      d.close();
+      if (def?.internal) openInternal(w);
+      else { events.emit('widget:focus', { widgetId: w.id }); }
+    };
+    row.addEventListener('click', (e) => { if (!e.target.closest('.nav-menu')) openIt(); });
+    row.querySelector('.nav-menu').addEventListener('click', (e) => {
+      e.stopPropagation();
+      popMenu(e.currentTarget, [
+        { label: 'Edit', iconName: 'edit', fn: async () => { const { openWidgetSettings } = await import('../widgets/base.js'); openWidgetSettings(w); } },
+        ...(def?.internal ? [{ label: 'Open', iconName: 'arrow-right', fn: openIt }] : []),
+        { label: 'Copy Code', iconName: 'code', fn: () => copyCode('wgt', w.id, w.name) },
+        'sep',
+        { label: 'Delete', iconName: 'trash', danger: true, fn: async () => {
+          if (!(await confirmDialog({ title: `Delete “${w.name}”?`, message: 'It rests in the trash for 30 days.' }))) return;
+          const { removeWidget } = await import('../widgets/base.js');
+          removeWidget(w); toast('Moved to trash', 'leaf'); render();
+        } }
+      ]);
+    });
+    return row;
+  };
+
   const render = () => {
     list.innerHTML = '';
     const widgets = page.widgets.map(id => store.get('widgets', id)).filter(Boolean);
-    if (!widgets.length) list.appendChild(emptyState('layers', 'This page is quiet. Add a widget below.'));
+    if (!widgets.length) { list.appendChild(emptyState('layers', 'This page is quiet. Add a widget below.')); return; }
+
+    // P-3: group by category into collapsed sections (like the Modules panel).
+    const groups = new Map();
     for (const w of widgets) {
-      const def = registry.get(w.type);
-      const row = el(`<div class="nav-row">
-        <span class="nav-ic" style="color:var(--accent)">${icon(def?.icon || 'circle', 18)}</span>
-        <span class="nav-main"><span class="nav-title"></span><span class="nav-sub"></span></span>
-        <button class="btn-icon nav-menu" aria-label="Widget menu">${icon('more', 16)}</button></div>`);
-      row.querySelector('.nav-title').textContent = w.name;
-      row.querySelector('.nav-sub').textContent = def?.name || w.type;
-      const openIt = async () => {
-        const { openInternal } = await import('../modules/engine.js');
-        d.close();
-        if (def?.internal) openInternal(w);
-        else { events.emit('widget:focus', { widgetId: w.id }); }
-      };
-      row.addEventListener('click', (e) => { if (!e.target.closest('.nav-menu')) openIt(); });
-      row.querySelector('.nav-menu').addEventListener('click', (e) => {
-        e.stopPropagation();
-        popMenu(e.currentTarget, [
-          { label: 'Edit', iconName: 'edit', fn: async () => { const { openWidgetSettings } = await import('../widgets/base.js'); openWidgetSettings(w); } },
-          ...(def?.internal ? [{ label: 'Open', iconName: 'arrow-right', fn: openIt }] : []),
-          { label: 'Copy Code', iconName: 'code', fn: () => copyCode('wgt', w.id, w.name) },
-          'sep',
-          { label: 'Delete', iconName: 'trash', danger: true, fn: async () => {
-            if (!(await confirmDialog({ title: `Delete “${w.name}”?`, message: 'It rests in the trash for 30 days.' }))) return;
-            const { removeWidget } = await import('../widgets/base.js');
-            removeWidget(w); toast('Moved to trash', 'leaf'); render();
-          } }
-        ]);
-      });
-      list.appendChild(row);
+      const cat = registry.categoryOf(w.type);
+      if (!groups.has(cat)) groups.set(cat, []);
+      groups.get(cat).push(w);
+    }
+    // A short list doesn't need folding — show flat when there's only one group.
+    if (groups.size <= 1) {
+      for (const w of widgets) list.appendChild(widgetRow(w));
+      return;
+    }
+    for (const [cat, items] of [...groups].sort((a, b) => a[0].localeCompare(b[0]))) {
+      const det = el(`<details class="nav-group"><summary><span class="nav-chev">${icon('chevron-right', 14)}</span><span class="grow"></span><span class="nav-count"></span></summary><div class="nav-group-body"></div></details>`);
+      det.querySelector('summary .grow').textContent = cat;
+      det.querySelector('.nav-count').textContent = items.length;
+      const body = det.querySelector('.nav-group-body');
+      for (const w of items) body.appendChild(widgetRow(w));
+      list.appendChild(det);
     }
   };
 

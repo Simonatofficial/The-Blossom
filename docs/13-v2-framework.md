@@ -898,4 +898,463 @@ Grill-me'd to a **cozy MVP slice** (battles, villager tiers Knight→King, and t
 
 ---
 
+## §P — Priority Bugs & Quick UX Fixes (do these first before resuming the V2 table)
+
+These are high-confidence, low-ambiguity fixes. Work them in order before picking up pending V2 table items.
+
+### P-1 — Landscape mode still rotating on mobile
+
+`manifest.webmanifest` already has `"orientation": "portrait"` (CR-15), but that only locks the installed PWA. When opened as a browser tab (not installed), the OS auto-rotate still fires.
+
+Fix: add a `<meta name="screen-orientation" content="portrait">` to `index.html`. Additionally, call `screen.orientation.lock('portrait').catch(() => {})` on app boot in `app.js` (the `.catch` swallows the DOMException on desktop where it's unsupported). This covers both installed + browser-tab cases across Android Chrome.
+
+**Accept when:** tilting a phone in browser tab mode does not rotate the layout.
+
+### P-2 — Widget interaction model: tap to use/open, hold to configure
+
+**Current problem:** users must navigate to widget settings (context menu) to do things that should be directly interactive on the card itself.
+
+**New rule:**
+- **Tap widget card** → directly interacts with or opens the widget (e.g. tapping a Note widget opens the note editor; tapping a Counter increments; tapping a Habit checks it off; tapping a Quest opens its steps). This replaces the need to "tap settings" for primary actions.
+- **Hold (600ms, per §12)** → enters drag/reorder mode with the glowing border animation.
+- **`···` button** (visible on cards, tapped separately) → widget meta-actions only: Edit appearance/settings, Copy Widget Code, Delete.
+- The `···` button must always be visually distinct from the widget content area so users never confuse it with interaction.
+- Audit every widget type: define its "primary tap action" and wire it directly. Document in `docs/05-widgets.md` per widget.
+
+**Accept when:** tapping a Note card opens the note; tapping a Counter card increments; tapping a Habit card toggles completion — with no trip through settings required.
+
+### P-3 — Widget list in FAB panel should default to collapsed sections (like Modules)
+
+In the Widgets panel (§3 FAB), widgets should be grouped by type (using the same category system as Modules — §11). Groups default to **collapsed** (showing just the group header + count) so the list stays clean. Tapping a group header expands it in-place (same disclosure-triangle pattern as module categories).
+
+Apply the same pattern to the Module preset gallery and any other long list in the app.
+
+### P-4 — Paste page Blossom code does not add page to the active module
+
+**Bug:** importing a page via Blossom code shows a preview but never inserts the page into the current module.
+
+**Fix:** in the code-import flow (`js/core/codes.js` or wherever import resolves), when the decoded type is `page`, append it to `activeModule.pages[]` and call `renderModule()` to refresh the tab bar. Show a success toast: "Page added to [module name]."
+
+**Accept when:** pasting a `pge:` code in the Pages panel adds the page visibly to the current module's tab bar.
+
+---
+
+## §22 — Tracker Widget Revised Spec
+
+*Replaces the spec in §17. Keep existing data — migrate old schema.*
+
+**Philosophy:** the Tracker starts completely empty. The user builds it up by adding tracked items. Clicking into the widget (primary tap, per P-2) opens the tracking view, not settings.
+
+### Tracked item types (revised)
+
+| Type | Interaction | Card display |
+|---|---|---|
+| **Count** | Tap `+` / `−` buttons directly on card | Current value · unit label · optional goal ring |
+| **Measure** | Tap card → number input (keyboard) | Last recorded value + **unit label beside the value** (e.g. "72 kg") |
+| **Scale** | Tap card → N-step selector (user sets max, default 10) | Last score as filled dots (1–N) |
+| **Yes/No** | Tap card → toggles; user sets how many Yes/No items (each is individually labeled) | Each item as a checkbox row |
+| **Timer** | Tap card → starts/stops stopwatch-style | Today's accumulated duration |
+| **Text Note** | Tap card → opens single-line input | Today's note (truncated) |
+
+**Unit label:** always shown beside the numeric value on the card. For Count and Measure: configurable unit string (kg, cups, pages, reps, km — user types any string). Never hidden.
+
+**Scale:** user sets the max (2–100). Default 10. Rendered as N dots/steps, filled to the last rating. No "out of 5" restriction.
+
+**Yes/No:** user can add multiple Yes/No items per tracker entry (e.g. "Drank water?", "Took meds?", "Exercised?"). Each is its own labeled checkbox. The card shows all of them.
+
+### Graph inside the Tracker (not settings)
+
+Tapping into the Tracker widget page opens: a list of all tracked items, then below it the **history graph**. The graph shows:
+- X-axis: Days / Weeks / Months (user toggles).
+- Y-axis: the tracked value.
+- For Yes/No items: **% completed** per day (number of Yes answers ÷ total items × 100).
+- For Count/Measure/Scale: the recorded value per period.
+- **Days tracked** shown as a stat below the graph (e.g. "Tracked 14 of the last 30 days").
+- **% goal completion** if a goal is set (circular ring + percentage text).
+
+The graph starts empty and fills as data is recorded. Uses the full Graph engine (§25).
+
+**Accept when:** user creates a Count item "Water" (unit: cups, goal: 8), increments it 6 times from the card, taps into the widget, sees "6 cups" with a 75% goal ring, and a daily bar graph with one bar.
+
+---
+
+## §23 — Graph Widget Full Overhaul
+
+*Replaces §19. The graph is one of the most important widgets — it needs to be powerful, readable, and beautiful.*
+
+### Core requirements
+
+- **Data persistence:** graphs save their data internally (as `widget.config.datasets[]`). Data points are added by: manual entry, linking to another widget's output (value system), or importing a CSV.
+- **Multi-dataset:** one graph can show multiple datasets simultaneously. Each dataset has a name, color, and series of `{date, value}` points.
+- **Dimensions:** user configures X-axis (time: day/week/month/year OR a categorical label) and Y-axis (the numeric value being measured). Both axes are labeled.
+- **Time navigation:** for time-series graphs, a date range picker (7d / 30d / 90d / 1y / All, or custom) filters the visible range.
+- **Empty state:** when no data, show a helpful empty state: "No data yet — tap + to add your first entry."
+
+### Chart types
+
+All types share the core requirements above. Each has its own settings panel.
+
+**Standard:**
+- **Line** — smooth bezier, optional area fill, multi-series support, value labels on points (optional).
+- **Bar** — vertical or horizontal, grouped or stacked, multi-series. Values labeled on bars.
+- **Area** — filled line, stacked area for multi-series.
+- **Pie / Donut** — single dataset, segments labeled with name + value + %. Donut has a center label showing total.
+- **Scatter Plot** — X and Y are both numeric, points plotted. Trend line optional.
+- **Bubble Chart** — scatter + a third dimension as bubble size.
+- **Radar / Spider** — multi-axis polygon for comparing across dimensions (great for character stats, skill levels).
+- **Histogram** — distribution of values in configurable bins.
+- **Polar Area** — like pie but with equal angles, area encoding the value.
+
+**Advanced / specialty:**
+- **Gauge** — single value shown on a semicircular dial. Min/max configurable. Color zones (green/yellow/red).
+- **Funnel** — stages with decreasing values. Conversion % between stages.
+- **Pyramid / Cone** — stacked segments, top-to-bottom, widening (pyramid) or narrowing (cone).
+- **Mekko (Marimekko)** — two-dimensional bar chart (width and height both encode data).
+- **Dual-Axis** — a bar graph + a line graph overlaid, each with its own Y-axis (left/right).
+- **Venn Diagram** — two or three overlapping circles, values in intersections.
+- **Pictogram** — icons/emoji repeated to represent count (e.g. 7 🌟 icons = 7 days).
+
+**Blossom specials:**
+- **Flower Graph (Blossom)** — existing implementation (CR-6 applied).
+- **Solar System** — values encoded as planet sizes orbiting a central sun. Fun for comparisons.
+
+**Widget linking dimensions:**
+When a dataset is linked to another widget (via value system), these source options are available (examples — not exhaustive):
+- Widget's current numeric value (counter, scale, measure).
+- Widget's level (Skill, Characteristic).
+- Widget's item count (number of objects/tasks inside).
+- Widget's streak count.
+- Widget's XP total.
+- Widget's daily completion % (Habit, Tracker Yes/No).
+
+### Graph settings (per chart)
+
+- Chart type selector (visual grid of chart thumbnails).
+- Dataset manager: add/remove datasets, name + color + source (manual or linked widget).
+- Axis labels (X and Y custom text + unit).
+- Legend (on/off, position).
+- Grid lines (on/off, density).
+- Value labels on data points (on/off).
+- Color scheme (per series or a global palette).
+- Animation on load (on/off).
+- Background (transparent / surface / custom color).
+
+### Display
+
+All charts render on `<canvas>` (no third-party charting library — vanilla JS). Responsive: re-renders on widget width change. All text uses theme font. Colors pull from `var(--accent)` family by default.
+
+**Accept when:** user creates a Line graph linked to a Skill widget's level, and sees a line chart with labeled axes, today's level plotted, a legend, and a tap tooltip showing the exact value.
+
+---
+
+## §24 — New Organizational Widgets
+
+These widgets exist to solve the organizational chaos caused by long, unstructured widget lists.
+
+### Hub Widget
+
+A container widget that displays other widgets as a clean mini-page inside itself. Think of it as a page-within-a-page at widget scale.
+
+**Configuration:** user adds any widgets to the Hub (same as adding to a page — pick from the gallery). Added widgets are "nested" inside this Hub.
+
+**Card view:** shows a summary row for each nested widget: widget icon · widget name · key stat or value (e.g. Skill level, Habit streak, XP). A small chevron opens the Hub to full view.
+
+**Full-page view (primary tap):** renders all nested widgets in a scrollable view inside the Hub's own page. Each nested widget is fully interactive here. The Hub page has its own name and icon.
+
+**Hub + Widget XP:** the Hub card shows aggregate XP from all nested Skill/Characteristic widgets as a combined progress bar. This is the "much needed organization for long skill lists" use case.
+
+**Use case example:** "Morning Routine Hub" containing Habit, Health, Journal, and Counter widgets — all accessible from one card.
+
+**Accept when:** user creates a Hub, adds 3 widgets, sees them summarized on the card, taps to enter and uses all 3 from within the Hub.
+
+### Page Widget
+
+The inverse of the Hub: instead of nesting widgets inside a container widget, the Page Widget acts as a full module page but rendered *as* a widget on the parent page.
+
+**Configuration:** the Page Widget contains its own independent page (with its own widget list). This page is edited like any other page — full widget gallery, drag/reorder, etc.
+
+**Card view:** shows the page's name + a miniature preview (non-interactive thumbnail).
+
+**Full-page view (primary tap):** navigates into the Page Widget's inner page (a full-screen route, CR-11 Page taxonomy).
+
+**Use case:** nest a long, specific set of widgets (e.g. all "Study" widgets) inside a single Page Widget slot on the main page. The parent page stays clean; the sub-page has full complexity.
+
+**Accept when:** user creates a Page Widget named "Study Tools", adds 5 widgets to it, and taps it from the parent page to navigate into those 5 widgets full-screen.
+
+### Characteristics Widget
+
+A meta-skill widget whose level is determined by the levels of Skill widgets nested within it.
+
+**Configuration:** user nests Skill widgets inside (or links existing Skill widgets by reference). Each linked skill contributes to the Characteristic's XP pool.
+
+**Formula:** `Characteristic Level = f(sum of linked Skill levels)`. Default formula: every 3 linked skill levels = 1 Characteristic level (configurable).
+
+**Card view:** the Characteristic's name, level, icon, and a compact list of contributing skills (name + level).
+
+**Full-page view:** full breakdown of all contributing skills, the formula, and the Characteristic's progression history graph.
+
+**Use case example:** "Athleticism" Characteristic linked to "Running", "Strength", and "Flexibility" skills. As those skills level up, Athleticism levels up.
+
+**Accept when:** user creates "Athleticism", links 3 Skill widgets, levels up one skill, and sees Athleticism's XP increase.
+
+### Skills Widget Enhancement
+
+Skill widget should allow referencing other widgets inside it — so that completing tasks inside the Skill's context directly awards XP without opening the Skill's internal view.
+
+Add: Skill card view shows its linked sub-widgets (Habit, Task, Routine) as a compact checklist. Completing items from the card awards XP. The user does not need to open the Skill to maintain it.
+
+### Quest Board Widget
+
+Similar to the Hub, but displays only **what needs to be done today** from all nested widgets.
+
+**Content:** scans linked Quests, Habits, Tasks, and Routines for items due today or overdue. Displays them as a prioritized checklist.
+
+**Card view:** count of pending items today + a mini checklist of the top 3–5 most urgent. Checkboxes are directly interactive on the card.
+
+**Full-page view:** full list of all today's items, grouped by source widget (Quest → Step, Habit → Today's check, etc.). Each item checkable inline.
+
+**Accept when:** user links a Quest and a Habit to the Quest Board; both today's items appear on the card and are completable without opening either source widget.
+
+### Overview Widget
+
+Displays statistics and summaries from any linked widget. More powerful than a Graph (shows textual stats, progress rings, and sparklines together in a dashboard layout).
+
+**Configuration:** user links any number of widgets. For each, selects which stats to show: level, XP, streak, completion %, last value, goal ring, sparkline, etc.
+
+**Card view:** a responsive grid of stat blocks. Each block = widget name + chosen stat prominently displayed. Tapping a stat block navigates to that widget's page.
+
+**Full-page view:** expanded dashboard with larger stat blocks, more detail, and historical graphs.
+
+**Use case:** link 5 Skill widgets and see all their levels in one dashboard widget. Or link a Tracker + Habit + Goal and see a combined health dashboard.
+
+**Accept when:** user links a Skill and a Habit; the card shows Skill level + Habit streak; tapping either stat navigates to that widget.
+
+---
+
+## §25 — Study Module Overhaul
+
+The Study module replaces the existing Study Guide preset. It has three pages: **Notes**, **Overview**, and **Study**.
+
+### Study Module — Notes Page
+
+The Notes page is the primary note-taking workspace for academic use.
+
+**Default widgets on Notes page:**
+
+**Library Widget (enhanced):** existing Library widget gains **groups**. A group is a named folder. Inside a group: any number of documents (notes, PDFs, imported text). Groups are collapsible. Unlimited nesting (group within group). Search bar searches across all groups and documents. On the Notes page, Library acts as the central filing cabinet for all study materials.
+
+**Notebook Widget** (new — see §26).
+
+**Graph Widget:** shows study statistics derived from the Notebook: total key terms recorded per Subject (bar chart), study/writing hours by time of day (area chart, derived from entry timestamps). Uses the new Graph engine (§23).
+
+### Notebook Widget
+
+The Notebook is a structured note-taking system for academic content, organized as **Classes → Units → Topics → Notes**.
+
+**Structure:**
+- **Class** — a course or subject (e.g. "Biology 101"). Contains Units.
+- **Unit** — a chapter or module within a Class (e.g. "Unit 3: Cell Division"). Contains Topics.
+- **Topic** — a specific subject within a Unit (e.g. "Mitosis"). Contains the actual Notes.
+- **Notes (within a Topic)** — rich text content with all Notes widget features plus the Study-specific additions below.
+
+**Navigation:** a three-panel sidebar (Class list → Unit list → Topic list → Notes content). On mobile: drill-down navigation (tap Class → see Units → tap Unit → see Topics → tap Topic → see Notes).
+
+**Notes content within a Topic:**
+
+Includes everything in the standard Notes widget (rich text, checklists, bold/italic, etc.) plus:
+
+**Key Terms:**
+Triggered by the pattern `Term: definition text`. The parser identifies:
+- `Term:` — the key term (everything before the colon on that line).
+- The definition — the text immediately following the colon on the same line.
+- `- detail` / `— detail` / `— detail` lines following the term → stored as **Details** for that term.
+- `1.`, `2.`, `3.` … numbered lines following → stored as **Examples** for that term.
+
+The term is highlighted inline in the note (soft accent background). The full term card (term + definition + details + examples) is stored separately and accessible in the Elements Widget (§27).
+
+Both inline and separated-line formats are supported:
+```
+Bouldering: a discipline of rock climbing...
+- Unlike roped climbing...
+1. Climbing a 4-meter overhang...
+```
+or on one line:
+```
+Bouldering: a discipline of rock climbing... - Unlike roped climbing... 1. Climbing a 4-meter overhang...
+```
+
+**Themes, Concepts, and Ideas:**
+User can highlight any text and tag it as Theme / Concept / Idea (via a selection popover). Tagged text is highlighted with a type-specific color and stored in the Elements Widget alongside Key Terms.
+
+**Card view (Notebook widget):** shows current Class/Unit/Topic breadcrumb + last-edited timestamp + a quick-add button.
+
+**Full-page view:** the full Class → Unit → Topic → Notes navigation interface.
+
+**Accept when:** user types "Mitosis: the process of cell division" in a topic, sees it highlighted, and finds it in the Elements Widget with definition stored.
+
+### Elements Widget
+
+Aggregates all saved Key Terms, Themes, Concepts, and Ideas from all Notebook widgets (or a selected subset).
+
+**Display:**
+
+Four tabs: **Terms** · **Themes** · **Concepts** · **Ideas**.
+
+Each item is a card:
+- **Term card:** Term (bold) · Definition · Details (bulleted) · Examples (numbered). Collapsible.
+- **Theme/Concept/Idea card:** the highlighted text + the note context (Topic → Unit → Class) it came from.
+
+**Search bar:** searches across all types by text content.
+
+**Filter by Class/Unit:** filter to show only elements from a specific Class or Unit.
+
+**Export:** generate a study sheet (formatted text or PDF) of all Terms/Themes/Concepts from a selected scope.
+
+**Accept when:** after saving 5 key terms across 2 topics, the Elements Widget shows all 5 in the Terms tab with full definitions, filterable by class.
+
+### Study Module — Overview Page
+
+The Overview is the home/dashboard page for the Study module.
+
+**Icon:** instead of a house icon on the top right, the home designation is indicated by the page icon's **color** changing to the accent color (a subtle, clean indicator).
+
+**Default widgets:**
+- **Overview Widget** (§24) — links to Notebook, Flashcard, and Quiz widgets; shows total terms recorded, quiz scores this week, flashcards due for review.
+- **Graph Widget** — study time per day (area chart, from Notebook entry timestamps).
+- **Quest Board Widget** (§24) — today's study tasks: flashcard review sessions, quizzes due, notes to review.
+- **Notes Widget** — a simple quick-notes area for today's study session reminders.
+
+### Study Module — Study Page
+
+The Study page is for active recall practice.
+
+**Default widgets:**
+
+**Flash Card Widget** (enhanced — see §27).
+
+**Quiz Widget** (enhanced — see §28).
+
+---
+
+## §26 — Flash Card Widget Overhaul
+
+### Structure
+
+Cards are organized in **infinite nested groups**: Deck → Group → Subgroup → … (no depth limit, configurable).
+
+Example structure:
+```
+School (root deck)
+  └── Biology 101 (class)
+        └── Unit 3 (unit)
+              └── Mitosis (topic)
+                    └── [cards]
+```
+
+This mirrors the Notebook structure. When a Notebook exists in the same module, a **"Generate from Notebook"** action creates a matching deck structure, populating cards from stored Key Terms, Themes, Concepts, and Ideas.
+
+### Card format
+
+Each flashcard has:
+- **Front** and **Back** sides (rich text, supports images/emoji).
+- When generated from Notebook terms: user chooses which fields map to Front/Back:
+  - Term → Definition
+  - Term → Details
+  - Definition → Example
+  - Definition → Term (reverse)
+  - Example → Term
+  - (any combination)
+- User can also set the answer order: e.g. "Show definition on front, term on back."
+
+### Study modes
+
+- **Individual deck** or **multiple decks at once** (select any combination of groups/decks).
+- **Shuffle** on/off.
+- Results after a session are sorted into: **Hard** · **Good** · **Easy** (user rates each card after flipping). Next session can be filtered to just Hard cards, etc.
+
+### Session options
+
+- Number of cards per session (custom or "All").
+- Whether to repeat cards in the same session.
+- Card flip animation style (flip / fade / slide).
+
+**Accept when:** user generates a deck from a Notebook topic with 5 terms, studies them in Term → Definition mode, rates 2 as Hard, and starts a follow-up session with only the Hard cards.
+
+---
+
+## §27 — Quiz Widget Overhaul
+
+### Core fixes
+
+- **No card limit:** user sets any number of questions. No hard cap.
+- **Deck deselection:** all decks can be deselected (no auto-select-all). The user explicitly chooses which decks to test on.
+- **Deck organization:** decks shown in the same Class → Unit → Topic hierarchy as Notes and Flashcards. User can select entire groups at once.
+
+### Question types
+
+Each question is built from saved Notebook data (Term, Definition, Details, Examples) or manually created.
+
+**Multiple choice:** user configures:
+- What gets displayed as the question (Key Term / Definition / Detail / Example).
+- What the correct answer is (any of the above from the same item).
+- Where wrong answers come from: same topic / same unit / same class / random. Default: same topic.
+- Number of answer options: 2–8 (default 4). If fewer valid distractors exist from the same scope, pull from the next scope up.
+- Whether to show if the answer was correct/incorrect immediately (green ✓ / red ✗ buttons) or at the end.
+
+**Matching, True/False, Short answer:** additional types (lower priority, implement after multiple choice is solid).
+
+### Session options
+
+- Question order: sequential or shuffled.
+- Whether questions repeat within the session.
+- **Format:**
+  - One at a time (forward only, no going back).
+  - List view (all questions visible, can jump around, bookmark).
+  - Scroll view (all visible, scroll through continuously).
+
+### Results
+
+At the end of every quiz:
+- Summary: score (X/Y correct, % correct), time taken.
+- Full review: every question shown with the user's answer (highlighted green/correct or red/incorrect) and the correct answer (always shown if wrong).
+- **Semi-correct** (multi-part questions): if a question had multiple answer components and the user got some right — tracked separately from fully correct or fully wrong.
+- Result sorted into three buckets: **Incorrect** · **Semi-correct** · **Correct**.
+- Option to retry only Incorrect or Semi-correct questions.
+
+### Quiz history
+
+Every quiz is saved with: date, deck selection, questions, user's answers, correct answers. User can open any past quiz and see the full question/answer review.
+
+**Accept when:** user selects the Biology 101 Unit 3 deck, sets 10 questions (Term → Definition, from same topic), completes the quiz, sees immediate color feedback per answer, and can open the full review at the end.
+
+---
+
+## Updated Work Order (append to §15 table)
+
+Add these rows to the §15 work order table:
+
+| # | Feature | File(s) | Status |
+|---|---|---|---|
+| P-1 | Landscape rotation fix | `index.html`, `app.js` | ✅ done (v38) |
+| P-2 | Widget tap-to-use UX | `js/modules/engine.js`, `registry.categoryOf`, `counter.js`, `dice.js` | ✅ done (v38) |
+| P-3 | Widget list grouped + collapsed in FAB | `js/ui/navpanels.js`, `js/widgets/registry.js` | ✅ done (v38) |
+| P-4 | Page Blossom code paste bug | `js/core/codes.js`, `js/ui/settings.js` | ✅ done (v38) |
+| V2-22 | Tracker revised spec (§22) | `js/widgets/tracker.js` | pending |
+| V2-23x | Graph full overhaul (§23) | `js/widgets/graph.js` | pending |
+| V2-24a | Hub Widget (§24) | `js/widgets/hub.js` | pending |
+| V2-24b | Page Widget (§24) | `js/widgets/page-widget.js` | pending |
+| V2-24c | Characteristics Widget (§24) | `js/widgets/characteristic.js` | pending |
+| V2-24d | Skill widget sub-widget references (§24) | `js/widgets/skill.js` | pending |
+| V2-24e | Quest Board Widget (§24) | `js/widgets/quest-board.js` | pending |
+| V2-24f | Overview Widget (§24) | `js/widgets/overview.js` | pending |
+| V2-25 | Study Module (§25) | `js/presets/modules/study.js` | pending |
+| V2-25a | Library widget groups (§25) | `js/widgets/library.js` | pending |
+| V2-25b | Notebook Widget (§25) | `js/widgets/notebook.js` | pending |
+| V2-25c | Elements Widget (§25) | `js/widgets/elements.js` | pending |
+| V2-25d | Study Overview page config (§25) | `js/presets/modules/study.js` | pending |
+| V2-26 | Flash Card Widget overhaul (§26) | `js/widgets/flashcard.js` | pending |
+| V2-27 | Quiz Widget overhaul (§27) | `js/widgets/quiz.js` | pending |
+
+---
+
 **Standing rule for V2:** use the `grill-me` skill before implementing any feature in this doc that has unresolved sub-questions. If a section contradicts an existing doc (01–12), V2 wins — update the older doc to match when implementing.

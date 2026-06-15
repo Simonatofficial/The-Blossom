@@ -228,11 +228,18 @@ export function renderWidgetCard(widget) {
     body.innerHTML = '<p class="soft">This widget had trouble blooming.</p>';
   }
 
-  if (def.internal) {
+  // P-2: a tap on the card body runs the widget's PRIMARY action — a custom
+  // primaryTap (e.g. Counter increments, Dice rolls) or, for internal widgets,
+  // opening the full view. No trip through ··· settings. Controls inside the
+  // body (buttons, inputs, anything marked .no-open) keep their own taps.
+  const primary = def.primaryTap
+    ? () => { try { def.primaryTap(widget, ctx); } catch (e) { console.error('[engine] primaryTap failed for', widget.type, e); } }
+    : def.internal ? () => openInternal(widget) : null;
+  if (primary) {
     body.classList.add('openable');
     body.addEventListener('click', (e) => {
       if (e.target.closest('button, a, input, textarea, select, label, [contenteditable], .no-open')) return;
-      openInternal(widget);
+      primary();
     });
   }
   return card;

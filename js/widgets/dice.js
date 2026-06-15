@@ -15,13 +15,33 @@ function rollFormula(formula) {
   return { rolls, mod, total: rolls.reduce((a, b) => a + b, 0) + mod, formula: `${n}d${sides}${mod ? (mod > 0 ? '+' + mod : mod) : ''}` };
 }
 
+/** Roll a formula (applying advantage), record it to history, persist. */
+function rollAndRecord(widget, formula, ctx) {
+  let r = rollFormula(formula);
+  if (!r) return null;
+  const cfg = widget.config;
+  if (cfg.adv !== 'none') {
+    const r2 = rollFormula(formula);
+    r = cfg.adv === 'adv' ? (r2.total > r.total ? r2 : r) : (r2.total < r.total ? r2 : r);
+  }
+  cfg.lastFormula = formula;
+  cfg.history = [{ formula: r.formula, total: r.total }, ...(cfg.history || [])].slice(0, 12);
+  store.put('widgets', widget);
+  return r;
+}
+
 registry.register({
   type: 'dice',
   name: 'Dice',
   icon: 'dice',
   description: 'd4 to d100, formulas, advantage',
   external: true, internal: false,
-  defaultConfig: () => ({ history: [], adv: 'none' }),
+  defaultConfig: () => ({ history: [], adv: 'none', lastFormula: '1d20' }),
+
+  // P-2: tapping the card body re-rolls the last formula (defaults to d20).
+  primaryTap(widget, ctx) {
+    if (rollAndRecord(widget, widget.config.lastFormula || '1d20', ctx)) ctx.refreshCard(widget);
+  },
 
   renderCard(host, widget, ctx) {
     host.innerHTML = '';
@@ -42,19 +62,13 @@ registry.register({
       histEl.textContent = (cfg.history || []).slice(0, 6).map(h => `${h.formula}→${h.total}`).join('  ·  ');
     };
     const doRoll = (formula) => {
-      let r = rollFormula(formula);
+      const r = rollAndRecord(widget, formula, ctx);
       if (!r) { ctx.toast('Try a formula like 2d6+3', 'dice'); return; }
-      if (cfg.adv !== 'none') {
-        const r2 = rollFormula(formula);
-        r = cfg.adv === 'adv' ? (r2.total > r.total ? r2 : r) : (r2.total < r.total ? r2 : r);
-      }
       result.textContent = r.total;
       result.title = r.rolls.join(' + ') + (r.mod ? ` ${r.mod > 0 ? '+' : ''}${r.mod}` : '');
       result.classList.remove('tumble');
       void result.offsetWidth;
       result.classList.add('tumble');
-      cfg.history = [{ formula: r.formula, total: r.total }, ...(cfg.history || [])].slice(0, 12);
-      store.put('widgets', widget);
       renderHist();
     };
 

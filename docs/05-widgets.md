@@ -2,6 +2,16 @@
 
 Conventions: **External** = card face on the page. **Internal** = full panel on tap. **Outputs** = values exposed to the link system (docs/02). **Container** = can nest child widgets.
 
+## Interaction model (V2 §P-2)
+
+Every card supports a **primary tap**, a **hold-to-drag**, and a **··· menu** for meta-actions only:
+
+- **Tap the card body** → the widget's *primary action*. A widget def may declare `primaryTap(widget, ctx)` (e.g. Counter increments, Dice re-rolls the last formula); otherwise an *internal* widget opens its full view. Interactive controls inside the body (buttons, inputs, anything with class `.no-open`) keep their own taps and are excluded from the primary tap.
+- **Hold the drag grip (600ms)** → reorder mode with the glowing border (`js/modules/engine.js`).
+- **··· (Widget menu)** → Edit appearance/settings · Copy Widget Code · Delete. Never primary actions.
+
+Per-widget primary taps: Counter → increment · Dice → re-roll last formula · all *internal* widgets → open full view · Habit tier buttons / Routine checkboxes / etc. remain the on-card primary controls they already were.
+
 ---
 
 ## Notes Widget

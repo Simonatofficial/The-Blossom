@@ -163,6 +163,21 @@ export function importNode(type, payload, target = {}) {
       store.put('pages', page);
     }
   }
+  // Attach an imported page to its destination module (P-4: previously the page
+  // record was stored but never added to any module, so it vanished from the UI).
+  if (type === 'pg' && rootId) {
+    const moduleId = target.moduleId || store.all('modules')[0]?.id;
+    const mod = moduleId ? store.get('modules', moduleId) : null;
+    const page = store.get('pages', rootId);
+    if (mod && page) {
+      page.moduleId = mod.id;
+      store.put('pages', page);
+      if (!mod.pages.includes(rootId)) {
+        mod.pages.push(rootId);
+        store.put('modules', mod);
+      }
+    }
+  }
   // Register an imported module/page in its parent list.
   if (type === 'mod' && rootId) {
     /* modules list is the store itself — nothing more to do */
