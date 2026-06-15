@@ -537,6 +537,16 @@ mark.tag-idea { background: color-mix(in srgb, #ffd28a 35%, transparent); border
 .fc-back { transform: rotateY(180deg); border-color: var(--accent); }
 .fc-grades { display: flex; gap: 8px; margin-top: 14px; }
 .fc-grades .btn { flex: 1; }
+/* V2 §26 alternative flip animations */
+.fc-card.anim-fade .fc-inner, .fc-card.anim-slide .fc-inner { transform: none !important; }
+.fc-card.anim-fade .fc-back, .fc-card.anim-slide .fc-back { transform: none; backface-visibility: visible; }
+.fc-card.anim-fade .fc-front, .fc-card.anim-slide .fc-front { backface-visibility: visible; }
+.fc-card.anim-fade .fc-face { transition: opacity 300ms var(--ease); }
+.fc-card.anim-fade:not(.flipped) .fc-back { opacity: 0; }
+.fc-card.anim-fade.flipped .fc-front { opacity: 0; }
+.fc-card.anim-slide .fc-face { transition: transform 300ms var(--ease), opacity 300ms var(--ease); }
+.fc-card.anim-slide:not(.flipped) .fc-back { transform: translateX(40px); opacity: 0; }
+.fc-card.anim-slide.flipped .fc-front { transform: translateX(-40px); opacity: 0; }
 
 .qz-match { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .qz-cell {
