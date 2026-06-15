@@ -1,12 +1,15 @@
-/* Notebook parsing (V2 §25/§26): turn a topic's plain-text note into structured
-   study Elements — Key Terms (with details + examples) and Theme/Concept/Idea
-   tags — which the Elements, Flashcard, and Quiz widgets all consume. Pure
-   functions here; notebook.js calls syncTopicElements on save. */
+/* Notebook parsing (V2 §W-1): the source of truth is each Topic's rich-text
+   note HTML. Study annotations live in the HTML as highlight-only spans —
+   <span class="anno anno-theme" data-aid> for inline tags and
+   <div class="anno anno-keyterm" data-aid> for multi-line Key Terms. This file
+   derives the cross-widget `element` objects (Key Terms + Theme/Concept/Idea)
+   from those spans; the Study Notes, Flashcard, and Quiz widgets all consume
+   them via moduleElements(). No bracket syntax is ever written into the text. */
 
 import { store } from '../core/store.js';
 import { objectsOf, createObject } from './base.js';
 
-/** Strip HTML to plain text (for migrating legacy contentEditable notes). */
+/** Strip HTML to plain text, turning block boundaries + <br> into newlines. */
 export function htmlToText(html) {
   const text = (html || '')
     .replace(/<\/(p|li|div|h[1-6]|tr)>/gi, '\n')
@@ -30,52 +33,92 @@ function splitInline(def) {
 }
 
 /**
- * Parse a note's text into terms + tags.
- * @returns {{terms:{term,definition,details:string[],examples:string[]}[], tags:{type,text}[]}}
+ * Parse the text of a single Key Term block into its fields. The block follows
+ * "Term: definition", then "- detail" lines and "N. example" lines (or the
+ * inline compact form). If no "Term:" colon is present, the first line becomes
+ * the term name and the rest the definition (spec §W-1).
+ * @returns {{term:string, definition:string, details:string[], examples:string[]}}
  */
-export function parseNote(text) {
-  const terms = [];
-  let cur = null;
-  const flush = () => { if (cur) terms.push(cur); cur = null; };
-  for (const raw of (text || '').split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line) { flush(); continue; }
-    let m;
-    if (cur && (m = line.match(/^[-–—]\s+(.*)/))) { cur.details.push(m[1].trim()); continue; }
-    if (cur && (m = line.match(/^\d+[.)]\s+(.*)/))) { cur.examples.push(m[1].trim()); continue; }
-    // "Term: definition" — term is short and free of markers/colons
-    m = line.match(/^([^:⟦⟧\n]{1,60}):\s+(.+)$/);
-    if (m) {
-      flush();
-      const parts = splitInline(m[2].trim());
-      cur = { term: m[1].trim(), definition: parts.definition, details: parts.details, examples: parts.examples };
-      continue;
-    }
-    flush(); // prose line ends any open term
+export function parseKeyTermText(text) {
+  const lines = (text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (!lines.length) return { term: '', definition: '', details: [], examples: [] };
+  let term = '', rest = '';
+  const m = lines[0].match(/^([^:⟦⟧\n]{1,60}):\s*(.*)$/);
+  if (m) { term = m[1].trim(); rest = m[2].trim(); }
+  else { term = lines[0]; rest = ''; }
+  const parts = splitInline(rest);
+  const details = parts.details, examples = parts.examples;
+  let definition = parts.definition;
+  for (const line of lines.slice(1)) {
+    let mm;
+    if ((mm = line.match(/^[-–—]\s+(.*)/))) details.push(mm[1].trim());
+    else if ((mm = line.match(/^\d+[.)]\s+(.*)/))) examples.push(mm[1].trim());
+    else definition = definition ? `${definition} ${line}` : line; // prose continuation
   }
-  flush();
+  return { term, definition: definition.trim(), details, examples };
+}
 
-  const tags = [];
-  const re = /⟦(theme|concept|idea):([^⟧]*)⟧/g;
-  let t;
-  while ((t = re.exec(text || ''))) { const s = t[2].trim(); if (s) tags.push({ type: t[1], text: s }); }
+const ANNO_TYPE = { 'anno-keyterm': 'term', 'anno-theme': 'theme', 'anno-concept': 'concept', 'anno-idea': 'idea', 'anno-comment': 'comment' };
+
+/** Read the annotation type ('term'|'theme'|'concept'|'idea'|'comment') off an
+    .anno element's class list, or null. */
+export function annoType(elm) {
+  for (const c of elm.classList) if (ANNO_TYPE[c]) return ANNO_TYPE[c];
+  return null;
+}
+
+/**
+ * Derive study elements from a topic note's HTML by reading its .anno spans.
+ * Comments are intentionally excluded — they are inline notes, not study items.
+ * @returns {{terms:object[], tags:{type,text}[]}}
+ */
+export function deriveElementsFromHtml(html) {
+  const root = document.createElement('div');
+  root.innerHTML = html || '';
+  const terms = [], tags = [];
+  for (const a of root.querySelectorAll('.anno')) {
+    if (a.closest('.anno') !== a) continue; // skip nested annotations
+    const type = annoType(a);
+    if (type === 'term') {
+      const parsed = parseKeyTermText(htmlToText(a.innerHTML));
+      if (parsed.term || parsed.definition) terms.push(parsed);
+    } else if (type === 'theme' || type === 'concept' || type === 'idea') {
+      const text = htmlToText(a.innerHTML).replace(/\s+/g, ' ').trim();
+      if (text) tags.push({ type, text });
+    }
+  }
   return { terms, tags };
 }
 
-/** Read a topic note's text (migrating legacy html on the fly). */
+/** Read a topic note's text (legacy plain-text or migrated from html). */
 export function noteText(note) {
+  if (note.data.html != null) return htmlToText(note.data.html);
   if (note.data.text != null) return note.data.text;
-  if (note.data.html) return htmlToText(note.data.html);
   return '';
 }
 
 /**
- * Re-derive the Element objects for one topic from its note text. Elements are
+ * Migrate a legacy plain-text note (with ⟦type:text⟧ markers and "Term:" lines)
+ * into rich HTML paragraphs. Per §W-1 this is a text-only migration: the words
+ * are preserved verbatim, bracket markers are unwrapped to their inner text, and
+ * no annotations are auto-applied (the user re-tags). The caller stashes the
+ * original under data.legacyText as a safety net.
+ * @returns {string} HTML
+ */
+export function legacyTextToHtml(text) {
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const stripped = (text || '').replace(/⟦(?:theme|concept|idea|keyterm|term|comment):([^⟧]*)⟧/g, '$1');
+  const lines = stripped.split(/\r?\n/);
+  return lines.map(l => l.trim() ? `<p>${esc(l)}</p>` : '<p><br></p>').join('');
+}
+
+/**
+ * Re-derive the Element objects for one topic from its note HTML. Elements are
  * stored on the notebook widget (kind 'element') and fully replaced each save.
  */
 export function syncTopicElements(notebookWidget, ctx) {
   const { classId, className, unitId, unitName, topic, note } = ctx;
-  const { terms, tags } = parseNote(noteText(note));
+  const { terms, tags } = deriveElementsFromHtml(note.data.html || '');
   for (const e of objectsOf(notebookWidget.id, 'element')) {
     if (e.data.topicId === topic.id) store.del('objects', e.id);
   }
@@ -84,18 +127,6 @@ export function syncTopicElements(notebookWidget, ctx) {
   for (const g of tags) createObject(notebookWidget.id, 'element', { type: g.type, ...base, text: g.text });
   store.put('widgets', notebookWidget); // touch for sync/autosave
   return { terms: terms.length, tags: tags.length };
-}
-
-/** Escape + render note text to highlighted preview HTML. */
-export function previewHtml(text) {
-  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return (text || '').split(/\r?\n/).map(raw => {
-    let line = esc(raw);
-    line = line.replace(/⟦(theme|concept|idea):([^⟧]*)⟧/g, (_, ty, tx) => `<mark class="tag-${ty}">${tx.trim()}</mark>`);
-    const m = raw.match(/^(\s*)([^:⟦⟧\n]{1,60}):\s+(.+)$/);
-    if (m) line = `${esc(m[1])}<mark class="key-term">${esc(m[2])}</mark>:${line.slice(esc(m[1] + m[2]).length + 1)}`;
-    return line || '&nbsp;';
-  }).join('<br>');
 }
 
 /** All elements across a module's notebooks (optionally filtered). */

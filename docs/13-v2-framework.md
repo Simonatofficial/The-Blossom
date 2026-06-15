@@ -1510,6 +1510,14 @@ Three-column layout on desktop (Class list | Unit list | Topic list + Notes). Dr
 
 **Accept when:** user creates a Topic, writes rich text with a Title, a bullet list, a separator, bold, and a colored highlight; selects "Photosynthesis: the process by which plants..." and clicks Key Term — the entire paragraph is highlighted yellow, no [[]] appears, and the term is findable in the Study Notes widget.
 
+**Implementation notes (decided during build, 2026-06-15):**
+- Annotations are inline highlight spans in the topic HTML — `<span class="anno anno-{theme|concept|idea|comment}" data-aid>` for inline tags and `<div class="anno anno-keyterm" data-aid>` for the multi-line Key Term block. The text is never altered and no bracket syntax is written. Plain-text offsets were rejected as fragile; the spans ride along with edits.
+- On save, `notebook-parse.js#deriveElementsFromHtml` re-derives the existing `element` objects (kind `'element'`, same schema) from those spans, so Study Notes / Flashcard / Quiz keep reading `moduleElements()` unchanged. Comments are *not* study elements (no Comments tab) — excluded from derivation.
+- Migration is **lazy + text-only**: a legacy plain-text note converts to HTML paragraphs on first open (`legacyTextToHtml`), `⟦…⟧` markers unwrapped to their inner text, words preserved; the original is stashed under `note.data.legacyText`. Old annotations are dropped — the user re-tags. (Stale `element` objects clear on first re-save.)
+- Editor scope: all tabled tools **plus Image + Link-to-node**; the heavy embed-a-whole-widget feature is **deferred** (not study-relevant). The editor lives in `notebook-editor.js` (notebook-owned, *not* shared with the Notes widget, to keep Notes at zero regression risk).
+- Comment = inline green highlight; in preview, clicking it opens a small read-only popover echoing its text (no separately-stored comment body).
+- Layout: 3-column (Class | Unit | Topic) + a notes pane on wide screens (`host.clientWidth ≥ 720`, via ResizeObserver); drill-down with breadcrumbs on phones.
+
 ---
 
 ### §W-2 — Study Notes Widget (renamed from Elements Widget)
@@ -1942,7 +1950,7 @@ Implement §W items in this order. Mark ✅ date when acceptance criteria pass.
 
 | # | Feature | File(s) | Status |
 |---|---|---|---|
-| W-1 | Notebook Widget overhaul | `js/widgets/notebook.js` | ⬜ |
+| W-1 | Notebook Widget overhaul | `js/widgets/notebook.js`, `notebook-editor.js`, `notebook-parse.js` | ✅ 2026-06-15 |
 | W-2 | Study Notes Widget (rename + source picker + format) | `js/widgets/study-notes.js` | ⬜ |
 | W-3 | Overview Widget (daily dashboard + hyperlinks) | `js/widgets/overview.js` | ⬜ |
 | W-4 | Flashcard Widget overhaul | `js/widgets/flashcard.js` | ⬜ |

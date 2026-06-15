@@ -103,6 +103,7 @@ self.SW_ASSETS = [
   './js/widgets/market.js',
   './js/widgets/music.js',
   './js/widgets/notebook.js',
+  './js/widgets/notebook-editor.js',
   './js/widgets/notebook-parse.js',
   './js/widgets/notes.js',
   './js/widgets/notifications.js',
