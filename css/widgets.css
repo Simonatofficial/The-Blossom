@@ -558,6 +558,16 @@ mark.tag-idea { background: color-mix(in srgb, #ffd28a 35%, transparent); border
 }
 .qz-cell.sel { border-color: var(--accent); box-shadow: 0 0 8px var(--glow); }
 .qz-cell.done { opacity: 0.35; pointer-events: none; }
+/* V2 §27 quiz overhaul */
+.qz-tree { margin-bottom: 14px; max-height: 240px; overflow-y: auto; }
+.qz-node { padding: 4px 0; align-items: center; }
+.qz-node span:nth-child(2) { flex: 1; }
+.qz-opt.qz-sel { border-color: var(--accent); }
+.qz-opt.qz-correct { border-color: var(--success); background: color-mix(in srgb, var(--success) 16%, transparent); }
+.qz-opt.qz-wrong { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.qz-rev-given, .qz-rev-ans { font-size: 0.84rem; margin-top: 2px; }
+.qz-rev-given { color: var(--text-soft); }
+.qz-jump .chip { cursor: pointer; }
 
 /* ---- Infinite Canvas ---- */
 .ic-surface { display: block; width: 100%; background: var(--surface-alt); cursor: crosshair; }

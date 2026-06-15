@@ -1353,7 +1353,7 @@ Add these rows to the §15 work order table:
 | V2-25c | Elements Widget (§25) | `js/widgets/elements.js` | ✅ done (v42) |
 | V2-25d | Study Overview page config (§25) | `js/presets/modules/study.js` | pending |
 | V2-26 | Flash Card Widget overhaul (§26) | `js/widgets/flashcards.js` | ✅ done (v43) |
-| V2-27 | Quiz Widget overhaul (§27) | `js/widgets/quiz.js` | pending |
+| V2-27 | Quiz Widget overhaul (§27) | `js/widgets/quiz.js` | ✅ done (v44) |
 
 ---
 

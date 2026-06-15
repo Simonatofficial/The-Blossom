@@ -1,108 +1,87 @@
-/* Quiz widget (docs/08 §6): practice quizzes built from flashcard decks —
-   multiple choice (distractors from sibling cards), true/false, type-the-
-   answer (fuzzy match), match-pairs. Results are day-keyed objects:
-   graphable and linkable to Skills. */
+/* Quiz widget (docs/05 + V2 §27): multiple-choice quizzes built from Notebook
+   Elements (Term / Definition / Detail / Example), organised by Class → Unit →
+   Topic. No question cap; decks are explicitly chosen (none by default);
+   distractors come from the same topic (widening if scarce); three session
+   formats; results split Correct / Semi-correct / Incorrect with retry; every
+   quiz is saved to history and re-openable. */
 
 import { registry } from './registry.js';
 import { store } from '../core/store.js';
 import { icon } from '../ui/icons.js';
-import { el, field, seg, emptyState } from '../ui/components.js';
+import { el, field, seg, emptyState, toast } from '../ui/components.js';
 import { objectsOf, createObject, todayStr, fmtDate, bloomBurst } from './base.js';
+import { moduleElements } from './notebook-parse.js';
 
 const shuffle = (a) => { const x = [...a]; for (let i = x.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [x[i], x[j]] = [x[j], x[i]]; } return x; };
+const FIELD = { term: t => t.term, definition: t => t.definition, detail: t => (t.details || []).join('; '), example: t => (t.examples || []).join('; ') };
+const FIELD_LABELS = [['term', 'Key Term'], ['definition', 'Definition'], ['detail', 'Detail'], ['example', 'Example']];
 
-/* fuzzy answer match: case/space-insensitive, small typo tolerance */
-function fuzzyMatch(answer, truth) {
-  const norm = (s) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-  const a = norm(answer), t = norm(truth);
-  if (!a) return false;
-  if (a === t || t.includes(a) && a.length >= t.length * 0.7) return true;
-  if (Math.abs(a.length - t.length) > 3) return false;
-  // tiny levenshtein with early exit
-  const m = a.length, n = t.length;
-  let prev = Array.from({ length: n + 1 }, (_, j) => j);
-  for (let i = 1; i <= m; i++) {
-    const cur = [i];
-    for (let j = 1; j <= n; j++) {
-      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === t[j - 1] ? 0 : 1));
-    }
-    prev = cur;
-  }
-  return prev[n] <= Math.max(1, Math.floor(t.length / 5));
+function terms(widget) { return moduleElements(widget, { type: 'term' }); }
+
+/** Distractor candidates for a term within a scope. */
+function scopePool(all, t, scope) {
+  if (scope === 'topic') return all.filter(x => x.topicId === t.topicId && x !== t);
+  if (scope === 'unit') return all.filter(x => x.unitId === t.unitId && x !== t);
+  if (scope === 'class') return all.filter(x => x.classId === t.classId && x !== t);
+  return all.filter(x => x !== t);
 }
 
-function moduleDecks(widget) {
-  const mod = store.all('modules').find(m => m.pages.some(p => store.get('pages', p)?.widgets.includes(widget.id)));
-  if (!mod) return [];
+function buildQuiz(widget) {
+  const cfg = widget.config;
+  const all = terms(widget);
+  const sel = new Set(cfg.selectedTopics || []);
+  let pool = all.filter(t => sel.has(t.topicId));
+  if (cfg.order === 'shuffled') pool = shuffle(pool);
+  if (cfg.count) pool = pool.slice(0, cfg.count);
+  const Q = FIELD[cfg.questionField] || FIELD.term, A = FIELD[cfg.answerField] || FIELD.definition;
+  const want = Math.max(2, Math.min(8, cfg.optionCount || 4));
   const out = [];
-  for (const pid of mod.pages) {
-    for (const wid of (store.get('pages', pid)?.widgets || [])) {
-      const w = store.get('widgets', wid);
-      if (w?.type !== 'flashcards') continue;
-      for (const deck of (w.config.decks || [])) {
-        out.push({ deck, cards: objectsOf(w.id, 'flashcard').filter(c => c.data.deckId === deck.id) });
-      }
+  for (const t of pool) {
+    const prompt = Q(t), answer = A(t);
+    if (!prompt || !answer) continue;
+    let cands = [...new Set(scopePool(all, t, cfg.distractorScope || 'topic').map(A).filter(x => x && x !== answer))];
+    for (const wider of ['unit', 'class', 'random']) {
+      if (cands.length >= want - 1) break;
+      cands = [...new Set([...cands, ...scopePool(all, t, wider).map(A).filter(x => x && x !== answer)])];
     }
+    const options = shuffle([answer, ...shuffle(cands).slice(0, want - 1)]);
+    out.push({ prompt, answer, options, context: `${t.className} › ${t.topicName}` });
   }
   return out;
 }
 
-/** Build a question list from the chosen decks. */
-function buildQuiz(widget) {
-  const cfg = widget.config;
-  const pools = moduleDecks(widget).filter(d => !cfg.deckIds.length || cfg.deckIds.includes(d.deck.id));
-  const all = pools.flatMap(p => p.cards.map(c => ({ card: c, deck: p.deck })));
-  if (all.length < 2) return [];
-  const picked = shuffle(all).slice(0, cfg.length || 10);
-  const types = ['mc', 'tf', 'type', 'match'].filter(t => cfg.types[t]);
-  if (!types.length) types.push('mc');
-  const questions = [];
-  const matchPool = [];
-  for (const { card, deck } of picked) {
-    const t = types[Math.floor(Math.random() * types.length)];
-    if (t === 'match') { matchPool.push({ card, deck }); continue; }
-    if (t === 'mc') {
-      const distractors = shuffle(all.filter(x => x.card.id !== card.id)).slice(0, 3).map(x => x.card.data.back);
-      questions.push({ kind: 'mc', deck, card, prompt: card.data.front, options: shuffle([card.data.back, ...distractors]), answer: card.data.back });
-    } else if (t === 'tf') {
-      const lie = Math.random() < 0.5;
-      const other = shuffle(all.filter(x => x.card.id !== card.id))[0];
-      questions.push({ kind: 'tf', deck, card, prompt: `${card.data.front} — ${lie ? other.card.data.back : card.data.back}`, answer: !lie });
-    } else {
-      questions.push({ kind: 'type', deck, card, prompt: card.data.front, answer: card.data.back });
-    }
+/* group elements into a Class → Unit → Topic tree for the scope picker */
+function scopeTree(widget) {
+  const map = new Map();
+  for (const t of terms(widget)) {
+    if (!map.has(t.classId)) map.set(t.classId, { name: t.className, units: new Map() });
+    const u = map.get(t.classId).units;
+    if (!u.has(t.unitId)) u.set(t.unitId, { name: t.unitName, topics: new Map() });
+    const tp = u.get(t.unitId).topics;
+    if (!tp.has(t.topicId)) tp.set(t.topicId, { name: t.topicName, count: 0 });
+    tp.get(t.topicId).count++;
   }
-  // group match-pairs into one question per 3–4 pairs
-  for (let i = 0; i < matchPool.length; i += 4) {
-    const pairs = matchPool.slice(i, i + 4);
-    if (pairs.length >= 2) questions.push({ kind: 'match', deck: pairs[0].deck, pairs: pairs.map(p => ({ front: p.card.data.front, back: p.card.data.back })) });
-  }
-  return shuffle(questions);
+  return map;
 }
 
 registry.register({
   type: 'quiz',
   name: 'Quiz',
   icon: 'check-square',
-  description: 'Practice quizzes grown from your decks',
+  description: 'Multiple-choice quizzes grown from your notes',
   keywords: ['study', 'test', 'practice', 'exam', 'questions'],
   external: true, internal: true,
-  defaultConfig: () => ({ length: 10, types: { mc: true, tf: true, type: true, match: false }, deckIds: [] }),
+  defaultConfig: () => ({ selectedTopics: [], count: 0, questionField: 'term', answerField: 'definition', distractorScope: 'topic', optionCount: 4, immediateFeedback: true, order: 'shuffled', format: 'one' }),
 
   outputs: (widget) => [{
     key: 'scoreToday', name: 'Best quiz score %', dayKeyed: true,
-    get: (d) => {
-      const rs = objectsOf(widget.id, 'quizResult').filter(r => r.date === (d || todayStr()));
-      return rs.length ? Math.max(...rs.map(r => Math.round((r.data.score / r.data.total) * 100))) : 0;
-    }
+    get: (d) => { const rs = objectsOf(widget.id, 'quizResult').filter(r => r.date === (d || todayStr())); return rs.length ? Math.max(...rs.map(r => Math.round((r.data.score / r.data.total) * 100))) : 0; }
   }],
 
   renderCard(host, widget) {
     host.innerHTML = '';
     const last = objectsOf(widget.id, 'quizResult').sort((a, b) => b.createdAt - a.createdAt)[0];
-    host.appendChild(el(`<div class="row-between">
-      <span class="soft" style="font-size:0.88rem">${last ? `Last: ${last.data.score}/${last.data.total} · ${fmtDate(last.date)}` : 'No quizzes taken yet'}</span>
-      <span class="chip accent">${icon('play', 11)} quiz me</span></div>`));
+    host.appendChild(el(`<div class="row-between"><span class="soft" style="font-size:0.88rem">${last ? `Last: ${last.data.score}/${last.data.total} · ${fmtDate(last.date)}` : 'No quizzes taken yet'}</span><span class="chip accent">${icon('play', 11)} quiz me</span></div>`));
   },
 
   renderFull(host, widget, ctx) {
@@ -111,158 +90,172 @@ registry.register({
 
     const setup = () => {
       host.innerHTML = '';
-      const deckList = moduleDecks(widget);
-      if (!deckList.length) {
-        host.appendChild(emptyState('layers', 'No flashcard decks in this module yet — grow some first.'));
-        return;
+      const tree = scopeTree(widget);
+      if (!tree.size) { host.appendChild(emptyState('book-open', 'No key terms in this module yet — add “Term: definition” lines in a Notebook.')); return; }
+      const sel = new Set(cfg.selectedTopics || []);
+
+      // scope picker (Class → Unit → Topic, deselectable, group select)
+      host.appendChild(el('<h3 class="soft" style="font-size:0.78rem;margin:4px 0 6px">DECKS TO TEST (none selected by default)</h3>'));
+      const treeEl = el('<div class="qz-tree"></div>');
+      const toggle = (ids, on) => { ids.forEach(id => on ? sel.add(id) : sel.delete(id)); cfg.selectedTopics = [...sel]; save(); setup(); };
+      for (const [, cl] of tree) {
+        const unitTopicIds = [...cl.units.values()].flatMap(u => [...u.topics.keys()]);
+        const clOn = unitTopicIds.every(id => sel.has(id));
+        const clRow = el(`<label class="qz-node row" style="gap:6px"><input type="checkbox" ${clOn ? 'checked' : ''}><strong></strong></label>`);
+        clRow.querySelector('strong').textContent = cl.name;
+        clRow.querySelector('input').onchange = (e) => toggle(unitTopicIds, e.target.checked);
+        treeEl.appendChild(clRow);
+        for (const [, u] of cl.units) {
+          const uTopicIds = [...u.topics.keys()];
+          const uOn = uTopicIds.every(id => sel.has(id));
+          const uRow = el(`<label class="qz-node row" style="gap:6px;padding-left:18px"><input type="checkbox" ${uOn ? 'checked' : ''}><span></span></label>`);
+          uRow.querySelector('span').textContent = u.name;
+          uRow.querySelector('input').onchange = (e) => toggle(uTopicIds, e.target.checked);
+          treeEl.appendChild(uRow);
+          for (const [tid, tp] of u.topics) {
+            const tRow = el(`<label class="qz-node row" style="gap:6px;padding-left:36px"><input type="checkbox" ${sel.has(tid) ? 'checked' : ''}><span></span><span class="soft" style="font-size:0.74rem"></span></label>`);
+            tRow.querySelector('span').textContent = tp.name;
+            tRow.querySelectorAll('span')[1].textContent = `${tp.count}`;
+            tRow.querySelector('input').onchange = (e) => toggle([tid], e.target.checked);
+            treeEl.appendChild(tRow);
+          }
+        }
       }
-      host.appendChild(field('Length', seg([5, 10, 20].map(n => ({ value: n, label: String(n) })), cfg.length, (v) => { cfg.length = v; save(); })));
-      const typeRow = el('<div class="row" style="flex-wrap:wrap;margin-bottom:14px"></div>');
-      for (const [key, label] of [['mc', 'Choice'], ['tf', 'True/false'], ['type', 'Type it'], ['match', 'Match pairs']]) {
-        const chip = el(`<button class="chip ${cfg.types[key] ? 'accent' : ''}" style="cursor:pointer">${label}</button>`);
-        chip.onclick = () => { cfg.types[key] = !cfg.types[key]; chip.classList.toggle('accent'); save(); };
-        typeRow.appendChild(chip);
-      }
-      host.appendChild(field('Question types', typeRow));
-      const deckRow = el('<div class="row" style="flex-wrap:wrap;margin-bottom:14px"></div>');
-      for (const { deck, cards } of deckList) {
-        const on = !cfg.deckIds.length || cfg.deckIds.includes(deck.id);
-        const chip = el(`<button class="chip ${on ? 'accent' : ''}" style="cursor:pointer">${deck.name} (${cards.length})</button>`);
-        chip.onclick = () => {
-          const set = new Set(cfg.deckIds.length ? cfg.deckIds : deckList.map(d => d.deck.id));
-          set.has(deck.id) ? set.delete(deck.id) : set.add(deck.id);
-          cfg.deckIds = [...set];
-          save();
-          setup();
-        };
-        deckRow.appendChild(chip);
-      }
-      host.appendChild(field('Decks', deckRow));
-      const start = el(`<button class="btn btn-primary" style="width:100%">${icon('play', 15)} Begin</button>`);
+      host.appendChild(treeEl);
+
+      // config
+      host.appendChild(field('Question shows', seg(FIELD_LABELS.map(([v, l]) => ({ value: v, label: l })), cfg.questionField, (v) => { cfg.questionField = v; save(); })));
+      host.appendChild(field('Correct answer is', seg(FIELD_LABELS.map(([v, l]) => ({ value: v, label: l })), cfg.answerField, (v) => { cfg.answerField = v; save(); })));
+      host.appendChild(field('Wrong answers from', seg([['topic', 'Same topic'], ['unit', 'Same unit'], ['class', 'Same class'], ['random', 'Random']].map(([v, l]) => ({ value: v, label: l })), cfg.distractorScope, (v) => { cfg.distractorScope = v; save(); })));
+      host.appendChild(field('Options', seg([2, 3, 4, 5, 6].map(n => ({ value: n, label: String(n) })), cfg.optionCount, (v) => { cfg.optionCount = v; save(); })));
+      const countIn = el(`<input class="input" type="number" min="0" placeholder="All" style="width:100px">`); countIn.value = cfg.count || '';
+      countIn.addEventListener('change', () => { cfg.count = Number(countIn.value) || 0; save(); });
+      host.appendChild(field('How many questions (blank = all)', countIn));
+      host.appendChild(field('Order', seg([['shuffled', 'Shuffled'], ['sequential', 'In order']].map(([v, l]) => ({ value: v, label: l })), cfg.order, (v) => { cfg.order = v; save(); })));
+      host.appendChild(field('Format', seg([['one', 'One at a time'], ['list', 'List'], ['scroll', 'Scroll']].map(([v, l]) => ({ value: v, label: l })), cfg.format, (v) => { cfg.format = v; save(); })));
+      const fb = el(`<button class="chip ${cfg.immediateFeedback ? 'accent' : ''}" style="cursor:pointer">${icon('check', 11)} Immediate feedback</button>`);
+      fb.onclick = () => { cfg.immediateFeedback = !cfg.immediateFeedback; fb.classList.toggle('accent'); save(); };
+      host.appendChild(field('Feedback', fb));
+
+      const start = el(`<button class="btn btn-primary" style="width:100%">${icon('play', 15)} Begin quiz</button>`);
       start.onclick = () => {
+        if (!sel.size) { toast('Select at least one deck first.', 'info'); return; }
         const qs = buildQuiz(widget);
-        if (qs.length < 1) { ctx.toast('Need at least 2 cards to quiz.', 'info'); return; }
-        run(qs);
+        if (!qs.length) { toast('No questions could be built — add more terms.', 'info'); return; }
+        cfg.format === 'one' ? runOne(qs) : runAll(qs);
       };
       host.appendChild(start);
 
-      const results = objectsOf(widget.id, 'quizResult').sort((a, b) => b.createdAt - a.createdAt).slice(0, 5);
+      // history
+      const results = objectsOf(widget.id, 'quizResult').sort((a, b) => b.createdAt - a.createdAt).slice(0, 8);
       if (results.length) {
-        host.appendChild(el('<h3 class="soft" style="font-size:0.78rem;margin:16px 0 6px">RECENT</h3>'));
+        host.appendChild(el('<h3 class="soft" style="font-size:0.78rem;margin:16px 0 6px">HISTORY</h3>'));
         for (const r of results) {
-          host.appendChild(el(`<div class="list-item" style="cursor:default"><span class="li-main"><span class="li-title">${r.data.score} / ${r.data.total}</span><span class="li-sub">${fmtDate(r.date)}${r.data.weakest ? ` · tend: ${r.data.weakest}` : ''}</span></span></div>`));
+          const row = el(`<button class="list-item"><span class="li-main"><span class="li-title">${r.data.score} / ${r.data.total} (${Math.round(r.data.score / r.data.total * 100)}%)</span><span class="li-sub">${fmtDate(r.date)}${r.data.timeMs ? ` · ${Math.round(r.data.timeMs / 1000)}s` : ''}</span></span>${icon('chevron-right', 14)}</button>`);
+          row.onclick = () => review(r.data, () => setup());
+          host.appendChild(row);
         }
       }
     };
 
-    const run = (questions) => {
-      let i = 0;
-      const record = [];
-      const next = (correct, given) => {
-        record.push({ prompt: questions[i].prompt || 'match pairs', correct, given, deck: questions[i].deck?.name });
-        i++;
-        i < questions.length ? ask() : finish();
-      };
-
+    /* ---- one-at-a-time ---- */
+    const runOne = (questions) => {
+      let i = 0; const record = []; const startT = Date.now();
       const ask = () => {
         const q = questions[i];
         host.innerHTML = '';
         host.appendChild(el(`<div class="soft" style="text-align:center;font-size:0.78rem;margin-bottom:10px">${i + 1} / ${questions.length}</div>`));
         const panel = el('<div class="panel" style="padding:16px"></div>');
-        host.appendChild(panel);
-
-        if (q.kind === 'mc') {
-          panel.appendChild(el(`<h3 style="margin-bottom:12px"></h3>`)).textContent = q.prompt;
-          for (const opt of q.options) {
-            const b = el('<button class="list-item"><span class="li-main"><span class="li-title" style="font-weight:400"></span></span></button>');
-            b.querySelector('.li-title').textContent = opt;
-            b.onclick = () => next(opt === q.answer, opt);
-            panel.appendChild(b);
-          }
-        } else if (q.kind === 'tf') {
-          panel.appendChild(el('<h3 style="margin-bottom:12px"></h3>')).textContent = q.prompt;
-          const row = el('<div class="row"></div>');
-          for (const [label, val] of [['True', true], ['False', false]]) {
-            const b = el(`<button class="btn grow">${label}</button>`);
-            b.onclick = () => next(val === q.answer, label);
-            row.appendChild(b);
-          }
-          panel.appendChild(row);
-        } else if (q.kind === 'type') {
-          panel.appendChild(el('<h3 style="margin-bottom:12px"></h3>')).textContent = q.prompt;
-          const input = el('<input class="input" placeholder="Type your answer…">');
-          const go = el('<button class="btn btn-primary" style="width:100%;margin-top:8px">Check</button>');
-          const check = () => next(fuzzyMatch(input.value, q.answer), input.value);
-          go.onclick = check;
-          input.onkeydown = (e) => { if (e.key === 'Enter') check(); };
-          panel.append(input, go);
-        } else { // match-pairs
-          panel.appendChild(el('<h3 style="margin-bottom:12px">Match the pairs</h3>'));
-          const left = shuffle(q.pairs.map(p => p.front));
-          const right = shuffle(q.pairs.map(p => p.back));
-          const grid = el('<div class="qz-match"></div>');
-          let pickL = null;
-          let solved = 0, misses = 0;
-          const cells = [];
-          const mk = (txt, side) => {
-            const c = el('<button class="qz-cell"></button>');
-            c.textContent = txt;
-            c.onclick = () => {
-              if (c.classList.contains('done')) return;
-              if (side === 'L') {
-                cells.forEach(x => x.classList.remove('sel'));
-                c.classList.add('sel');
-                pickL = txt;
-              } else if (pickL != null) {
-                const pair = q.pairs.find(p => p.front === pickL);
-                if (pair?.back === txt) {
-                  solved++;
-                  cells.find(x => x.textContent === pickL && !x.classList.contains('done'))?.classList.add('done');
-                  c.classList.add('done');
-                  if (solved === q.pairs.length) next(misses === 0, `${misses} misses`);
-                } else misses++;
-                pickL = null;
-                cells.forEach(x => x.classList.remove('sel'));
-              }
-            };
-            cells.push(c);
-            return c;
+        panel.appendChild(el('<div class="soft" style="font-size:0.74rem;margin-bottom:6px"></div>')).textContent = q.context;
+        panel.appendChild(el('<h3 style="margin-bottom:12px"></h3>')).textContent = q.prompt;
+        let answered = false;
+        for (const opt of q.options) {
+          const b = el('<button class="list-item qz-opt"><span class="li-main"><span class="li-title" style="font-weight:400"></span></span></button>');
+          b.querySelector('.li-title').textContent = opt;
+          b.onclick = () => {
+            if (answered && cfg.immediateFeedback) return;
+            const correct = opt === q.answer;
+            record.push({ ...q, given: opt, correct });
+            if (cfg.immediateFeedback) {
+              answered = true;
+              for (const x of panel.querySelectorAll('.qz-opt')) { const t = x.querySelector('.li-title').textContent; if (t === q.answer) x.classList.add('qz-correct'); else if (t === opt && !correct) x.classList.add('qz-wrong'); x.disabled = true; }
+              const nx = el(`<button class="btn btn-primary" style="width:100%;margin-top:10px">${i + 1 < questions.length ? 'Next' : 'Finish'}</button>`);
+              nx.onclick = () => { i++; i < questions.length ? ask() : finish(record, startT); };
+              panel.appendChild(nx);
+            } else { i++; i < questions.length ? ask() : finish(record, startT); }
           };
-          for (let r = 0; r < q.pairs.length; r++) {
-            grid.appendChild(mk(left[r], 'L'));
-            grid.appendChild(mk(right[r], 'R'));
-          }
-          panel.appendChild(grid);
+          panel.appendChild(b);
         }
+        host.appendChild(panel);
       };
-
-      const finish = () => {
-        const score = record.filter(r => r.correct).length;
-        // weakest deck = most misses
-        const missByDeck = {};
-        for (const r of record) if (!r.correct && r.deck) missByDeck[r.deck] = (missByDeck[r.deck] || 0) + 1;
-        const weakest = Object.entries(missByDeck).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-        createObject(widget.id, 'quizResult', { score, total: record.length, perQuestion: record, weakest }, todayStr());
-        host.innerHTML = '';
-        const sum = el(`<div class="empty-state">${icon(score / record.length >= 0.7 ? 'flower' : 'sprout', 32)}
-          <h3 style="margin:8px 0 4px">${score} / ${record.length}</h3>
-          <p>${weakest ? `Worth tending: ${weakest}.` : 'A well-kept garden.'}</p>
-          <button class="btn btn-primary">Done</button></div>`);
-        sum.querySelector('button').onclick = setup;
-        host.appendChild(sum);
-        if (score / record.length >= 0.7) bloomBurst(sum);
-        host.appendChild(el('<h3 class="soft" style="font-size:0.78rem;margin:10px 0 6px">REVIEW</h3>'));
-        for (const r of record) {
-          const row = el(`<div class="list-item" style="cursor:default">
-            <span style="color:${r.correct ? 'var(--success)' : 'var(--warn)'}">${icon(r.correct ? 'check-circle' : 'x', 15)}</span>
-            <span class="li-main"><span class="li-title" style="font-weight:400"></span>${r.correct ? '' : '<span class="li-sub"></span>'}</span></div>`);
-          row.querySelector('.li-title').textContent = r.prompt;
-          if (!r.correct) row.querySelector('.li-sub').textContent = `you said: ${r.given}`;
-          host.appendChild(row);
-        }
-      };
-
       ask();
+    };
+
+    /* ---- list / scroll: all visible, submit at end ---- */
+    const runAll = (questions) => {
+      host.innerHTML = '';
+      const startT = Date.now();
+      const chosen = new Array(questions.length).fill(null);
+      const bookmarks = new Set();
+      if (cfg.format === 'list') {
+        const nav = el('<div class="qz-jump row" style="flex-wrap:wrap;gap:4px;margin-bottom:10px"></div>');
+        questions.forEach((_, idx) => { const c = el(`<button class="chip">${idx + 1}</button>`); c.onclick = () => document.getElementById(`qz-q${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); nav.appendChild(c); });
+        host.appendChild(nav);
+      }
+      questions.forEach((q, idx) => {
+        const panel = el(`<div class="panel" id="qz-q${idx}" style="padding:14px;margin-bottom:12px"></div>`);
+        const head = el(`<div class="row-between" style="margin-bottom:6px"><span class="soft" style="font-size:0.74rem"></span></div>`);
+        head.querySelector('span').textContent = `${idx + 1}. ${q.context}`;
+        if (cfg.format === 'list') { const bm = el(`<button class="btn-icon">${icon('star', 14)}</button>`); bm.onclick = () => { bookmarks.has(idx) ? bookmarks.delete(idx) : bookmarks.add(idx); bm.classList.toggle('accent'); }; head.appendChild(bm); }
+        panel.appendChild(head);
+        panel.appendChild(el('<h3 style="margin-bottom:10px"></h3>')).textContent = q.prompt;
+        for (const opt of q.options) {
+          const b = el('<button class="list-item qz-opt"><span class="li-main"><span class="li-title" style="font-weight:400"></span></span></button>');
+          b.querySelector('.li-title').textContent = opt;
+          b.onclick = () => { chosen[idx] = opt; for (const x of panel.querySelectorAll('.qz-opt')) x.classList.remove('qz-sel'); b.classList.add('qz-sel'); };
+          panel.appendChild(b);
+        }
+        host.appendChild(panel);
+      });
+      const submit = el(`<button class="btn btn-primary" style="width:100%">Submit quiz</button>`);
+      submit.onclick = () => {
+        const record = questions.map((q, idx) => ({ ...q, given: chosen[idx], correct: chosen[idx] === q.answer }));
+        finish(record, startT);
+      };
+      host.appendChild(submit);
+    };
+
+    const finish = (record, startT) => {
+      const score = record.filter(r => r.correct).length;
+      const data = { score, total: record.length, semi: 0, timeMs: Date.now() - startT, questions: record };
+      createObject(widget.id, 'quizResult', data, todayStr());
+      review(data, () => setup(), true);
+    };
+
+    /* ---- review (shared by finish + history reopen) ---- */
+    const review = (data, back, justFinished) => {
+      host.innerHTML = '';
+      const pct = data.total ? data.score / data.total : 0;
+      const incorrect = data.questions.filter(q => !q.correct);
+      const sum = el(`<div class="empty-state">${icon(pct >= 0.7 ? 'flower' : 'sprout', 32)}
+        <h3 style="margin:8px 0 4px">${data.score} / ${data.total} · ${Math.round(pct * 100)}%</h3>
+        <p>${data.timeMs ? `${Math.round(data.timeMs / 1000)}s · ` : ''}${incorrect.length} to revisit${data.semi ? ` · ${data.semi} semi-correct` : ''}.</p></div>`);
+      host.appendChild(sum);
+      if (justFinished && pct >= 0.7) bloomBurst(sum);
+
+      const actions = el('<div class="row" style="justify-content:center;gap:8px;margin:6px 0 12px;flex-wrap:wrap"></div>');
+      if (incorrect.length) { const r = el('<button class="btn">Retry incorrect</button>'); r.onclick = () => { cfg.format === 'one' ? runOne(shuffle(incorrect)) : runAll(shuffle(incorrect)); }; actions.appendChild(r); }
+      const done = el('<button class="btn btn-primary">Done</button>'); done.onclick = back; actions.appendChild(done);
+      host.appendChild(actions);
+
+      host.appendChild(el('<h3 class="soft" style="font-size:0.78rem;margin:6px 0 6px">REVIEW</h3>'));
+      for (const q of data.questions) {
+        const panel = el(`<div class="panel" style="padding:12px;margin-bottom:8px"></div>`);
+        panel.appendChild(el(`<div class="row" style="gap:6px;margin-bottom:4px"><span style="color:${q.correct ? 'var(--success)' : 'var(--warn)'}">${icon(q.correct ? 'check-circle' : 'x', 15)}</span><strong class="qz-q"></strong></div>`)).querySelector('.qz-q').textContent = q.prompt;
+        panel.appendChild(el(`<div class="qz-rev-given"></div>`)).textContent = `Your answer: ${q.given ?? '—'}`;
+        if (!q.correct) panel.appendChild(el(`<div class="qz-rev-ans" style="color:var(--success)"></div>`)).textContent = `Correct: ${q.answer}`;
+        host.appendChild(panel);
+      }
     };
 
     setup();
