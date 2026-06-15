@@ -46,3 +46,8 @@ import './initiative.js';
 import './relationshipweb.js';
 import './pcsheet.js';
 import './blossoms.js';
+import './hub.js';
+import './pagewidget.js';
+import './characteristic.js';
+import './questboard.js';
+import './overview.js';

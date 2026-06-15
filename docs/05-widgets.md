@@ -97,7 +97,18 @@ For series whose source is itself composite (e.g. a Skill containing nested skil
 - **Card:** skill name, level badge (soft circular emblem), XP progress bar to next level, and "+N XP today" in `textSoft`.
 - **Mechanics:** XP accrues during the day from linked values / nested widgets (1 value point = 1 XP, transform-adjustable), **finalizes at day rollover**. Nested Skill widgets feed their parent on level-up with per-layer decay. Level curve, decay, and coin payout: docs/07.
 - **Internal:** XP history sparkline, list of XP sources (links + nested widgets) with today's contribution each, nested widget area, and a level-up log.
+- **On-card checklist (V2 §24d):** nested Habit/Quest/Routine items scheduled today appear as a compact checklist on the Skill card; checking one completes it and grows the Skill's XP without opening it.
 - Level-ups trigger a quiet bloom animation on the card + coin toast.
+
+## Organisational Widgets (V2 §24)
+
+These exist to tame long, unstructured widget lists.
+
+- **Hub** — *Container.* A dashboard grouping nested widgets. Card: a summary row per child (icon · name · key stat) + a combined XP bar across nested Skill/Characteristic widgets. Full view: all nested widgets, fully interactive. "Morning Routine Hub" of Habit + Health + Journal + Counter.
+- **Page Widget** — *Container.* A whole page rendered as one widget. Card: a small non-interactive preview (child icon thumbnails + count). Tap opens the inner page full-screen (a routed widget page) with its own widget gallery. Tucks a long, specific set of widgets behind one calm slot.
+- **Characteristics** — *Container.* A meta-skill whose level derives from the levels of the Skill widgets it nests or references. Formula (configurable): every N skill levels = 1 Characteristic level (default 3). Card: level badge, progress to next, contributing-skill chips. Full: formula editor, per-skill level bars, link/nest controls. Outputs: `level`, `skillLevels`. "Athleticism" from Running + Strength + Flexibility.
+- **Quest Board** — Gathers what's due **today** from linked Quests/Habits/Routines into one prioritised checklist, completable inline (no need to open each source). Card: count + top 5; Full: To-do / Done groups + source manager.
+- **Overview** — A stats dashboard from any linked widgets. Card: a responsive grid of stat blocks (widget · key stat); tap a block to visit the widget. Full: every exposed stat per widget + a sparkline for day-keyed outputs. Stats derive generically from each widget's value-system outputs (`js/widgets/widget-stats.js`).
 
 ## Health Widget
 *External + internal · Container (Quest widgets) · Outputs: health, healthPct*

@@ -413,6 +413,29 @@
 .chart-type-cell.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
 .ds-manager .ds-src { font-size: 0.72rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ---- V2 §24 organisational widgets ---- */
+.hub-row, .qb-row { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.hub-row:last-child, .qb-row:last-child { border-bottom: none; }
+.hub-ic { color: var(--accent); display: inline-flex; }
+.hub-name, .qb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hub-stat { font-size: 0.74rem; }
+.char-skills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.cs-name { display: inline-block; max-width: 86px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+.pw-preview { min-height: 56px; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.pw-thumbs { display: flex; flex-wrap: wrap; gap: 6px; }
+.pw-thumb { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; background: var(--surface-alt); color: var(--accent); }
+.pw-count { font-size: 0.78rem; }
+.ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.ov-block { display: flex; flex-direction: column; gap: 2px; padding: 10px; border-radius: 12px; background: var(--surface-alt); border: 1px solid var(--border); cursor: pointer; text-align: left; transition: border-color .15s ease; }
+.ov-block:hover { border-color: var(--accent); }
+.ov-block.big { padding: 12px; }
+.ov-block .ov-val { font-size: 1.3rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.ov-block .ov-label { font-size: 0.72rem; color: var(--text-soft); display: flex; align-items: center; gap: 3px; overflow: hidden; }
+.ov-block .ov-label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-spark { width: 100%; height: 36px; margin-top: 8px; }
+.sk-todo-row { padding: 5px 0; }
+.sk-todo-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ---- Dice widget ---- */
 .dice-widget .d-result {
   text-align: center; font-size: 2.4rem; font-weight: 700;

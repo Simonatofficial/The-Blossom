@@ -10,6 +10,7 @@ import { icon } from '../ui/icons.js';
 import { el, field, input } from '../ui/components.js';
 import { todayStr, dateAdd, childWidgetsOf, bloomBurst, fmtDate } from './base.js';
 import * as values from '../core/values.js';
+import * as q from './questops.js';
 import { openWidgetGallery } from '../ui/picker.js';
 
 export function xpToNext(level) {
@@ -110,6 +111,27 @@ registry.register({
         </div>
       </div>
     </div>`));
+
+    // V2 §24d: nested Habit/Quest/Routine items as a compact, completable
+    // checklist — finish them here and the Skill's XP grows without opening it.
+    const today = todayStr();
+    const todo = childWidgetsOf(widget.id).filter(c => ['habit', 'quest', 'routine'].includes(c.type) && q.scheduledOn(c, today));
+    if (todo.length) {
+      const list = el('<div class="sk-todo" style="margin-top:10px"></div>');
+      for (const c of todo) {
+        const reps = c.config.reps || 1, done = q.repsDone(c, today), complete = done >= reps;
+        const row = el(`<div class="row-between sk-todo-row">
+          <span class="row" style="gap:8px;min-width:0"><button class="btn-icon sk-chk" style="color:${complete ? 'var(--success)' : 'var(--text-soft)'}">${icon(complete ? 'check-circle' : 'circle', 18)}</button><span class="sk-todo-name"></span></span></div>`);
+        row.querySelector('.sk-todo-name').textContent = c.name + (reps > 1 ? ` (${done}/${reps})` : '');
+        row.querySelector('.sk-chk').onclick = () => {
+          const r = complete ? q.addRep(c, -reps, today) : q.addRep(c, reps - done, today);
+          if (r.completedNow) bloomBurst(row.querySelector('.sk-chk'));
+          ctx.refreshCard(widget);
+        };
+        list.appendChild(row);
+      }
+      host.appendChild(list);
+    }
   },
 
   renderFull(host, widget, ctx) {

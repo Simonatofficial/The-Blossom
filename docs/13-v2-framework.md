@@ -1341,12 +1341,12 @@ Add these rows to the §15 work order table:
 | P-4 | Page Blossom code paste bug | `js/core/codes.js`, `js/ui/settings.js` | ✅ done (v38) |
 | V2-22 | Tracker revised spec (§22) | `js/widgets/tracker.js` | ✅ done (v39) |
 | V2-23x | Graph full overhaul (§23) | `js/widgets/graph.js`, `graph-data.js`, `graph-engine.js` | ✅ done (v40) |
-| V2-24a | Hub Widget (§24) | `js/widgets/hub.js` | pending |
-| V2-24b | Page Widget (§24) | `js/widgets/page-widget.js` | pending |
-| V2-24c | Characteristics Widget (§24) | `js/widgets/characteristic.js` | pending |
-| V2-24d | Skill widget sub-widget references (§24) | `js/widgets/skill.js` | pending |
-| V2-24e | Quest Board Widget (§24) | `js/widgets/quest-board.js` | pending |
-| V2-24f | Overview Widget (§24) | `js/widgets/overview.js` | pending |
+| V2-24a | Hub Widget (§24) | `js/widgets/hub.js` | ✅ done (v41) |
+| V2-24b | Page Widget (§24) | `js/widgets/pagewidget.js` | ✅ done (v41) |
+| V2-24c | Characteristics Widget (§24) | `js/widgets/characteristic.js` | ✅ done (v41) |
+| V2-24d | Skill widget sub-widget references (§24) | `js/widgets/skill.js` | ✅ done (v41) |
+| V2-24e | Quest Board Widget (§24) | `js/widgets/questboard.js` | ✅ done (v41) |
+| V2-24f | Overview Widget (§24) | `js/widgets/overview.js` | ✅ done (v41) |
 | V2-25 | Study Module (§25) | `js/presets/modules/study.js` | pending |
 | V2-25a | Library widget groups (§25) | `js/widgets/library.js` | pending |
 | V2-25b | Notebook Widget (§25) | `js/widgets/notebook.js` | pending |
