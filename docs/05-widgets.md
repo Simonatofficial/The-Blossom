@@ -38,10 +38,18 @@ Per-widget primary taps: Counter → increment · Dice → re-roll last formula 
 ## Tracker Widget
 *External + internal · Outputs: one per tracker, day-keyed*
 
-- **Card (today):** each tracker as a row: name, current value, and the right control for its type — stepper (count), slider (scale), toggle (boolean), small numeric input (measure). Values save instantly to today's `trackerDay` object.
-- **Tracker types:** count (cups of water), measure with unit (hours of sleep), scale 1–5 or 1–10 (mood, energy — rendered as tappable dots or tiny flower icons), boolean (took meds).
-- **Internal:** history — a per-tracker mini line chart (last 30 days), and a day browser to view/edit past days (editing past days is allowed; objects are day-keyed).
-- **Settings:** add/remove/reorder trackers, type, unit, goal value (optional — shows a soft progress tint when met), icon.
+**Revised in V2 §22.** Starts **completely empty** — the user adds tracked items. Values save instantly to today's `trackerDay` object.
+
+- **Card (today):** each item as a row with its own control:
+  - **Count** — − / + steppers; shows `value unit` + an optional goal **ring** (today's value ÷ goal).
+  - **Measure** — numeric input; the **unit label always shows beside the value** (e.g. `72 kg`).
+  - **Scale** — user-defined max **2–100** (default 10); rendered as tappable flower dots up to 10, a slider above that.
+  - **Yes/No** — holds **multiple labelled sub-items** (each its own checkbox row); all shown on the card.
+  - **Timer** — play/pause stopwatch; shows today's accumulated duration, live-ticking while running.
+  - **Text Note** — today's single-line note (truncated on the card; tap the pencil to edit).
+- **Internal:** day browser (view/edit any past day) **plus a history graph** — pick an item, toggle **Days / Weeks / Months**, a bar chart of values (Yes/No graphs as daily % completed), a "Tracked N of the last 30 days" stat, and a goal-completion ring.
+- **Outputs (links):** one per item — numeric value (count/measure/scale), % completed (Yes/No), minutes (timer), 1/0 tracked (text).
+- **Settings:** add/remove items; per item set type, unit, goal, Scale max, and Yes/No sub-items. Legacy `bool` items read as single Yes/No (no data loss).
 
 ## Graph Widget
 *External + internal · Consumer of links · Multiple graphs per widget*

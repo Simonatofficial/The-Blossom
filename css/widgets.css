@@ -273,6 +273,19 @@
 .tracker-row .tr-dot.on { color: var(--accent); }
 .tracker-row .tr-measure { width: 90px; padding: 5px 8px; text-align: right; }
 .tr-spark { width: 100%; height: 40px; }
+/* V2 §22 tracker additions */
+.tracker-row .tr-control { gap: 8px; align-items: center; }
+.tr-unit { color: var(--text-soft); font-size: 0.85rem; }
+.tr-note { color: var(--text-soft); font-size: 0.86rem; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr-timer { font-variant-numeric: tabular-nums; min-width: 56px; }
+.tr-range { width: 120px; }
+.tr-ring { flex: none; }
+.tr-yesno { padding: 0; }
+.tr-yesno .tracker-row { border-bottom: 1px solid var(--border); }
+.tr-group-name { font-size: 0.78rem; padding: 6px 0 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+.tr-empty { text-align: center; padding: 10px 0; }
+.tr-graph { width: 100%; height: auto; }
+.tr-stats .chip { font-size: 0.8rem; }
 
 /* ---- Journal widget ---- */
 .journal-card .j-state { font-size: 0.95rem; }
