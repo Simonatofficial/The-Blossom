@@ -45,6 +45,7 @@ const CATEGORIES = {
   notebook: 'Study', quiz: 'Study', flashcards: 'Study', elements: 'Study',
   calculator: 'Utility', dice: 'Utility', time: 'Utility', notifications: 'Utility', separator: 'Utility',
   hub: 'Organization', pagewidget: 'Organization',
+  snake: 'Games', solitaire: 'Games', blossoms: 'Games',
   statblock: 'Tabletop', loottable: 'Tabletop', sessionlog: 'Tabletop', initiative: 'Tabletop',
   encounter: 'Tabletop', dndinventory: 'Tabletop', dndcombat: 'Tabletop', dndstory: 'Tabletop',
   dndsheet: 'Tabletop', spellbook: 'Tabletop', pcsheet: 'Tabletop', levelplanner: 'Tabletop',

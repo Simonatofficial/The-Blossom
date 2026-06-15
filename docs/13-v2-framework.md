@@ -843,7 +843,7 @@ Work in this sequence. Mark each `✅ date` when acceptance criteria pass on 360
 | V2-25 | Tracker overhaul | `js/widgets/tracker.js` | pending |
 | V2-26 | Graphs overhaul | `js/widgets/graph.js` | 🟡 2026-06-13 (added Area/Scatter/Donut + value labels + legend + bezier smooth + per-series colour; Radar/Spider, Sparkline-as-kind, horizontal bar still TODO) |
 | V2-27 | Quests overhaul | `js/widgets/quest.js` | pending |
-| V2-28 | Snake + Solitaire game widgets | `js/widgets/game-snake.js`, `game-solitaire.js` | pending |
+| V2-28 | Snake + Solitaire game widgets | `js/widgets/snake.js`, `solitaire.js` | ✅ done (v46) |
 | V2-29 | **Blossoms game** | `js/widgets/blossoms/` | **high priority** |
 
 ---

@@ -1,6 +1,38 @@
 /* ============ The Blossom — widgets.css ============
    Widget chrome + per-widget styles. */
 
+/* ---- V2 §21 game widgets: Snake + Solitaire ---- */
+.snake-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.snake-score { width: 100%; font-size: 0.82rem; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.snake-board { position: relative; line-height: 0; }
+.snake-cv { border-radius: 12px; touch-action: none; }
+.snake-overlay {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  border: none; border-radius: 12px; cursor: pointer; line-height: 1.3; padding: 12px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent); backdrop-filter: blur(3px);
+  color: var(--text); font-size: 0.95rem; text-align: center;
+}
+.snake-overlay.hidden { display: none; }
+
+.sol-board { overflow-x: auto; }
+.sol-top { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 10px; }
+.sol-gap { }
+.sol-tableau { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; align-items: start; }
+.sol-col { min-height: 88px; display: flex; flex-direction: column; }
+.sol-pile { min-height: 84px; }
+.sol-card {
+  aspect-ratio: 5 / 7; border-radius: 7px; border: 1px solid var(--border);
+  background: #fbf9ff; color: #1b1430; position: relative; cursor: pointer;
+  display: flex; flex-direction: column; padding: 4px 5px; font-weight: 700;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.18); user-select: none;
+}
+.sol-card.red { color: #c0344d; }
+.sol-card.black { color: #1b1430; }
+.sol-card .sc-s { font-size: 1.1em; line-height: 1; }
+.sol-card.down { background: repeating-linear-gradient(45deg, var(--accent), var(--accent) 5px, color-mix(in srgb, var(--accent) 70%, #000) 5px, color-mix(in srgb, var(--accent) 70%, #000) 10px); border-color: var(--accent); }
+.sol-card.sel { outline: 2px solid var(--highlight); outline-offset: 1px; box-shadow: 0 0 10px var(--glow); }
+.sol-empty { aspect-ratio: 5 / 7; border-radius: 7px; border: 1px dashed var(--border); display: grid; place-items: center; color: var(--text-soft); cursor: pointer; }
+
 /* ---- widget grid (docs/03 responsive) ---- */
 .widget-grid {
   display: grid;

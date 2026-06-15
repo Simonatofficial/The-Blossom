@@ -117,6 +117,8 @@ self.SW_ASSETS = [
   './js/widgets/separator.js',
   './js/widgets/sessionlog.js',
   './js/widgets/skill.js',
+  './js/widgets/snake.js',
+  './js/widgets/solitaire.js',
   './js/widgets/spellbook.js',
   './js/widgets/statblock.js',
   './js/widgets/time.js',

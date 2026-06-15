@@ -52,3 +52,5 @@ import './characteristic.js';
 import './questboard.js';
 import './overview.js';
 import './elements.js';
+import './snake.js';
+import './solitaire.js';
