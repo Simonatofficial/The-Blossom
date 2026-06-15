@@ -839,7 +839,7 @@ Work in this sequence. Mark each `✅ date` when acceptance criteria pass on 360
 | V2-21 | Character Sheet (multi-system) | `js/widgets/character-sheet.js` | pending |
 | V2-22 | D&D → Tabletop widgets rename + SRD data | `js/presets/tabletop/` | pending |
 | V2-23 | World Map overhaul | `js/modules/worldmap/` | pending |
-| V2-24 | Canva Board widget | `js/widgets/canva-board.js` | pending |
+| V2-24 | Canva Board widget | `js/widgets/canvaboard.js`, `canvaboard-render.js` | ✅ done (v51) |
 | V2-25 | Tracker overhaul | `js/widgets/tracker.js` | pending |
 | V2-26 | Graphs overhaul | `js/widgets/graph.js` | 🟡 2026-06-13 (added Area/Scatter/Donut + value labels + legend + bezier smooth + per-series colour; Radar/Spider, Sparkline-as-kind, horizontal bar still TODO) |
 | V2-27 | Quests overhaul (§20 step missions; bridges to questops; legacy rep-quests kept) | `js/widgets/quest.js` | ✅ done (v49) |

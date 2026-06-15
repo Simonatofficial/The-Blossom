@@ -41,7 +41,7 @@ const CATEGORIES = {
   skill: 'Growth & Rewards', health: 'Growth & Rewards', market: 'Growth & Rewards',
   characteristic: 'Growth & Rewards',
   graph: 'Data & Charts', counter: 'Data & Charts', flowergraph: 'Data & Charts', overview: 'Data & Charts',
-  canvas: 'Creative', infcanvas: 'Creative', gallery: 'Creative', music: 'Creative', pinboard: 'Creative',
+  canvas: 'Creative', infcanvas: 'Creative', gallery: 'Creative', music: 'Creative', pinboard: 'Creative', canvaboard: 'Creative',
   notebook: 'Study', quiz: 'Study', flashcards: 'Study', elements: 'Study',
   calculator: 'Utility', dice: 'Utility', time: 'Utility', notifications: 'Utility', separator: 'Utility',
   hub: 'Organization', pagewidget: 'Organization',

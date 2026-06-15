@@ -54,3 +54,4 @@ import './overview.js';
 import './elements.js';
 import './snake.js';
 import './solitaire.js';
+import './canvaboard.js';

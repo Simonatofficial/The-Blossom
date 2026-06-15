@@ -59,6 +59,8 @@ self.SW_ASSETS = [
   './js/widgets/blossoms-ui.js',
   './js/widgets/calculator.js',
   './js/widgets/calendar.js',
+  './js/widgets/canvaboard.js',
+  './js/widgets/canvaboard-render.js',
   './js/widgets/canvas.js',
   './js/widgets/canvas-core.js',
   './js/widgets/characteristic.js',

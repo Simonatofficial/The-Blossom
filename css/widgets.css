@@ -1,6 +1,23 @@
 /* ============ The Blossom — widgets.css ============
    Widget chrome + per-widget styles. */
 
+/* ---- V2 §16 Canva Board ---- */
+.cb-thumb { display: block; background: #fff; }
+.cb-stage { width: 100%; display: flex; justify-content: center; background: var(--surface-alt); border-radius: 12px; padding: 10px; overflow: auto; }
+.cb-board { position: relative; box-shadow: 0 2px 14px rgba(0,0,0,0.25); overflow: hidden; touch-action: none; }
+.cb-obj { position: absolute; cursor: move; }
+.cb-obj.locked { cursor: default; }
+.cb-obj.sel { outline: 1.5px solid var(--accent); outline-offset: 1px; }
+.cb-handle { position: absolute; width: 14px; height: 14px; background: var(--accent); border: 2px solid #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+.cb-handle.cb-resize { right: -7px; bottom: -7px; cursor: nwse-resize; }
+.cb-handle.cb-rotate { left: 50%; top: -22px; margin-left: -7px; cursor: grab; background: var(--highlight); }
+.cb-props { margin-top: 10px; padding: 10px; background: var(--surface-alt); border-radius: 12px; }
+.cb-props .field { margin-bottom: 8px; }
+.cb-pagethumb { position: relative; width: 64px; height: 64px; border-radius: 8px; overflow: hidden; border: 2px solid var(--border); cursor: pointer; background: #fff; flex: none; }
+.cb-pagethumb.active { border-color: var(--accent); }
+.cb-pagethumb canvas { width: 100%; height: 100%; object-fit: contain; }
+.cb-pagedel { position: absolute; top: 1px; right: 1px; background: rgba(0,0,0,0.4); color: #fff; border-radius: 4px; display: flex; padding: 1px; }
+
 /* ---- V2 §12a Alarm ---- */
 .alarm-card .al-next { margin-top: 8px; }
 #alarm-banners { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; flex-direction: column; gap: 8px; width: min(420px, 92vw); }
