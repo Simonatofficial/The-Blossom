@@ -52,6 +52,7 @@ import './characteristic.js';
 import './questboard.js';
 import './overview.js';
 import './study-notes.js'; // V2 §W-2 (renamed from elements.js; registers type 'elements')
+import './reminder.js'; // V2 §W-7
 import './snake.js';
 import './solitaire.js';
 import './canvaboard.js';

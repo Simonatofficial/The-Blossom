@@ -120,6 +120,7 @@ self.SW_ASSETS = [
   './js/widgets/quiz-run.js',
   './js/widgets/registry.js',
   './js/widgets/relationshipweb.js',
+  './js/widgets/reminder.js',
   './js/widgets/routine.js',
   './js/widgets/separator.js',
   './js/widgets/sessionlog.js',

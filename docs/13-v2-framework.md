@@ -1952,9 +1952,13 @@ OS notification (if `Notification.requestPermission()` granted): same content, t
 
 **Accept when:** user creates a reminder "Study Biology" at 7:00 PM linked to a Flashcard widget's "Biology 101" deck; at 6:45 PM an in-app notification fires "15 min until Study Biology — Biology 101 (42 cards)"; tapping "Open Flashcard" starts the study session.
 
+**Implementation notes (2026-06-15):** New widget `reminder.js` (Productivity). Reminders are objects (kind `'reminder'`): `{ title, time:'HH:MM', recur:'none|daily|weekly|everyN', date, days[], n, startDate, leads[], linkedWidgetId, notes, snoozeUntil, fired{} }`. A module-level `setInterval` watcher (started on render, like Alarm) checks today + tomorrow occurrences × each lead (At time / 5 / 15 / 60 / 1440 min), deduping via a `fired` map; firing shows an interactive banner (reuses `.alarm-banner`: **Snooze 10 / Open [widget] / Dismiss**), emits a feed `notify` event, and posts an **OS notification** when permission is granted (request button in the header). `linkedContext()` resolves the linked-widget line (Flashcard → "N cards", Quiz → "last X/Y", else first day-keyed output). Full-page tabs **Upcoming / Today (hour-grouped) / All**; card shows today's upcoming + a "within the hour" badge. Time uses a native `type=time` input (locale-12h). **Tap-to-open navigates to the linked widget** (router.goWidget) — deep-linking to auto-start its session is deferred (same limitation as W-3). SW v59.
+
 ---
 
 ## §W — Work Order
+
+**✅ SPRINT COMPLETE (2026-06-15) — all of W-1…W-7 are done, verified, and deployed (SW v59).** Built order: W-1, W-2, then the dependency reorder W-4 → W-5 → W-3 → W-6 → W-7. Deferred sub-features are noted per item above (flashcard schedules/goals/themes/override-resync; quiz Ordering + schedules/goals + typo tolerance; graph per-dataset effects; overview/reminder deep-link-to-subitem).
 
 Implement §W items in this order. Mark ✅ date when acceptance criteria pass.
 
@@ -1968,7 +1972,7 @@ Implement §W items in this order. Mark ✅ date when acceptance criteria pass.
 | W-4 | Flashcard Widget overhaul | `flashcards.js`, `flashcards-model.js`, `flashcards-study.js` | ✅ 2026-06-15 (core+sets) |
 | W-5 | Quiz Widget overhaul | `quiz.js`, `quiz-build.js`, `quiz-run.js` | ✅ 2026-06-15 (MC/TF/Fill/Dropdown+sets) |
 | W-6 | Graph Widget overhaul | `graph.js`, `graph-data.js`, `graph-engine.js` | ✅ 2026-06-15 (dims+nav, effects deferred) |
-| W-7 | Reminder Widget (new) | `js/widgets/reminder.js` | ⬜ |
+| W-7 | Reminder Widget (new) | `js/widgets/reminder.js` | ✅ 2026-06-15 |
 
 After all §W items are ✅, resume the pending items from the main §15 table in this order:
 1. V2-25 Tracker overhaul (§22)

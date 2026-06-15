@@ -687,6 +687,10 @@ span.anno { padding: 0 3px; }
 .graph-period { align-items: center; margin-top: 8px; }
 .graph-period .gp-label { font-size: 0.9rem; }
 
+/* V2 §W-7 Reminder */
+.rm-time { font-size: 0.8rem; flex: none; }
+.rm-tabs { flex: 1; }
+
 .fc-stage { max-width: 460px; margin: 0 auto; }
 .fc-card { perspective: 900px; cursor: pointer; height: 220px; }
 .fc-inner {

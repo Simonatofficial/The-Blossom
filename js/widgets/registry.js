@@ -36,7 +36,7 @@ const KEYWORDS = {
 const CATEGORIES = {
   tracker: 'Productivity', quest: 'Productivity', habit: 'Productivity',
   routine: 'Productivity', goal: 'Productivity', calendar: 'Productivity', alarm: 'Productivity',
-  questboard: 'Productivity',
+  questboard: 'Productivity', reminder: 'Productivity',
   notes: 'Notes & Writing', journal: 'Notes & Writing', docshelf: 'Notes & Writing', library: 'Notes & Writing',
   skill: 'Growth & Rewards', health: 'Growth & Rewards', market: 'Growth & Rewards',
   characteristic: 'Growth & Rewards',
