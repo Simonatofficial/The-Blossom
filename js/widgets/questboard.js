@@ -16,6 +16,11 @@ function sources(widget) { return (widget.config.sources || []).map(id => store.
 /** Today's actionable state for a source widget, or null if nothing's due. */
 function itemFor(w) {
   const today = todayStr();
+  // V2 §20 step-based mission quests: progress is its step checklist.
+  if (w.type === 'quest' && Array.isArray(w.config.steps)) {
+    const reps = w.config.steps.length, done = w.config.steps.filter(s => s.done).length;
+    return { widget: w, checkable: true, mission: true, done, reps, complete: reps > 0 && done >= reps };
+  }
   if (w.type === 'habit' || w.type === 'quest' || w.type === 'routine') {
     if (w.config.reps != null || w.type !== 'routine') {
       if (!q.scheduledOn(w, today)) return null;
@@ -34,6 +39,7 @@ function todaysItems(widget) {
 
 function toggle(item) {
   const w = item.widget;
+  if (item.mission) { const on = !item.complete; for (const s of w.config.steps) s.done = on; store.put('widgets', w); return; }
   if (item.complete) q.addRep(w, -(item.reps), todayStr());
   else q.addRep(w, item.reps - item.done, todayStr());
 }

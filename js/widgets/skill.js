@@ -115,7 +115,7 @@ registry.register({
     // V2 §24d: nested Habit/Quest/Routine items as a compact, completable
     // checklist — finish them here and the Skill's XP grows without opening it.
     const today = todayStr();
-    const todo = childWidgetsOf(widget.id).filter(c => ['habit', 'quest', 'routine'].includes(c.type) && q.scheduledOn(c, today));
+    const todo = childWidgetsOf(widget.id).filter(c => ['habit', 'quest', 'routine'].includes(c.type) && !Array.isArray(c.config.steps) && q.scheduledOn(c, today));
     if (todo.length) {
       const list = el('<div class="sk-todo" style="margin-top:10px"></div>');
       for (const c of todo) {

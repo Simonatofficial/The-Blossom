@@ -284,6 +284,24 @@
 .quest-widget .q-of { color: var(--text-soft); font-size: 0.85rem; margin-left: 4px; }
 .quest-widget.done .q-done { color: var(--success); }
 .quest-widget.resting { opacity: 0.65; }
+/* V2 §20 step-mission quest */
+.quest-mission { display: flex; flex-direction: column; gap: 8px; }
+.quest-mission.failed { opacity: 0.9; }
+.qm-banner { font-size: 2rem; text-align: center; line-height: 1; }
+.qm-diff { background: var(--accent-soft); color: var(--accent); }
+.qm-overdue { color: var(--warn); }
+.qm-desc { font-size: 0.85rem; margin: 0; }
+.qm-prog { display: flex; align-items: center; gap: 8px; }
+.qm-bar { flex: 1; height: 8px; border-radius: 6px; background: var(--surface-alt); overflow: hidden; }
+.qm-bar span { display: block; height: 100%; background: var(--accent); border-radius: 6px; transition: width var(--t-med) var(--ease); }
+.qm-prog-n { font-size: 0.78rem; color: var(--text-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.qm-steps { display: flex; flex-direction: column; gap: 2px; }
+.qm-step { display: flex; align-items: center; gap: 8px; padding: 5px 4px; background: none; border: none; color: var(--text); text-align: left; cursor: pointer; border-radius: 8px; }
+.qm-step:hover { background: var(--accent-soft); }
+.qm-step .qm-check { color: var(--text-soft); display: inline-flex; }
+.qm-step.on .qm-check { color: var(--success); }
+.qm-step.on .qm-step-text { text-decoration: line-through; color: var(--text-soft); }
+.quest-mission.done .qm-bar span { background: var(--success); }
 
 .stat-tile { padding: 12px 18px; text-align: center; flex: 1; min-width: 90px; }
 .stat-tile .st-num { font-size: 1.5rem; font-weight: 600; }
