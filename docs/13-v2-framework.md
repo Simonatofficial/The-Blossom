@@ -833,7 +833,7 @@ Work in this sequence. Mark each `✅ date` when acceptance criteria pass on 360
 | V2-15 | Home star indicator | `js/modules/engine.js`, `css/fab.css` | ✅ 2026-06-13 |
 | V2-16 | Widget separators → Category Dividers | `js/widgets/separator.js`, `js/modules/engine.js` | 🟡 2026-06-13 (renamed + count badge + indented group + fold; true nested-container with drag-into-divider deferred to a visible pass) |
 | V2-17 | Alarm widget overhaul | `js/widgets/alarm.js` | pending |
-| V2-18 | Calculator widget overhaul | `js/widgets/calculator.js` | pending |
+| V2-18 | Calculator widget overhaul | `js/widgets/calculator.js` | ✅ done (v48) |
 | V2-19 | Calendar widget | `js/widgets/calendar.js` | ✅ done (v47) |
 | V2-20 | Canvas widget pointer fix | `js/widgets/canvas-core.js` | ✅ 2026-06-13 (drawing maps via getBoundingClientRect; card already shows live drawing + taps to full editor) |
 | V2-21 | Character Sheet (multi-system) | `js/widgets/character-sheet.js` | pending |
