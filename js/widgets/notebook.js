@@ -51,6 +51,26 @@ function moveSibling(widget, id, dir) {
   if (i < 0 || j < 0 || j >= arr.length) return;
   [arr[i], arr[j]] = [arr[j], arr[i]];
 }
+/** Drag-and-drop move: place dragId relative to targetId.
+    mode 'inside' (nest as last child; targetId null = top level), 'before' or 'after'
+    (as a sibling of target). No-ops when dropping onto self or a descendant. */
+function moveNode(widget, dragId, targetId, mode) {
+  if (dragId === targetId) return;
+  const dragPath = pathTo(widget, dragId); if (!dragPath) return;
+  const dragNode = dragPath[dragPath.length - 1];
+  if (targetId && descendantIds(dragNode).includes(targetId)) return;
+  const dpArr = dragPath.length > 1 ? dragPath[dragPath.length - 2].children : tree(widget);
+  const di = dpArr.findIndex(x => x.id === dragId); if (di >= 0) dpArr.splice(di, 1); // detach first
+  if (!targetId || mode === 'inside') {
+    const dest = targetId ? pathTo(widget, targetId)?.slice(-1)[0] : null;
+    (dest ? (dest.children || (dest.children = [])) : tree(widget)).push(dragNode);
+  } else {
+    const tPath = pathTo(widget, targetId); const tArr = tPath.length > 1 ? tPath[tPath.length - 2].children : tree(widget);
+    let ti = tArr.findIndex(x => x.id === targetId); if (ti < 0) ti = tArr.length - 1;
+    tArr.splice(mode === 'after' ? ti + 1 : ti, 0, dragNode);
+  }
+}
+
 /** Reparent nodes under destId (null = top level). Skips moves into self/descendants
     and drops ids nested under another selected id. */
 function reparent(widget, ids, destId) {
@@ -187,7 +207,7 @@ registry.register({
         imp.onclick = () => openConverter(widget, ctx, () => { curId = null; render(); });
         const akt = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('wand', 15)} Auto key terms (across topics)</button>`);
         akt.onclick = () => openAutoKeyTerms(widget, () => render());
-        const mv = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('layers', 15)} Move / organize</button>`);
+        const mv = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('layers', 15)} Organize (drag &amp; drop)</button>`);
         mv.onclick = () => openMoveOrganizer(widget, () => render());
         contents.append(imp, akt, mv);
       }
@@ -350,11 +370,65 @@ function openMovePicker(widget, ids, done) {
   d.body.appendChild(list);
 }
 function openMoveOrganizer(widget, done) {
-  const sel = new Set();
-  const d = openDrawer({ title: 'Move / organize', iconName: 'layers', placement: 'full' });
-  d.body.appendChild(el('<p class="soft" style="font-size:0.86rem;margin-bottom:8px">Tick the classes, sections, units, or topics to move, then pick where they go.</p>'));
-  d.body.appendChild(nodeCheckTree(widget, sel));
-  const go = el('<button class="btn btn-primary" style="width:100%;margin-top:10px">Move selected to…</button>');
-  go.onclick = () => { if (!sel.size) { toast('Tick at least one.', 'info'); return; } openMovePicker(widget, [...sel], () => { d.close(); done(); }); };
-  d.body.appendChild(go);
+  const d = openDrawer({ title: 'Organize — drag & drop', iconName: 'layers', placement: 'full' });
+  d.body.appendChild(el('<p class="soft" style="font-size:0.86rem;margin-bottom:8px">Drag a row by its handle (⠿). Drop <b>onto</b> a row to put it inside; drop on a row’s <b>top/bottom edge</b> to reorder; drop on <b>Top level</b> to pull it out to a class.</p>'));
+  const scroll = el('<div class="nb-org"></div>');
+  d.body.appendChild(scroll);
+
+  let drag = null;
+  const clearHints = () => scroll.querySelectorAll('.drop-inside,.drop-before,.drop-after,.drop-top').forEach(e => e.classList.remove('drop-inside', 'drop-before', 'drop-after', 'drop-top'));
+
+  const render = () => {
+    scroll.innerHTML = '';
+    scroll.appendChild(el(`<div class="nb-org-top" data-top="1">${icon('arrow-up', 13)} Top level (Class)</div>`));
+    walk(tree(widget), (n, p) => {
+      const row = el(`<div class="nb-org-row" data-id="${n.id}" style="padding-left:${4 + p.length * 18}px"><span class="nb-org-h" title="Drag to move">⠿</span>${icon(LMETA[n.level].icon, 14)}<span class="nb-org-name"></span></div>`);
+      row.querySelector('.nb-org-name').textContent = n.name;
+      scroll.appendChild(row);
+    });
+  };
+
+  const onMove = (e) => {
+    if (!drag) return;
+    const x = e.clientX, y = e.clientY;
+    if (!drag.started) { if (Math.hypot(x - drag.sx, y - drag.sy) < 5) return; drag.started = true; drag.ghost.style.display = 'block'; }
+    drag.ghost.style.left = x + 'px'; drag.ghost.style.top = y + 'px';
+    const sr = scroll.getBoundingClientRect();
+    if (y < sr.top + 28) scroll.scrollTop -= 9; else if (y > sr.bottom - 28) scroll.scrollTop += 9;
+    clearHints(); drag.target = null;
+    drag.ghost.style.visibility = 'hidden';
+    const under = document.elementFromPoint(x, y);
+    drag.ghost.style.visibility = 'visible';
+    const top = under?.closest('.nb-org-top');
+    if (top) { top.classList.add('drop-top'); drag.target = { top: true }; return; }
+    const row = under?.closest('.nb-org-row');
+    if (!row || row.dataset.id === drag.id) return;
+    const r = row.getBoundingClientRect(), rel = (y - r.top) / r.height;
+    const mode = rel < 0.28 ? 'before' : rel > 0.72 ? 'after' : 'inside';
+    row.classList.add('drop-' + mode);
+    drag.target = { id: row.dataset.id, mode };
+  };
+  const onUp = () => {
+    if (!drag) return;
+    if (drag.started && drag.target) {
+      if (drag.target.top) moveNode(widget, drag.id, null, 'inside');
+      else moveNode(widget, drag.id, drag.target.id, drag.target.mode);
+      store.put('widgets', widget); done();
+    }
+    drag.ghost.remove();
+    window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);
+    drag = null; clearHints(); render();
+  };
+
+  scroll.addEventListener('pointerdown', (e) => {
+    const handle = e.target.closest('.nb-org-h'); if (!handle) return; // only the grip starts a drag (taps/scroll elsewhere)
+    const row = handle.closest('.nb-org-row'); if (!row) return;
+    e.preventDefault();
+    const ghost = el('<div class="nb-org-ghost"></div>'); ghost.textContent = row.querySelector('.nb-org-name').textContent;
+    ghost.style.display = 'none'; document.body.appendChild(ghost);
+    drag = { id: row.dataset.id, ghost, started: false, sx: e.clientX, sy: e.clientY, target: null };
+    window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+  });
+
+  render();
 }
