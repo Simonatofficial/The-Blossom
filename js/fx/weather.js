@@ -1,9 +1,8 @@
-/* Weather / screen effects (docs/13 §8): a decorative layer that sits ABOVE the
-   atmosphere but BELOW widget cards (background canvas), plus a foreground canvas
-   over everything that is pointer-events:none so the UI stays fully interactive.
-   Interactive elements (icicles, droplets, clouds, s'mores) are hit-tested from a
-   document-level click instead of capturing pointers. One effect at a time;
-   driven by fx/loop, pauses when hidden, off entirely under reduced-motion. */
+/* Interactive Effects (formerly Weather, docs/13 §8): a decorative layer that sits
+   ABOVE the atmosphere but BELOW widget cards (background canvas), plus a foreground
+   canvas over everything that is pointer-events:none so the UI stays fully interactive.
+   Interactive elements are hit-tested from a document-level click. Multiple effects
+   can stack; driven by fx/loop, pauses when hidden, off under reduced-motion. */
 
 import { loop } from './loop.js';
 import { store } from '../core/store.js';
@@ -233,6 +232,203 @@ const EFFECTS = {
       for (const sm of s.smores) if (!sm.eaten && sm.cook >= 1 && sm._box && x > sm._box[0] && x < sm._box[0] + sm._box[2] && y > sm._box[1] && y < sm._box[1] + sm._box[3]) { sm.eaten = true; sm.born = now + 2000; return true; }
       return false;
     }
+  },
+
+  /* BUBBLES — translucent spheres rise from the bottom; tap one to pop it. */
+  bubbles: {
+    noWidgetOverlap: true,
+    init(s) {
+      const mk = () => ({ x: rnd(0.05, 0.95) * W(), y: H() + rnd(0, 120), r: rnd(8, 32), vy: rnd(18, 55), vx: rnd(-12, 12), ph: Math.random() * Math.PI * 2, pop: null });
+      s.bubbles = Array.from({ length: Math.round(10 + intensity * 28) }, mk);
+      s.mk = mk;
+    },
+    tickBg() {},
+    tickFg(g, s, dt, now) {
+      for (const b of s.bubbles) {
+        if (b.pop) {
+          b.pop.r += 55 * dt; b.pop.a -= 1.8 * dt;
+          if (b.pop.a <= 0) { Object.assign(b, s.mk()); b.pop = null; continue; }
+          g.strokeStyle = `rgba(180,220,255,${b.pop.a})`; g.lineWidth = 1.5;
+          g.beginPath(); g.arc(b.pop.x, b.pop.y, b.pop.r, 0, Math.PI * 2); g.stroke();
+          continue;
+        }
+        b.y -= b.vy * dt; b.x += (b.vx + Math.sin(now / 900 + b.ph) * 14) * dt;
+        if (b.y + b.r < 0) { Object.assign(b, s.mk()); }
+        g.strokeStyle = 'rgba(180,220,255,0.5)'; g.lineWidth = 1.5;
+        g.beginPath(); g.arc(b.x, b.y, b.r, 0, Math.PI * 2); g.stroke();
+        g.fillStyle = 'rgba(255,255,255,0.18)';
+        g.beginPath(); g.arc(b.x - b.r * 0.28, b.y - b.r * 0.28, b.r * 0.28, 0, Math.PI * 2); g.fill();
+        b._pos = [b.x, b.y, b.r];
+      }
+    },
+    pointer(s, x, y) {
+      for (const b of s.bubbles) {
+        if (b.pop || !b._pos) continue;
+        const [bx, by, br] = b._pos;
+        if (Math.hypot(bx - x, by - y) < br + 12) { b.pop = { x: bx, y: by, r: br * 0.6, a: 0.75 }; return true; }
+      }
+      return false;
+    }
+  },
+
+  /* FIREFLIES — glowing wanderers; tap one to make it flare bright. */
+  fireflies: {
+    noWidgetOverlap: true,
+    init(s) {
+      s.flies = Array.from({ length: Math.round(8 + intensity * 22) }, () => ({
+        x: Math.random() * W(), y: Math.random() * H() * 0.9,
+        tx: Math.random() * W(), ty: Math.random() * H() * 0.85,
+        ph: Math.random() * Math.PI * 2, period: rnd(1.5, 3.5), glowUntil: 0
+      }));
+    },
+    tickBg() {},
+    tickFg(g, s, dt, now) {
+      for (const f of s.flies) {
+        const dx = f.tx - f.x, dy = f.ty - f.y, dist = Math.hypot(dx, dy) || 1;
+        if (dist < 8) { f.tx = rnd(0.05, 0.95) * W(); f.ty = rnd(0.05, 0.9) * H(); }
+        const spd = 28 + intensity * 38;
+        f.x += dx / dist * spd * dt; f.y += dy / dist * spd * dt;
+        const lit = now < f.glowUntil;
+        const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(now / 1000 * (Math.PI * 2 / f.period) + f.ph));
+        const a = lit ? 1 : pulse * 0.8, r = lit ? 7 : 2.5;
+        const gr = g.createRadialGradient(f.x, f.y, 0, f.x, f.y, r * 6);
+        gr.addColorStop(0, `rgba(210,255,160,${a * 0.55})`); gr.addColorStop(1, 'transparent');
+        g.fillStyle = gr; g.beginPath(); g.arc(f.x, f.y, r * 6, 0, Math.PI * 2); g.fill();
+        g.fillStyle = `rgba(230,255,190,${a})`; g.beginPath(); g.arc(f.x, f.y, r, 0, Math.PI * 2); g.fill();
+      }
+    },
+    pointer(s, x, y, now) {
+      for (const f of s.flies) {
+        if (Math.hypot(f.x - x, f.y - y) < 22) { f.glowUntil = now + 2200; return true; }
+      }
+      return false;
+    }
+  },
+
+  /* PETALS — falling flower petals that sway gently; tap to scatter nearby ones. */
+  petals: {
+    init(s) {
+      const mk = () => ({ x: Math.random() * W(), y: rnd(-40, H()), r: rnd(5, 11), vy: rnd(28, 65), vx: rnd(-18, 18), rot: Math.random() * Math.PI * 2, rotv: rnd(-1.8, 1.8), ph: Math.random() * Math.PI * 2, burst: 0 });
+      s.petals = Array.from({ length: Math.round(18 + intensity * 50) }, mk);
+      s.mk = mk;
+    },
+    tickBg(g, s, dt, now, colors) {
+      const col = colors?.accent || '#f0a0c0';
+      for (const p of s.petals) {
+        if (p.burst > 0) { p.burst -= dt * 3; }
+        p.y += p.vy * (1 + p.burst * 0.8) * dt;
+        p.x += (p.vx + Math.sin(now / 700 + p.ph) * 20) * dt;
+        p.rot += p.rotv * dt;
+        if (p.y > H() + 15) Object.assign(p, s.mk(), { y: -12, x: Math.random() * W() });
+        g.save(); g.translate(p.x, p.y); g.rotate(p.rot);
+        g.globalAlpha = 0.72;
+        g.fillStyle = col;
+        g.beginPath(); g.ellipse(0, 0, p.r, p.r * 0.45, 0, 0, Math.PI * 2); g.fill();
+        g.restore(); g.globalAlpha = 1;
+      }
+    },
+    tickFg() {},
+    pointer(s, x, y) {
+      let hit = false;
+      for (const p of s.petals) if (Math.hypot(p.x - x, p.y - y) < 40) { p.burst = 1; p.vx += rnd(-60, 60); hit = true; }
+      return hit;
+    }
+  },
+
+  /* AURORA — undulating curtains of colour across the upper screen; tap to ripple. */
+  aurora: {
+    init(s) {
+      s.bands = [
+        { y: 0.08, col: [60, 255, 160], ph: 0 },
+        { y: 0.16, col: [80, 180, 255], ph: 1.2 },
+        { y: 0.24, col: [180, 80, 255], ph: 2.5 },
+        { y: 0.13, col: [60, 220, 200], ph: 3.8 }
+      ];
+      s.ripple = null;
+    },
+    tickBg(g, s, dt, now) {
+      const spd = 0.18 + intensity * 0.25;
+      const t = now / 1000 * spd;
+      if (s.ripple) { s.ripple.age += dt; if (s.ripple.age > 2) s.ripple = null; }
+      for (const b of s.bands) {
+        const rip = s.ripple ? Math.sin((s.ripple.age * Math.PI)) * 0.06 * Math.exp(-s.ripple.age) : 0;
+        const amp = H() * (0.04 + intensity * 0.04);
+        g.beginPath(); g.moveTo(0, b.y * H());
+        for (let x = 0; x <= W(); x += 6) {
+          const y = b.y * H() + Math.sin(x / W() * Math.PI * 4 + t + b.ph) * amp
+                  + Math.sin(x / W() * Math.PI * 9 + t * 1.6 + b.ph) * amp * 0.4
+                  + rip * H() * Math.sin(x / W() * Math.PI * 2);
+          g.lineTo(x, y);
+        }
+        const [r, gv, bv] = b.col;
+        const a = 0.12 + intensity * 0.1;
+        g.strokeStyle = `rgba(${r},${gv},${bv},${a + 0.18})`; g.lineWidth = H() * 0.07;
+        g.lineCap = 'round'; g.stroke();
+      }
+    },
+    tickFg() {},
+    pointer(s, x, y) { s.ripple = { x, y, age: 0 }; return true; }
+  },
+
+  /* LIGHTNING — periodic forking bolts from the top; tap anywhere to trigger one. */
+  lightning: {
+    init(s) { s.bolts = []; s.flash = 0; s.next = rnd(2, 6) / (0.3 + intensity); s.acc = 0; },
+    tickBg(g, s, dt, now) {
+      s.acc += dt;
+      if (s.acc >= s.next) { s.acc = 0; s.next = rnd(2, 7) / (0.3 + intensity * 1.8); s.flash = 0.5; spawnBolt(s); }
+      if (s.flash > 0) { s.flash -= dt * 4; g.fillStyle = `rgba(220,230,255,${Math.max(0, s.flash) * 0.18})`; g.fillRect(0, 0, W(), H()); }
+      for (const bolt of s.bolts) {
+        bolt.age += dt;
+        if (bolt.age > 0.35) { s.bolts.splice(s.bolts.indexOf(bolt), 1); continue; }
+        const a = Math.max(0, 1 - bolt.age / 0.35);
+        g.strokeStyle = `rgba(210,220,255,${a * 0.9})`; g.lineWidth = 1.5; g.beginPath();
+        drawBranch(g, bolt.pts);
+        g.stroke();
+      }
+      function spawnBolt(s) {
+        const x = rnd(0.15, 0.85) * W();
+        s.bolts.push({ pts: buildPts(x, 0, x + rnd(-30, 30), H() * rnd(0.5, 0.85), 6), age: 0, flash: true });
+        s.flash = 0.6;
+      }
+      function buildPts(x1, y1, x2, y2, depth) {
+        if (depth === 0) return [[x1, y1], [x2, y2]];
+        const mx = (x1 + x2) / 2 + rnd(-1, 1) * Math.abs(y2 - y1) * 0.35;
+        const my = (y1 + y2) / 2;
+        return [...buildPts(x1, y1, mx, my, depth - 1), ...buildPts(mx, my, x2, y2, depth - 1)];
+      }
+      function drawBranch(g, pts) { pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); }
+    },
+    tickFg() {},
+    pointer(s) { s.next = 0.01; return true; }
+  },
+
+  /* LEAVES — falling autumn leaves that spin; tap to swirl nearby ones upward. */
+  leaves: {
+    init(s) {
+      const cols = ['#c0602a', '#d4892a', '#a84a1a', '#8a6a20', '#c8a030'];
+      const mk = () => ({ x: Math.random() * W(), y: rnd(-30, H()), r: rnd(6, 14), vy: rnd(30, 70), vx: rnd(-22, 22), rot: Math.random() * Math.PI * 2, rotv: rnd(-3, 3), ph: Math.random() * Math.PI * 2, col: cols[Math.floor(Math.random() * cols.length)], swirl: 0 });
+      s.leaves = Array.from({ length: Math.round(14 + intensity * 40) }, mk);
+      s.mk = mk;
+    },
+    tickBg(g, s, dt, now) {
+      for (const l of s.leaves) {
+        if (l.swirl > 0) { l.swirl -= dt * 2; l.vy -= 180 * dt; l.vx += rnd(-40, 40) * dt; }
+        l.vy = Math.min(l.vy + 40 * dt, 90); // gravity
+        l.y += l.vy * dt; l.x += (l.vx + Math.sin(now / 800 + l.ph) * 16) * dt; l.rot += l.rotv * dt;
+        if (l.y > H() + 20) Object.assign(l, s.mk(), { y: -14, x: Math.random() * W() });
+        g.save(); g.translate(l.x, l.y); g.rotate(l.rot); g.globalAlpha = 0.82;
+        g.fillStyle = l.col;
+        // simple maple-leaf silhouette: 3 small lobes
+        for (let k = 0; k < 3; k++) { g.beginPath(); g.ellipse(Math.cos(k * 1.2) * l.r * 0.55, Math.sin(k * 1.2) * l.r * 0.55, l.r * 0.55, l.r * 0.38, k * 1.2, 0, Math.PI * 2); g.fill(); }
+        g.restore(); g.globalAlpha = 1;
+      }
+    },
+    tickFg() {},
+    pointer(s, x, y) {
+      let hit = false;
+      for (const l of s.leaves) if (Math.hypot(l.x - x, l.y - y) < 50) { l.swirl = 1; hit = true; }
+      return hit;
+    }
   }
 };
 
@@ -253,12 +449,14 @@ export function initWeather() {
     // the weather element wins ONLY when the tap actually lands on an effect's
     // hitbox — so you can pop a droplet or eat a s'more even with a widget below.
     if (e.target.closest('.drawer, .dialog, .menu, .popover, [role="dialog"], #fab-root')) return;
-    const overWidget = !!e.target.closest('.widget-card, .internal-view');
+    // noWidgetOverlap effects (clouds, bubbles, fireflies) only fire in clear empty space —
+    // any interactive element in the tap path takes priority.
+    const overUI = !!e.target.closest('.widget-card, .internal-view, button, a, input, label, select, textarea, [role="button"], [role="tab"], [role="menuitem"], .chip, .btn, .list-item, .fab-btn, nav, [tabindex]');
     let handled = false;
     for (const a of active) {
       const ef = EFFECTS[a.key];
       if (!ef.pointer) continue;
-      if (ef.noWidgetOverlap && overWidget) continue; // clouds only react below widgets
+      if (ef.noWidgetOverlap && overUI) continue;
       if (ef.pointer(a.state, e.clientX, e.clientY, performance.now())) handled = true;
     }
     if (handled) { e.stopPropagation(); e.preventDefault(); }
@@ -309,8 +507,19 @@ export function weatherTickOnce(frames = 8) {
   return true;
 }
 
-/** The selectable weather effects (for the settings picker). */
-export const WEATHER_EFFECTS = [
-  { key: 'snow', name: 'Snow' }, { key: 'rain', name: 'Rain' }, { key: 'clouds', name: 'Clouds' },
-  { key: 'wind', name: 'Wind' }, { key: 'fire', name: 'Fire' }
+/** All selectable interactive effects (for the settings picker). */
+export const INTERACTIVE_EFFECTS = [
+  { key: 'snow',       name: 'Snow',       group: 'Weather' },
+  { key: 'rain',       name: 'Rain',       group: 'Weather' },
+  { key: 'clouds',     name: 'Clouds',     group: 'Weather' },
+  { key: 'wind',       name: 'Wind',       group: 'Weather' },
+  { key: 'fire',       name: 'Fire',       group: 'Weather' },
+  { key: 'lightning',  name: 'Lightning',  group: 'Weather' },
+  { key: 'bubbles',    name: 'Bubbles',    group: 'Fun' },
+  { key: 'petals',     name: 'Petals',     group: 'Fun' },
+  { key: 'leaves',     name: 'Leaves',     group: 'Fun' },
+  { key: 'fireflies',  name: 'Fireflies',  group: 'Ambient' },
+  { key: 'aurora',     name: 'Aurora',     group: 'Ambient' },
 ];
+/** @deprecated use INTERACTIVE_EFFECTS */
+export const WEATHER_EFFECTS = INTERACTIVE_EFFECTS;

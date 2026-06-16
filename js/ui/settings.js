@@ -9,7 +9,7 @@ import { icon } from './icons.js';
 import { el, toast, confirmDialog, openDrawer, popMenu, promptText, emptyState, switchEl, field, input, rangeField } from './components.js';
 import { allThemes, applyGlobalTheme, activeThemeId, getTheme, withOverrides, themeOverrides, setThemeOverride, clearThemeOverrides } from '../fx/themes.js';
 import { ATMOSPHERE_PRESETS, ATMOSPHERE_OPTIONS } from '../fx/atmosphere.js';
-import { WEATHER_EFFECTS } from '../fx/weather.js';
+import { INTERACTIVE_EFFECTS } from '../fx/weather.js';
 import { PRESET_POINTER_FX, getParticlePreset, getPointerFxPreset } from '../presets/particles.js';
 import * as codes from '../core/codes.js';
 import * as saves from '../core/saves.js';
@@ -288,22 +288,27 @@ function renderVisualEffectsSection(d) {
       (v) => { setFx('particlesEnabled', v); render(); },
       (opts) => renderParticleLayers(opts, theme, id, reapply));
 
-    // Weather — effect chips + intensity
-    block('Weather', 'Snow, rain, clouds, wind, fire — pick one or more, tappable.', fx.weatherEnabled === true,
+    // Interactive Effects — grouped chips + intensity
+    block('Interactive Effects', 'Tappable screen effects — weather, ambient, and fun.', fx.weatherEnabled === true,
       (v) => { setFx('weatherEnabled', v, true); render(); },
       (opts) => {
         const wx = fx.weather || {};
         const sel = Array.isArray(wx.activeEffects) ? wx.activeEffects.slice() : (wx.activeEffect ? [wx.activeEffect] : []);
-        const cr = el('<div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>');
-        for (const e of WEATHER_EFFECTS) {
-          const on = sel.includes(e.key);
-          const c = el(`<button class="chip ${on ? 'accent' : ''}"></button>`);
-          c.textContent = e.name;
-          c.onclick = () => { setWeatherOpt({ activeEffects: on ? sel.filter(k => k !== e.key) : [...sel, e.key], activeEffect: null }); render(); };
-          cr.appendChild(c);
+        const groups = [...new Set(INTERACTIVE_EFFECTS.map(e => e.group))];
+        for (const grp of groups) {
+          const glbl = el('<div class="soft" style="font-size:0.75rem;letter-spacing:.05em;margin:6px 2px 4px">' + grp.toUpperCase() + '</div>');
+          opts.appendChild(glbl);
+          const cr = el('<div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:4px"></div>');
+          for (const e of INTERACTIVE_EFFECTS.filter(x => x.group === grp)) {
+            const on = sel.includes(e.key);
+            const c = el(`<button class="chip ${on ? 'accent' : ''}"></button>`);
+            c.textContent = e.name;
+            c.onclick = () => { setWeatherOpt({ activeEffects: on ? sel.filter(k => k !== e.key) : [...sel, e.key], activeEffect: null }); render(); };
+            cr.appendChild(c);
+          }
+          opts.appendChild(cr);
         }
-        opts.appendChild(cr);
-        const lbl = el('<div class="soft" style="font-size:0.8rem;margin:0 2px 4px">Intensity</div>');
+        const lbl = el('<div class="soft" style="font-size:0.8rem;margin:8px 2px 4px">Intensity</div>');
         opts.appendChild(lbl);
         opts.appendChild(rangeField({ min: 0, max: 100, step: 5, value: Math.round((wx.intensity ?? 0.5) * 100), unit: '%', onChange: (v) => setWeatherOpt({ intensity: v / 100 }) }));
       });
