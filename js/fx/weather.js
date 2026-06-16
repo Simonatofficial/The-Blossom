@@ -170,7 +170,7 @@ const EFFECTS = {
   /* WIND — horizontal streaks (bg) + faint passing gusts (fg). Widgets get a
      gentle CSS wobble via body.wx-wind (amplitude scales with intensity). */
   wind: {
-    init(s) { s.streaks = Array.from({ length: Math.round(14 + intensity * 30) }, () => ({ x: Math.random() * W(), y: Math.random() * H(), len: rnd(40, 160), v: rnd(300, 700) * (0.5 + intensity), a: rnd(0.05, 0.2) })); },
+    init(s) { s.streaks = Array.from({ length: Math.round(14 + intensity * 30) }, () => ({ x: Math.random() * W(), y: Math.random() * H(), len: rnd(40, 160), v: rnd(300, 700) * (0.3 + intensity * 2.2), a: rnd(0.05, 0.2) })); },
     tickBg(g, s, dt) {
       g.lineCap = 'round';
       for (const w of s.streaks) {
@@ -274,8 +274,8 @@ export function setWeather() {
   const wx = fx.weather || {};
   intensity = wx.intensity ?? 0.5;
   for (const k of Object.keys(EFFECTS)) document.body.classList.toggle(`wx-${k}`, false);
-  // Tilt scales with intensity so the slider visibly changes lean, stays subtle throughout.
-  document.documentElement.style.setProperty('--wx-wob', `${0.2 + intensity * 1.3}deg`);
+  // Wobble stays very subtle across the full range; max matches ~15% of the old scale.
+  document.documentElement.style.setProperty('--wx-wob', `${0.2 + intensity * 0.2}deg`);
   gb?.clearRect(0, 0, W(), H()); gf?.clearRect(0, 0, W(), H());
   active = [];
   if (unsub) { unsub(); unsub = null; }
