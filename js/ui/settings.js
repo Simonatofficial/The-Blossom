@@ -254,20 +254,32 @@ function renderVisualEffectsSection(d) {
     const theme = curTheme();
     const id = themeId();
 
-    // Atmosphere — pick a scene + its one slider
-    block('Atmosphere', 'A slow background scene.', fx.atmosphereEnabled !== false,
+    // Atmosphere — pick any number of scenes; each one shows its own slider
+    block('Atmosphere', 'Slow background scenes — pick one or more.', fx.atmosphereEnabled !== false,
       (v) => { setFx('atmosphereEnabled', v); render(); },
       (opts) => {
-        const cur = theme.atmosphere?.preset || '';
-        chips(opts, [{ value: '', label: 'None' }, ...ATMOSPHERE_PRESETS.map(a => ({ value: a.key, label: a.name }))], cur,
-          (v) => { setThemeOverride(id, 'atmosphere', v ? { preset: v, options: {} } : null); reapply(); });
-        const o = cur && ATMOSPHERE_OPTIONS[cur];
-        if (o) {
+        const raw = theme.atmosphere;
+        const list = (Array.isArray(raw) ? raw : raw ? [raw] : []).filter(a => a && a.preset);
+        const has = (k) => list.some(a => a.preset === k);
+        const saveList = (next) => { setThemeOverride(id, 'atmosphere', next.length ? next : null); reapply(); };
+        // multi-select chips: tap to toggle each scene in/out of the stack
+        const cr = el('<div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>');
+        for (const a of ATMOSPHERE_PRESETS) {
+          const c = el(`<button class="chip ${has(a.key) ? 'accent' : ''}"></button>`);
+          c.textContent = a.name;
+          c.onclick = () => saveList(has(a.key) ? list.filter(x => x.preset !== a.key) : [...list, { preset: a.key, options: {} }]);
+          cr.appendChild(c);
+        }
+        opts.appendChild(cr);
+        // one slider per selected scene
+        for (const a of list) {
+          const o = ATMOSPHERE_OPTIONS[a.preset]; if (!o) continue;
+          const name = ATMOSPHERE_PRESETS.find(p => p.key === a.preset)?.name || a.preset;
           const lbl = el('<div class="soft" style="font-size:0.8rem;margin:0 2px 4px;cursor:help"></div>');
-          lbl.textContent = o.label; lbl.title = o.tip;
+          lbl.textContent = `${name} — ${o.label}`; lbl.title = o.tip;
           opts.appendChild(lbl);
-          opts.appendChild(rangeField({ min: o.min, max: o.max, step: o.step, value: theme.atmosphere?.options?.[o.key] ?? o.def, unit: o.unit,
-            onChange: (v) => { setThemeOverride(id, 'atmosphere', { preset: cur, options: { ...(theme.atmosphere?.options || {}), [o.key]: v } }); applyGlobalTheme(id); } }));
+          opts.appendChild(rangeField({ min: o.min, max: o.max, step: o.step, value: a.options?.[o.key] ?? o.def, unit: o.unit,
+            onChange: (v) => { setThemeOverride(id, 'atmosphere', list.map(x => x.preset === a.preset ? { preset: x.preset, options: { ...(x.options || {}), [o.key]: v } } : x)); applyGlobalTheme(id); } }));
         }
       });
 
@@ -277,12 +289,20 @@ function renderVisualEffectsSection(d) {
       (opts) => renderParticleLayers(opts, theme, id, reapply));
 
     // Weather — effect chips + intensity
-    block('Weather', 'Snow, rain, clouds, wind, fire — tappable.', fx.weatherEnabled === true,
+    block('Weather', 'Snow, rain, clouds, wind, fire — pick one or more, tappable.', fx.weatherEnabled === true,
       (v) => { setFx('weatherEnabled', v, true); render(); },
       (opts) => {
         const wx = fx.weather || {};
-        chips(opts, [{ value: null, label: 'Off' }, ...WEATHER_EFFECTS.map(e => ({ value: e.key, label: e.name }))], wx.activeEffect || null,
-          (v) => { setWeatherOpt({ activeEffect: v }); render(); });
+        const sel = Array.isArray(wx.activeEffects) ? wx.activeEffects.slice() : (wx.activeEffect ? [wx.activeEffect] : []);
+        const cr = el('<div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>');
+        for (const e of WEATHER_EFFECTS) {
+          const on = sel.includes(e.key);
+          const c = el(`<button class="chip ${on ? 'accent' : ''}"></button>`);
+          c.textContent = e.name;
+          c.onclick = () => { setWeatherOpt({ activeEffects: on ? sel.filter(k => k !== e.key) : [...sel, e.key], activeEffect: null }); render(); };
+          cr.appendChild(c);
+        }
+        opts.appendChild(cr);
         const lbl = el('<div class="soft" style="font-size:0.8rem;margin:0 2px 4px">Intensity</div>');
         opts.appendChild(lbl);
         opts.appendChild(rangeField({ min: 0, max: 100, step: 5, value: Math.round((wx.intensity ?? 0.5) * 100), unit: '%', onChange: (v) => setWeatherOpt({ intensity: v / 100 }) }));

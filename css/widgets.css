@@ -777,6 +777,11 @@ span.anno { padding: 0 3px; }
 .qz-node:hover { background: var(--accent-soft); }
 .qz-node input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; flex: none; }
 .qz-node span:nth-child(2) { flex: 1; }
+.qz-gnode { padding: 6px 9px; align-items: center; border-radius: 9px; }
+.qz-gnode:hover { background: var(--accent-soft); }
+.qz-gnode input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; flex: none; }
+.qz-caret { flex: none; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-soft); border-radius: 6px; }
+.qz-caret:hover { background: var(--accent-soft); color: var(--text); }
 .fc-set-tree label { padding: 6px 8px; border-radius: 9px; }
 .fc-set-tree label:hover { background: var(--accent-soft); }
 .fc-set-tree input[type="checkbox"] { accent-color: var(--accent); }

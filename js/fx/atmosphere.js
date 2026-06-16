@@ -7,7 +7,7 @@
 import { loop } from './loop.js';
 
 let canvas = null, g = null;
-let active = null; // { key, state, options, colors }
+let layers = []; // [{ key, state, options, colors }] — multiple atmospheres stack (V2 §7)
 let unsub = null;
 
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -363,35 +363,39 @@ export function initAtmosphere() {
   resize();
   addEventListener('resize', resize);
   document.addEventListener('click', (e) => {
-    if (!active || !PRESETS[active.key]?.pointer) return;
+    if (!layers.length) return;
     if (e.target.closest('.widget-card, .drawer, .dialog, button, input, a, .internal-view')) return;
-    PRESETS[active.key].pointer(active.state, e.clientX / 2, e.clientY / 2);
+    for (const a of layers) PRESETS[a.key]?.pointer?.(a.state, e.clientX / 2, e.clientY / 2);
   }, { passive: true });
 }
 
-/** Activate an atmosphere ({preset, options} or null) with theme colors. */
+/** Activate one or more atmospheres. `spec` may be a single {preset, options},
+    an array of them, or null. Multiple atmospheres stack in array order. */
 export function setAtmosphere(spec, colors) {
   if (!canvas) return;
-  active = null;
+  layers = [];
   g?.clearRect(0, 0, canvas.width, canvas.height);
   if (unsub) { unsub(); unsub = null; }
-  if (!spec || !PRESETS[spec.preset] || reduced()) return;
-  const state = {};
-  const options = spec.options || {};
-  PRESETS[spec.preset].init?.(state, options);
-  active = { key: spec.preset, state, options, colors };
+  if (reduced()) return;
+  const specs = (Array.isArray(spec) ? spec : spec ? [spec] : []).filter(s => s && PRESETS[s.preset]);
+  for (const sp of specs) {
+    const state = {}, options = sp.options || {};
+    PRESETS[sp.preset].init?.(state, options);
+    layers.push({ key: sp.preset, state, options, colors });
+  }
+  if (!layers.length) return;
   unsub = loop.add((dt, now) => {
-    if (!active) { unsub?.(); unsub = null; return; }
+    if (!layers.length) { unsub?.(); unsub = null; return; }
     g.clearRect(0, 0, canvas.width, canvas.height);
-    PRESETS[active.key].tick(active.state, now, active.options, active.colors);
+    for (const a of layers) PRESETS[a.key].tick(a.state, now, a.options, a.colors);
   });
 }
 
 /** Render a single frame immediately (editor previews, tests). */
 export function tickOnce(now = performance.now()) {
-  if (!active || !g) return false;
+  if (!layers.length || !g) return false;
   g.clearRect(0, 0, canvas.width, canvas.height);
-  PRESETS[active.key].tick(active.state, now, active.options, active.colors);
+  for (const a of layers) PRESETS[a.key].tick(a.state, now, a.options, a.colors);
   return true;
 }
 

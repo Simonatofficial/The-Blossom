@@ -9,7 +9,7 @@ import { store } from '../core/store.js';
 import { icon } from '../ui/icons.js';
 import { el, field, seg, popMenu, promptText, confirmDialog, emptyState, toast } from '../ui/components.js';
 import { objectsOf, todayStr, fmtDate } from './base.js';
-import { FIELDS, FIELD_LABEL, sourceFcIds, quizCards, deckTree, buildQuestions } from './quiz-build.js';
+import { FIELDS, FIELD_LABEL, sourceFcIds, quizCards, scopeForest, buildQuestions } from './quiz-build.js';
 import { runQuiz, resumeQuiz, review } from './quiz-run.js';
 
 const TYPES = [['mc', 'Multiple choice'], ['truefalse', 'True / False'], ['fill', 'Fill the blank'], ['dropdown', 'Dropdown']];
@@ -105,30 +105,44 @@ registry.register({
         }
       }
 
-      // scope picker (Class → Unit → Deck)
-      const tree = deckTree(cards);
+      // scope picker — the full Class → Section → Unit → … → deck hierarchy, with
+      // the Class as the top folder and collapsible groups at every level.
+      const forest = scopeForest(widget);
       host.appendChild(el('<h3 class="soft" style="font-size:0.74rem;letter-spacing:.05em;margin:10px 0 6px">DECKS TO TEST</h3>'));
-      if (!tree.size) { host.appendChild(el('<p class="soft" style="font-size:0.85rem">Linked flashcards have no cards yet.</p>')); }
+      if (!forest.length) { host.appendChild(el('<p class="soft" style="font-size:0.85rem">Linked flashcards have no cards yet.</p>')); }
       const sel = new Set(cfg.selectedDecks);
+      const expand = cfg.scopeExpand || (cfg.scopeExpand = {}); // collapsed state by node id (default open)
       const treeEl = el('<div class="qz-tree"></div>');
-      const toggle = (ids, on) => { ids.forEach(id => on ? sel.add(id) : sel.delete(id)); cfg.selectedDecks = [...sel]; save(); setup(); };
-      for (const [, cl] of tree) {
-        const allDeckIds = [...cl.units.values()].flatMap(u => [...u.decks.keys()]);
-        const clRow = el(`<label class="qz-node row" style="gap:6px"><input type="checkbox" ${allDeckIds.every(id => sel.has(id)) ? 'checked' : ''}><strong></strong></label>`);
-        clRow.querySelector('strong').textContent = cl.name;
-        clRow.querySelector('input').onchange = (e) => toggle(allDeckIds, e.target.checked);
-        treeEl.appendChild(clRow);
-        for (const [, u] of cl.units) {
-          const uDeckIds = [...u.decks.keys()];
-          if (u.name) { const uRow = el(`<label class="qz-node row" style="gap:6px;padding-left:18px"><input type="checkbox" ${uDeckIds.every(id => sel.has(id)) ? 'checked' : ''}><span></span></label>`); uRow.querySelector('span').textContent = u.name; uRow.querySelector('input').onchange = (e) => toggle(uDeckIds, e.target.checked); treeEl.appendChild(uRow); }
-          for (const [did, d] of u.decks) {
-            const r = el(`<label class="qz-node row" style="gap:6px;padding-left:${u.name ? 36 : 18}px"><input type="checkbox" ${sel.has(did) ? 'checked' : ''}><span></span><span class="soft" style="font-size:0.74rem"></span></label>`);
-            r.querySelector('span').textContent = d.name; r.querySelectorAll('span')[1].textContent = d.count;
-            r.querySelector('input').onchange = (e) => toggle([did], e.target.checked);
+      const deckIdsOf = (node) => node.kind === 'deck' ? [node.id] : node.children.flatMap(deckIdsOf);
+      const toggle = (ids, on) => { ids.forEach(id => on ? sel.add(id) : sel.delete(id)); cfg.selectedDecks = [...sel]; save(); paintTree(); };
+      const paintTree = () => {
+        treeEl.innerHTML = '';
+        const renderNode = (node, depth) => {
+          const ids = deckIdsOf(node);
+          const checked = ids.length && ids.every(id => sel.has(id));
+          const pad = 8 + depth * 16;
+          if (node.kind === 'deck') {
+            const r = el(`<label class="qz-node row" style="gap:6px;padding-left:${pad + 18}px"><input type="checkbox" ${checked ? 'checked' : ''}><span></span><span class="soft" style="font-size:0.74rem"></span></label>`);
+            r.querySelector('span').textContent = node.name; r.querySelectorAll('span')[1].textContent = node.count;
+            r.querySelector('input').onchange = (e) => toggle(ids, e.target.checked);
             treeEl.appendChild(r);
+            return;
           }
-        }
-      }
+          const open = expand[node.id] !== false;
+          const row = el(`<div class="qz-gnode row" style="gap:4px;padding-left:${pad}px"></div>`);
+          const caret = el(`<button class="qz-caret btn-icon" title="${open ? 'Collapse' : 'Expand'}">${icon(open ? 'chevron-down' : 'chevron-right', 14)}</button>`);
+          const box = el(`<input type="checkbox" ${checked ? 'checked' : ''}>`);
+          const name = el('<strong style="flex:1"></strong>'); name.textContent = node.name;
+          const cnt = el('<span class="soft" style="font-size:0.74rem"></span>'); cnt.textContent = node.count;
+          caret.onclick = () => { expand[node.id] = !open; save(); paintTree(); };
+          box.onchange = (e) => toggle(ids, e.target.checked);
+          row.append(caret, box, name, cnt);
+          treeEl.appendChild(row);
+          if (open) node.children.forEach(ch => renderNode(ch, depth + 1));
+        };
+        forest.forEach(n => renderNode(n, 0));
+      };
+      paintTree();
       host.appendChild(treeEl);
 
       // Q/A configuration

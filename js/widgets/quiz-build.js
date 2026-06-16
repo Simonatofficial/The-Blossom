@@ -54,6 +54,35 @@ export function deckTree(cards) {
   return map;
 }
 
+/** Full-depth scope forest for the picker: mirrors each linked Flashcard's real
+    node hierarchy (Class → Section → Unit → … → deck) so the Class is always the
+    top folder and every level nests inside it. Returns an array of root nodes,
+    each { id, name, kind:'group'|'deck', count, children:[] }. Empty branches are
+    pruned; the auto Notebook wrapper is hoisted so its Classes sit at the top. */
+export function scopeForest(widget) {
+  const roots = [];
+  for (const fcId of sourceFcIds(widget)) {
+    const fc = store.get('widgets', fcId); if (!fc) continue;
+    M.ensureModel(fc);
+    const all = M.allNodes(fc);
+    const build = (node) => {
+      if (node.kind === 'deck') {
+        const count = M.deckCards(fc, node).length;
+        return count ? { id: node.id, name: node.name, kind: 'deck', count, children: [] } : null;
+      }
+      const children = M.childNodes(all, node.id).map(build).filter(Boolean);
+      const count = children.reduce((a, c) => a + c.count, 0);
+      return count ? { id: node.id, name: node.name, kind: 'group', count, children } : null;
+    };
+    for (const r of M.childNodes(all, null)) {
+      const t = build(r); if (!t) continue;
+      if (r.auto && t.kind === 'group') roots.push(...t.children); // drop the Notebook wrapper → Classes on top
+      else roots.push(t);
+    }
+  }
+  return roots;
+}
+
 /** Text for one field of a card (custom cards map front→term, back→definition). */
 function fieldVal(card, field, limits) {
   if (field === 'term') return card.term ?? card.front ?? '';

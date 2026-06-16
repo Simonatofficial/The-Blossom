@@ -10,7 +10,7 @@ import { store } from '../core/store.js';
 import { events } from '../core/events.js';
 
 let bg = null, fg = null, gb = null, gf = null, overlay = null;
-let active = null;   // { key, state }
+let active = [];   // [{ key, state }] — multiple effects can run at once (V2 §8)
 let intensity = 0.5;
 let unsub = null;
 
@@ -32,7 +32,7 @@ const EFFECTS = {
   /* SNOW — falling flakes (bg) + icicles growing from the top edge (fg). */
   snow: {
     init(s) {
-      s.flakes = Array.from({ length: Math.round(40 + intensity * 120) }, () => ({ x: Math.random() * W(), y: Math.random() * H(), r: rnd(1.5, 4), vy: rnd(20, 55), vx: rnd(-8, 8), ph: Math.random() * 9 }));
+      s.flakes = Array.from({ length: Math.round(40 + intensity * 120) }, () => ({ x: Math.random() * W(), y: Math.random() * H(), r: rnd(0.8, 2.2), vy: rnd(20, 55), vx: rnd(-8, 8), ph: Math.random() * 9 }));
       s.icicles = Array.from({ length: Math.round(4 + intensity * 8) }, () => ({ x: rnd(0.03, 0.97) * W(), w: rnd(7, 16), len: rnd(8, 30), grow: rnd(2, 6), max: rnd(40, 120), shards: null }));
     },
     tickBg(g, s, dt, now) {
@@ -102,15 +102,15 @@ const EFFECTS = {
       }
     },
     tickFg(g, s, dt) {
-      s.acc += dt * (0.4 + intensity * 2.2);
-      if (s.acc > 1 && s.drops.length < 46) { s.acc = 0; s.drops.push({ x: Math.random() * W(), y: rnd(0.1, 0.85) * H(), r: rnd(5, 10), run: false, v: 0, age: 0, ttl: rnd(7, 14) }); }
+      s.acc += dt * (0.18 + intensity * 0.95);
+      if (s.acc > 1 && s.drops.length < 26) { s.acc = 0; s.drops.push({ x: Math.random() * W(), y: rnd(0.1, 0.85) * H(), r: rnd(2.5, 5.5), run: false, v: 0, age: 0, ttl: rnd(7, 14) }); }
       for (const d of s.drops) {
         d.age += dt;
         if (!d.run && d.age > d.ttl) d.run = true; // self-clear after a while so droplets don't pile up
         if (d.run) { d.v += 600 * dt; d.y += d.v * dt; d.r *= 0.992; }
-        g.fillStyle = `rgba(200,220,250,${d.run ? 0.3 : 0.5})`;
+        g.fillStyle = `rgba(200,220,250,${d.run ? 0.16 : 0.3})`;
         g.beginPath(); g.arc(d.x, d.y, d.r, 0, Math.PI * 2); g.fill();
-        g.fillStyle = 'rgba(255,255,255,0.4)'; g.beginPath(); g.arc(d.x - d.r * 0.3, d.y - d.r * 0.3, d.r * 0.28, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(255,255,255,0.26)'; g.beginPath(); g.arc(d.x - d.r * 0.3, d.y - d.r * 0.3, d.r * 0.28, 0, Math.PI * 2); g.fill();
       }
       s.drops = s.drops.filter(d => d.y < H() + 10 && d.r > 1);
     },
@@ -125,6 +125,7 @@ const EFFECTS = {
   /* CLOUDS — soft cumulus drifting across the sky; tap one to puff it apart.
      The cloud "type" (white peaceful → dark stormy) tracks intensity. */
   clouds: {
+    noWidgetOverlap: true, // a tap that lands on a widget belongs to the widget, not the cloud
     init(s) {
       function makeCloud(top) { return { x: Math.random() * 1.3 - 0.15, y: top ? rnd(0, 0.12) : rnd(0.05, 0.4), scale: rnd(0.7, 1.5), v: rnd(0.01, 0.03), puffs: Array.from({ length: 5 }, () => ({ dx: rnd(-0.6, 0.6), dy: rnd(-0.2, 0.2), r: rnd(0.4, 1) })) }; }
       s.clouds = Array.from({ length: 5 }, () => makeCloud(false));   // drift behind widgets
@@ -244,19 +245,24 @@ export function initWeather() {
   fg = makeCanvas('weather-fg', 150);
   gb = bg.getContext('2d'); gf = fg.getContext('2d');
   overlay = document.createElement('div'); overlay.id = 'weather-fx'; document.body.appendChild(overlay);
-  const resize = () => { for (const c of [bg, fg]) { c.width = innerWidth; c.height = innerHeight; } if (active) EFFECTS[active.key].init(active.state); };
+  const resize = () => { for (const c of [bg, fg]) { c.width = innerWidth; c.height = innerHeight; } for (const a of active) EFFECTS[a.key].init(a.state); };
   resize();
   addEventListener('resize', resize);
   document.addEventListener('click', (e) => {
-    if (!active || !EFFECTS[active.key].pointer) return;
+    if (!active.length) return;
     // Let genuine overlay UI (modals, menus, the FAB) keep their taps. Otherwise
-    // the weather element wins ONLY when the tap actually lands on its hitbox —
-    // so you can pop a droplet or eat a s'more even with a widget sitting below.
+    // the weather element wins ONLY when the tap actually lands on an effect's
+    // hitbox — so you can pop a droplet or eat a s'more even with a widget below.
     if (e.target.closest('.drawer, .dialog, .menu, .popover, [role="dialog"], #fab-root')) return;
-    if (EFFECTS[active.key].pointer(active.state, e.clientX, e.clientY, performance.now())) {
-      e.stopPropagation();
-      e.preventDefault();
+    const overWidget = !!e.target.closest('.widget-card, .internal-view');
+    let handled = false;
+    for (const a of active) {
+      const ef = EFFECTS[a.key];
+      if (!ef.pointer) continue;
+      if (ef.noWidgetOverlap && overWidget) continue; // clouds only react below widgets
+      if (ef.pointer(a.state, e.clientX, e.clientY, performance.now())) handled = true;
     }
+    if (handled) { e.stopPropagation(); e.preventDefault(); }
   }, { capture: true });
   events.on('weather:changed', setWeather);
   setWeather();
@@ -269,31 +275,38 @@ export function setWeather() {
   const wx = fx.weather || {};
   intensity = wx.intensity ?? 0.5;
   for (const k of Object.keys(EFFECTS)) document.body.classList.toggle(`wx-${k}`, false);
-  document.documentElement.style.setProperty('--wx-wob', `${0.5 + intensity * 1.0}deg`); // subtle sway (≈0.5–1.5°)
+  // Tilt amplitude scales clearly with intensity (≈0.5°–6°) so the Wind slider
+  // visibly changes how far widgets lean, not just the streak speed (V2 §8).
+  document.documentElement.style.setProperty('--wx-wob', `${0.5 + intensity * 5.5}deg`);
   gb?.clearRect(0, 0, W(), H()); gf?.clearRect(0, 0, W(), H());
-  active = null;
+  active = [];
   if (unsub) { unsub(); unsub = null; }
-  const key = (fx.weatherEnabled && wx.activeEffect) || null;
-  if (!key || !EFFECTS[key] || reduced()) return;
-  document.body.classList.add(`wx-${key}`);
-  const state = {};
-  EFFECTS[key].init(state);
-  active = { key, state };
+  // selected effects: new multi list (activeEffects) with back-compat for the
+  // old single activeEffect field.
+  let keys = Array.isArray(wx.activeEffects) ? wx.activeEffects : (wx.activeEffect ? [wx.activeEffect] : []);
+  keys = keys.filter(k => EFFECTS[k]);
+  if (!fx.weatherEnabled || !keys.length || reduced()) return;
+  for (const key of keys) {
+    document.body.classList.add(`wx-${key}`);
+    const state = {};
+    EFFECTS[key].init(state);
+    active.push({ key, state });
+  }
   unsub = loop.add((dt, now) => {
-    if (!active) { unsub?.(); unsub = null; return; }
+    if (!active.length) { unsub?.(); unsub = null; return; }
     gb.clearRect(0, 0, W(), H()); gf.clearRect(0, 0, W(), H());
-    EFFECTS[active.key].tickBg?.(gb, active.state, dt, now);
-    EFFECTS[active.key].tickFg?.(gf, active.state, dt, now);
+    for (const a of active) EFFECTS[a.key].tickBg?.(gb, a.state, dt, now); // all backgrounds first
+    for (const a of active) EFFECTS[a.key].tickFg?.(gf, a.state, dt, now); // then all foregrounds
   });
 }
 
 /** Draw a few frames immediately (for verification while the loop is asleep). */
 export function weatherTickOnce(frames = 8) {
-  if (!active) return false;
+  if (!active.length) return false;
   for (let i = 0; i < frames; i++) {
     gb.clearRect(0, 0, W(), H()); gf.clearRect(0, 0, W(), H());
-    EFFECTS[active.key].tickBg?.(gb, active.state, 0.016, 1000 + i * 16);
-    EFFECTS[active.key].tickFg?.(gf, active.state, 0.016, 1000 + i * 16);
+    for (const a of active) EFFECTS[a.key].tickBg?.(gb, a.state, 0.016, 1000 + i * 16);
+    for (const a of active) EFFECTS[a.key].tickFg?.(gf, a.state, 0.016, 1000 + i * 16);
   }
   return true;
 }
