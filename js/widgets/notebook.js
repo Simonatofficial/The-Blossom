@@ -71,22 +71,6 @@ function moveNode(widget, dragId, targetId, mode) {
   }
 }
 
-/** Reparent nodes under destId (null = top level). Skips moves into self/descendants
-    and drops ids nested under another selected id. */
-function reparent(widget, ids, destId) {
-  const set = new Set(ids);
-  ids = ids.filter(id => { const p = pathTo(widget, id); return p && !p.slice(0, -1).some(a => set.has(a.id)); });
-  const dest = destId ? pathTo(widget, destId)?.slice(-1)[0] : null;
-  for (const id of ids) {
-    const path = pathTo(widget, id); if (!path) continue;
-    const node = path[path.length - 1];
-    if (destId && (destId === id || descendantIds(node).includes(destId))) continue;
-    const arr = path.length > 1 ? path[path.length - 2].children : tree(widget);
-    const i = arr.findIndex(x => x.id === id); if (i >= 0) arr.splice(i, 1);
-    (dest ? (dest.children || (dest.children = [])) : tree(widget)).push(node);
-  }
-}
-
 /** The note object for any node (created on demand). */
 export function topicNote(widget, nodeId) {
   return objectsOf(widget.id, 'topicNote').find(o => o.data.topicId === nodeId) ||
@@ -153,33 +137,71 @@ registry.register({
   renderFull(host, widget, ctx) {
     const save = () => store.put('widgets', widget);
     let curId = null; // current node id (null = root)
+    let suppressClick = false; // set by a drag so the row's click doesn't also open it
 
     const rowMenu = (anchor, node) => popMenu(anchor, [
       { label: 'Rename', iconName: 'edit', fn: async () => { const n = await promptText({ title: `Rename ${node.name}`, value: node.name }); if (n) { node.name = n; save(); render(); } } },
       { label: 'Move up', iconName: 'chevron-up', fn: () => { moveSibling(widget, node.id, -1); save(); render(); } },
       { label: 'Move down', iconName: 'chevron-down', fn: () => { moveSibling(widget, node.id, 1); save(); render(); } },
-      { label: 'Move to…', iconName: 'arrow-right', fn: () => openMovePicker(widget, [node.id], () => render()) },
-      { label: 'Delete', iconName: 'trash', danger: true, fn: async () => { if (await confirmDialog({ title: `Delete “${node.name}”?`, message: 'Its notes and everything inside go to the trash.' })) { removeNode(widget, node.id); if (curId === node.id) curId = pathTo(widget, node.id) ? null : curId; save(); render(); } } }
+      { label: 'Auto key terms (inside)', iconName: 'wand', fn: () => { const r = runAutoKeyTerms(widget, node.id); toast(r.made ? `Made ${r.made} key term${r.made === 1 ? '' : 's'}` : 'No --- separators in those notes.', r.made ? 'check' : 'info'); render(); } },
+      { label: 'Delete', iconName: 'trash', danger: true, fn: async () => { if (await confirmDialog({ title: `Delete “${node.name}”?`, message: 'Its notes and everything inside go to the trash.' })) { removeNode(widget, node.id); if (curId === node.id) curId = null; save(); render(); } } }
     ]);
 
-    const addChild = (anchor, parentId, parentLevel) => {
-      const opts = childLevels(parentLevel || (parentId ? pathTo(widget, parentId).slice(-1)[0].level : 'class'));
-      const make = async (level) => { const n = await promptText({ title: `New ${LMETA[level].label}`, label: LMETA[level].label }); if (n) { childrenArr(widget, parentId).push({ id: ulid(), name: n, level, children: [] }); save(); render(); } };
-      if (!parentId) return make('class');
-      if (opts.length === 1) return make(opts[0]);
-      popMenu(anchor, opts.map(lv => ({ label: `Add ${LMETA[lv].label}`, iconName: LMETA[lv].icon, fn: () => make(lv) })));
+    // Add a child at the next level down — no picker (the levels are just depth labels).
+    const addChild = async (parentId, parentLevel) => {
+      const level = parentId ? childLevels(parentLevel)[0] : 'class';
+      const n = await promptText({ title: `New ${LMETA[level].label}`, label: LMETA[level].label });
+      if (n) { childrenArr(widget, parentId).push({ id: ulid(), name: n, level, children: [] }); save(); render(); }
     };
 
     const childRow = (node) => {
       const kids = (node.children || []).length, terms = termCount(widget, node.id);
       const sub = [kids ? `${kids} inside` : '', terms ? `${terms} key term${terms === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ') || LMETA[node.level].label;
-      const li = el(`<button class="list-item">${icon(LMETA[node.level].icon, 16)}<span class="li-main"><span class="li-title"></span><span class="li-sub"></span></span><span class="btn-icon nb-m">${icon('more', 14)}</span></button>`);
+      const li = el(`<button class="list-item nb-node" data-id="${node.id}"><span class="nb-grip" title="Drag to move">⠿</span>${icon(LMETA[node.level].icon, 16)}<span class="li-main"><span class="li-title"></span><span class="li-sub"></span></span><span class="btn-icon nb-m">${icon('more', 14)}</span></button>`);
       li.querySelector('.li-title').textContent = node.name;
       li.querySelector('.li-sub').textContent = sub;
-      li.onclick = (e) => { if (e.target.closest('.nb-m')) return; curId = node.id; render(); };
+      li.onclick = (e) => { if (suppressClick) { suppressClick = false; return; } if (e.target.closest('.nb-m') || e.target.closest('.nb-grip')) return; curId = node.id; render(); };
       li.querySelector('.nb-m').addEventListener('click', (e) => { e.stopPropagation(); rowMenu(e.currentTarget, node); });
       return li;
     };
+
+    /* ---- inline drag & drop: grab a row's ⠿ handle; drop onto a row to nest it
+       inside, on a row's top/bottom edge to reorder, or on a breadcrumb to move it
+       out. Pointer-based so it works on touch + mouse, no libraries. ---- */
+    const clearHints = () => host.querySelectorAll('.drop-inside,.drop-before,.drop-after,.crumb-drop').forEach(e => e.classList.remove('drop-inside', 'drop-before', 'drop-after', 'crumb-drop'));
+    let drag = null;
+    const onMove = (e) => {
+      if (!drag) return;
+      const x = e.clientX, y = e.clientY;
+      if (!drag.started) { if (Math.hypot(x - drag.sx, y - drag.sy) < 4) return; drag.started = true; drag.src.classList.add('nb-dragging'); const g = el('<div class="nb-org-ghost"></div>'); g.textContent = drag.name; document.body.appendChild(g); drag.ghost = g; navigator.vibrate?.(12); }
+      e.preventDefault();
+      drag.ghost.style.left = x + 'px'; drag.ghost.style.top = y + 'px';
+      clearHints(); drag.target = null;
+      drag.ghost.style.visibility = 'hidden'; const under = document.elementFromPoint(x, y); drag.ghost.style.visibility = 'visible';
+      const crumb = under?.closest('.nb-crumb');
+      if (crumb && host.contains(crumb)) { crumb.classList.add('crumb-drop'); drag.target = { crumbId: crumb.dataset.cid || null }; return; }
+      const row = under?.closest('.nb-node[data-id]');
+      if (!row || !host.contains(row) || row.dataset.id === drag.id) return;
+      const r = row.getBoundingClientRect(), rel = (y - r.top) / r.height, mode = rel < 0.28 ? 'before' : rel > 0.72 ? 'after' : 'inside';
+      row.classList.add('drop-' + mode); drag.target = { id: row.dataset.id, mode };
+    };
+    const onUp = () => {
+      if (!drag) return;
+      window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);
+      host.style.touchAction = '';
+      const d = drag; drag = null;
+      if (!d.started) return;
+      d.ghost?.remove(); d.src.classList.remove('nb-dragging'); clearHints(); suppressClick = true;
+      if (d.target) { if ('crumbId' in d.target) moveNode(widget, d.id, d.target.crumbId, 'inside'); else moveNode(widget, d.id, d.target.id, d.target.mode); save(); }
+      render();
+    };
+    host.addEventListener('pointerdown', (e) => {
+      const grip = e.target.closest('.nb-grip'); if (!grip) return;
+      const row = grip.closest('.nb-node[data-id]'); if (!row) return;
+      e.preventDefault(); host.style.touchAction = 'none';
+      drag = { id: row.dataset.id, src: row, started: false, sx: e.clientX, sy: e.clientY, name: row.querySelector('.li-title').textContent, target: null };
+      window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+    });
 
     const render = () => {
       host.innerHTML = '';
@@ -188,7 +210,7 @@ registry.register({
 
       // breadcrumb
       const bc = el('<div class="nb-bc row" style="flex-wrap:wrap;gap:4px;margin-bottom:10px"></div>');
-      const crumbBtn = (label, id) => { const b = el(`<button class="btn btn-ghost nb-crumb">${label}</button>`); b.onclick = () => { curId = id; render(); }; return b; };
+      const crumbBtn = (label, id) => { const b = el(`<button class="btn btn-ghost nb-crumb" data-cid="${id || ''}">${label}</button>`); b.onclick = () => { curId = id; render(); }; return b; };
       bc.appendChild(crumbBtn(`${icon('book-open', 13)} Notebook`, null));
       path.forEach((p) => { bc.appendChild(el('<span class="soft">›</span>')); bc.appendChild(crumbBtn(p.name, p.id)); });
       host.appendChild(bc);
@@ -197,19 +219,18 @@ registry.register({
       const kids = childrenArr(widget, curId);
       const contents = el('<div class="nb-contents"></div>');
       if (node) contents.appendChild(el(`<h3 class="soft nb-col-h">CONTENTS</h3>`));
-      if (!curId && !kids.length) contents.appendChild(emptyState('book-open', 'A fresh notebook. Add your first class?'));
+      if (!curId && !kids.length) contents.appendChild(emptyState('book-open', 'A fresh notebook. Add your first class, or import a doc.'));
+      else if (kids.length) contents.appendChild(el('<p class="soft nb-draghint">Tip: drag the ⠿ handle to move a file into another, reorder it, or drop it on a breadcrumb to move it out.</p>'));
       for (const k of kids) contents.appendChild(childRow(k));
-      const addBtn = el(`<button class="btn-soft-wide">${icon('plus', 15)} ${curId ? `Add ${childLevels(node.level).map(l => LMETA[l].label).join(' / ')}` : 'Add class'}</button>`);
-      addBtn.onclick = (e) => addChild(e.currentTarget, curId, node?.level);
+      const addBtn = el(`<button class="btn-soft-wide">${icon('plus', 15)} Add ${curId ? LMETA[childLevels(node.level)[0]].label : 'class'}</button>`);
+      addBtn.onclick = () => addChild(curId, node?.level);
       contents.appendChild(addBtn);
       if (!curId) {
-        const imp = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('upload', 15)} Import notes (paste a doc → tree)</button>`);
+        const imp = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('upload', 15)} Import notes (paste a doc)</button>`);
         imp.onclick = () => openConverter(widget, ctx, () => { curId = null; render(); });
-        const akt = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('wand', 15)} Auto key terms (across topics)</button>`);
-        akt.onclick = () => openAutoKeyTerms(widget, () => render());
-        const mv = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('layers', 15)} Organize (drag &amp; drop)</button>`);
-        mv.onclick = () => openMoveOrganizer(widget, () => render());
-        contents.append(imp, akt, mv);
+        const akt = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('wand', 15)} Auto key terms (whole notebook)</button>`);
+        akt.onclick = () => { const r = runAutoKeyTerms(widget, null); toast(r.made ? `Made ${r.made} key term${r.made === 1 ? '' : 's'} across ${r.touched} note${r.touched === 1 ? '' : 's'}` : 'No --- separators found.', r.made ? 'check' : 'info'); render(); };
+        contents.append(imp, akt);
       }
       host.appendChild(contents);
 
@@ -225,86 +246,127 @@ registry.register({
   }
 });
 
-/* ---- doc → tree converter: paste any doc; headings sort into the tree ---- */
+/* ---- doc → tree converter: paste any doc; Title + headings sort into the tree,
+   keeping bold / italics / underline / highlights / separators ---- */
 function openConverter(widget, ctx, done) {
-  const d = openDrawer({ title: 'Import notes → tree', iconName: 'upload', placement: 'full' });
-  d.body.appendChild(el('<p class="soft" style="font-size:0.86rem;margin-bottom:8px">Paste a Word doc, Google Doc, or web page below — its <b>headings</b> sort into Class → Section → Unit → Topic (in the order they appear), and the text under each heading becomes that node’s notes. Typed Markdown <code>#</code> <code>##</code> <code>###</code> <code>####</code> also works.</p>'));
+  const d = openDrawer({ title: 'Import notes', iconName: 'upload' });
+  d.body.appendChild(el('<p class="soft" style="font-size:0.86rem;margin-bottom:8px">Paste a Word doc, Google Doc, or web page. Its <b>Title</b> and <b>headings</b> become the nested files (Title → Class, then Heading 1 / 2 / 3 → Section / Unit / Topic by depth); the text under each becomes that file’s notes, with <b>bold, italics, underline, highlights and separators kept</b>. Typed <code>#</code> <code>##</code> <code>###</code> headings also work.</p>'));
   d.body.appendChild(el('<label class="soft" style="font-size:0.78rem;display:block;margin-bottom:4px">Paste here</label>'));
-  const paste = el('<div class="note-editor nb-import" contenteditable="true" spellcheck="false" style="min-height:38vh"></div>');
+  const paste = el('<div class="note-editor nb-import" contenteditable="true" spellcheck="false"></div>');
   d.body.appendChild(paste);
   const go = el('<button class="btn btn-primary" style="width:100%;margin-top:10px">Import</button>');
   go.onclick = () => {
     const made = convertDoc(widget, paste.innerHTML.trim() || paste.textContent || '');
-    if (!made) { toast('No headings found — paste a doc with headings, or type # / ## / ### lines.', 'info'); return; }
+    if (!made) { toast('No Title/headings found — add a Title or heading, or type # / ## lines.', 'info'); return; }
     store.put('widgets', widget);
-    d.close(); toast(`Imported ${made} node${made === 1 ? '' : 's'}`, 'book-open');
+    d.close(); toast(`Imported ${made} item${made === 1 ? '' : 's'}`, 'book-open');
     done(); syncImported(widget);
   };
   d.body.appendChild(go);
 }
 
-/** Turn pasted HTML or markdown/plain text into a flat token stream of headings
-    ({depth,name}) and body lines ({body}). Markdown inside pasted HTML still works. */
+const escapeHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** Heading "rank" of an element: 0 = Title, 1 = Heading 1 / h1, 2 = h2, … or null
+    if it's body text. Detects h1–h6, Title/Heading classes (incl. Word Mso*), and
+    large styled paragraphs (Google Docs uses inline font-size, not heading tags). */
+function rankOf(elm) {
+  const tag = elm.tagName.toLowerCase();
+  const hm = tag.match(/^h([1-6])$/); if (hm) return +hm[1];
+  const cls = (elm.className || '').toLowerCase();
+  if (/subtitle/.test(cls)) return 2;
+  if (/title/.test(cls)) return 0;
+  const cm = cls.match(/heading\s*([1-6])/); if (cm) return +cm[1];
+  if (/^(p|div)$/.test(tag)) {
+    const txt = (elm.textContent || '').replace(/\s+/g, ' ').trim();
+    if (txt && txt.length <= 140) {
+      let pt = 0; const scan = (e) => { const s = e.style && e.style.fontSize; if (s) { const m = s.match(/([\d.]+)\s*(pt|px|em|rem)/i); if (m) { let v = parseFloat(m[1]); const u = m[2].toLowerCase(); if (u === 'px') v *= 0.75; else if (u === 'em' || u === 'rem') v *= 12; pt = Math.max(pt, v); } } for (const c of e.children) scan(c); };
+      scan(elm);
+      if (pt >= 13.5) return pt >= 22 ? 0 : pt >= 17 ? 1 : pt >= 14.5 ? 2 : 3;
+    }
+  }
+  return null;
+}
+
+/** Sanitize pasted HTML to safe inline formatting: keep b/i/u/strike/mark/span +
+    color/background/weight/style/decoration, lists, hr, links; drop everything else. */
+const KEEP_TAGS = new Set(['P', 'DIV', 'BR', 'HR', 'UL', 'OL', 'LI', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'MARK', 'SPAN', 'A', 'BLOCKQUOTE']);
+const KEEP_STYLE = ['color', 'background-color', 'font-weight', 'font-style', 'text-decoration', 'text-decoration-line'];
+function cleanNode(node) {
+  for (const child of [...node.childNodes]) {
+    if (child.nodeType === 3) continue;
+    if (child.nodeType !== 1) { child.remove(); continue; }
+    if (!KEEP_TAGS.has(child.tagName)) { while (child.firstChild) node.insertBefore(child.firstChild, child); child.remove(); continue; }
+    const styles = []; for (const p of KEEP_STYLE) { const v = child.style && child.style.getPropertyValue(p); if (v) styles.push(`${p}:${v}`); }
+    const href = child.tagName === 'A' ? child.getAttribute('href') : null;
+    for (const a of [...child.attributes]) child.removeAttribute(a.name);
+    if (styles.length) child.setAttribute('style', styles.join(';'));
+    if (href) child.setAttribute('href', href);
+    cleanNode(child);
+  }
+}
+function cleanFragment(elm) { const w = document.createElement('div'); w.appendChild(elm.cloneNode(true)); cleanNode(w); return w.innerHTML; }
+
+/** Flat token stream: headings { rank, name } and body blocks { html } (formatting
+    preserved). Markdown headings work in plain text and inside pasted HTML. */
 function tokenize(raw) {
   const tokens = [];
-  const asHeadingOrBody = (t) => { const m = t.match(/^(#{1,6})\s+(.+)$/); if (m) tokens.push({ depth: m[1].length, name: m[2].trim() }); else if (t.trim()) tokens.push({ body: t.trim() }); };
+  const md = (t) => { const m = t.trim().match(/^(#{1,6})\s+(.+)$/); return m ? { rank: m[1].length - 1, name: m[2].trim() } : null; };
   if (/<\w+[\s>/]/.test(raw)) {
     const root = document.createElement('div'); root.innerHTML = raw;
-    const depthOf = (elm) => {
-      const m = elm.tagName.toLowerCase().match(/^h([1-6])$/); if (m) return +m[1];
-      const cls = elm.className || '';
-      if (/mso\w*title/i.test(cls)) return 1;
-      const mm = cls.match(/(?:mso\w*)?heading\s*([1-6])/i); if (mm) return +mm[1] + 1; // Word: Heading 1 → depth 2
-      return 0;
-    };
     const visit = (node) => {
       for (const child of node.childNodes) {
-        if (child.nodeType === 3) { asHeadingOrBody(child.textContent); continue; }
+        if (child.nodeType === 3) { const t = child.textContent.trim(); if (t) tokens.push(md(t) || { html: `<p>${escapeHtml(t)}</p>` }); continue; }
         if (child.nodeType !== 1) continue;
-        const depth = depthOf(child);
-        if (depth) { const name = child.textContent.trim(); if (name) tokens.push({ depth, name }); continue; }
-        if (/^(br|hr|img)$/i.test(child.tagName)) continue;
+        const tag = child.tagName.toLowerCase();
+        if (/^(style|script|meta|link|img)$/.test(tag)) continue;
+        if (tag === 'hr') { tokens.push({ html: '<hr>' }); continue; }
+        if (tag === 'br') continue;
+        const rank = rankOf(child);
+        if (rank != null) { const name = child.textContent.replace(/\s+/g, ' ').trim(); if (name) tokens.push({ rank, name }); continue; }
+        const m = md(child.textContent); if (m && !child.querySelector('*')) { tokens.push(m); continue; }
         const hasBlockChild = [...child.children].some(c => /^(h[1-6]|p|div|ul|ol|li|table|section|article|blockquote)$/i.test(c.tagName));
-        if (hasBlockChild) visit(child);
-        else asHeadingOrBody(child.textContent);
+        if (hasBlockChild) { visit(child); continue; }
+        const html = cleanFragment(child);
+        if (html.replace(/<[^>]+>/g, '').trim()) tokens.push({ html });
       }
     };
     visit(root);
   } else {
-    for (const line of raw.split(/\r?\n/)) asHeadingOrBody(line.replace(/\s+$/, ''));
+    for (const line of raw.split(/\r?\n/)) { const t = line.replace(/\s+$/, ''); if (!t.trim()) continue; tokens.push(md(t) || { html: `<p>${escapeHtml(t)}</p>` }); }
   }
   return tokens;
 }
 
-/** Build tree nodes from a doc. Heading depths map ordinally to Class/Section/
-    Unit/Topic (shallowest depth present → Class, next → Section, …). Returns count. */
+/** Build tree nodes from a doc. Heading RANKS (0 = Title, 1 = H1, …) map ordinally
+    to Class/Section/Unit/Topic; a shallower heading after a deeper one walks back up
+    to the right parent. Body blocks keep their formatting. Returns the node count. */
 function convertDoc(widget, raw) {
   const tokens = tokenize(raw);
-  const depths = [...new Set(tokens.filter(t => t.depth).map(t => t.depth))].sort((a, b) => a - b);
-  if (!depths.length) return 0;
-  const levelOf = (depth) => LEVELS[Math.min(depths.indexOf(depth), LEVELS.length - 1)];
-  const lastAt = {}; // depth -> node
+  const ranks = [...new Set(tokens.filter(t => t.rank != null).map(t => t.rank))].sort((a, b) => a - b);
+  if (!ranks.length) return 0;
+  const levelOf = (rank) => LEVELS[Math.min(ranks.indexOf(rank), LEVELS.length - 1)];
+  const lastAt = {}; // rank -> node
   let current = null, made = 0;
   const bodyByNode = new Map();
   for (const tk of tokens) {
-    if (tk.depth) {
+    if (tk.rank != null) {
       let parentArr = tree(widget), parent = null;
-      for (const dd of depths.filter(d => d < tk.depth).sort((a, b) => b - a)) { if (lastAt[dd]) { parent = lastAt[dd]; break; } }
+      for (const rr of ranks.filter(r => r < tk.rank).sort((a, b) => b - a)) { if (lastAt[rr]) { parent = lastAt[rr]; break; } }
       if (parent) { parent.children = parent.children || []; parentArr = parent.children; }
-      const node = { id: ulid(), name: tk.name, level: levelOf(tk.depth), children: [] };
+      const node = { id: ulid(), name: tk.name, level: levelOf(tk.rank), children: [] };
       parentArr.push(node); made++;
-      lastAt[tk.depth] = node;
-      for (const d of depths) if (d > tk.depth) delete lastAt[d]; // deeper levels reset
+      lastAt[tk.rank] = node;
+      for (const r of ranks) if (r > tk.rank) delete lastAt[r]; // deeper levels reset
       current = node;
-    } else if (current && tk.body) {
+    } else if (current && tk.html) {
       if (!bodyByNode.has(current)) bodyByNode.set(current, []);
-      bodyByNode.get(current).push(tk.body);
+      bodyByNode.get(current).push(tk.html);
     }
   }
-  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  for (const [node, lines] of bodyByNode) {
+  for (const [node, htmls] of bodyByNode) {
     const note = topicNote(widget, node.id);
-    note.data.html = lines.map(l => `<p>${esc(l)}</p>`).join('');
+    note.data.html = htmls.join('');
     note.data.editedAt = Date.now();
     store.put('objects', note);
   }
@@ -319,116 +381,23 @@ function syncImported(widget) {
   });
 }
 
-/* ---- batch: auto key terms across many nodes ---- */
-function nodeCheckTree(widget, sel) {
-  const treeEl = el('<div class="qz-tree"></div>');
-  walk(tree(widget), (n, p) => {
-    const row = el(`<label class="qz-node row" style="gap:6px;padding-left:${p.length * 16}px"><input type="checkbox"><span>${icon(LMETA[n.level].icon, 13)} <span class="nb-cn"></span></span></label>`);
-    row.querySelector('.nb-cn').textContent = n.name;
-    row.querySelector('input').onchange = (e) => (e.target.checked ? sel.add(n.id) : sel.delete(n.id));
-    treeEl.appendChild(row);
-  });
-  return treeEl;
-}
-function openAutoKeyTerms(widget, done) {
-  const sel = new Set();
-  const d = openDrawer({ title: 'Auto key terms', iconName: 'wand', placement: 'full' });
-  d.body.appendChild(el('<p class="soft" style="font-size:0.86rem;margin-bottom:8px">Tick any classes, sections, units, or topics. Every block wrapped in <code>---</code> separators in their notes (and everything inside them) becomes a Key Term.</p>'));
-  d.body.appendChild(nodeCheckTree(widget, sel));
-  const go = el('<button class="btn btn-primary" style="width:100%;margin-top:10px">Run</button>');
-  go.onclick = () => {
-    if (!sel.size) { toast('Tick at least one.', 'info'); return; }
-    const targets = new Set();
-    for (const id of sel) { const node = pathTo(widget, id)?.slice(-1)[0]; if (node) for (const did of descendantIds(node)) targets.add(did); }
-    let made = 0, touched = 0;
-    for (const nid of targets) {
-      const note = objectsOf(widget.id, 'topicNote').find(o => o.data.topicId === nid);
-      if (!note || !note.data.html) continue;
-      const r = autoKeyTermsHtml(note.data.html);
-      if (!r.made) continue;
-      note.data.html = r.html; note.data.editedAt = Date.now(); store.put('objects', note);
-      const p = pathTo(widget, nid);
-      syncTopicElements(widget, { node: p.slice(-1)[0], path: p.map(x => ({ id: x.id, name: x.name, level: x.level })), note });
-      made += r.made; touched++;
-    }
-    d.close();
-    toast(made ? `Made ${made} key term${made === 1 ? '' : 's'} across ${touched} note${touched === 1 ? '' : 's'}` : 'No --- separators found in those notes.', made ? 'check' : 'info');
-    done();
-  };
-  d.body.appendChild(go);
+/* ---- batch: auto key terms across a node (and everything inside it) ---- */
+function runAutoKeyTerms(widget, rootId) {
+  const targets = new Set();
+  if (rootId) { const n = pathTo(widget, rootId)?.slice(-1)[0]; if (n) for (const did of descendantIds(n)) targets.add(did); }
+  else walk(tree(widget), (n) => targets.add(n.id));
+  let made = 0, touched = 0;
+  for (const nid of targets) {
+    const note = objectsOf(widget.id, 'topicNote').find(o => o.data.topicId === nid);
+    if (!note || !note.data.html) continue;
+    const r = autoKeyTermsHtml(note.data.html);
+    if (!r.made) continue;
+    note.data.html = r.html; note.data.editedAt = Date.now(); store.put('objects', note);
+    const p = pathTo(widget, nid);
+    syncTopicElements(widget, { node: p.slice(-1)[0], path: p.map(x => ({ id: x.id, name: x.name, level: x.level })), note });
+    made += r.made; touched++;
+  }
+  store.put('widgets', widget);
+  return { made, touched };
 }
 
-/* ---- move / organize ---- */
-function openMovePicker(widget, ids, done) {
-  const moving = new Set();
-  for (const id of ids) { const n = pathTo(widget, id)?.slice(-1)[0]; if (n) for (const did of descendantIds(n)) moving.add(did); }
-  const d = openDrawer({ title: ids.length > 1 ? `Move ${ids.length} items to…` : 'Move to…', iconName: 'arrow-right' });
-  const list = el('<div class="nb-list"></div>');
-  const destBtn = (label, destId, depth) => { const b = el(`<button class="list-item" style="padding-left:${depth * 14 + 12}px"><span class="li-main"><span class="li-title"></span></span></button>`); b.querySelector('.li-title').textContent = label; b.onclick = () => { reparent(widget, ids, destId); store.put('widgets', widget); d.close(); toast('Moved', 'check'); done(); }; return b; };
-  list.appendChild(destBtn('▲ Top level', null, 0));
-  walk(tree(widget), (n, p) => { if (moving.has(n.id)) return; list.appendChild(destBtn(n.name, n.id, p.length + 1)); });
-  d.body.appendChild(list);
-}
-function openMoveOrganizer(widget, done) {
-  const d = openDrawer({ title: 'Organize — drag & drop', iconName: 'layers', placement: 'full' });
-  d.body.appendChild(el('<p class="soft" style="font-size:0.86rem;margin-bottom:8px">Drag a row by its handle (⠿). Drop <b>onto</b> a row to put it inside; drop on a row’s <b>top/bottom edge</b> to reorder; drop on <b>Top level</b> to pull it out to a class.</p>'));
-  const scroll = el('<div class="nb-org"></div>');
-  d.body.appendChild(scroll);
-
-  let drag = null;
-  const clearHints = () => scroll.querySelectorAll('.drop-inside,.drop-before,.drop-after,.drop-top').forEach(e => e.classList.remove('drop-inside', 'drop-before', 'drop-after', 'drop-top'));
-
-  const render = () => {
-    scroll.innerHTML = '';
-    scroll.appendChild(el(`<div class="nb-org-top" data-top="1">${icon('arrow-up', 13)} Top level (Class)</div>`));
-    walk(tree(widget), (n, p) => {
-      const row = el(`<div class="nb-org-row" data-id="${n.id}" style="padding-left:${4 + p.length * 18}px"><span class="nb-org-h" title="Drag to move">⠿</span>${icon(LMETA[n.level].icon, 14)}<span class="nb-org-name"></span></div>`);
-      row.querySelector('.nb-org-name').textContent = n.name;
-      scroll.appendChild(row);
-    });
-  };
-
-  const onMove = (e) => {
-    if (!drag) return;
-    const x = e.clientX, y = e.clientY;
-    if (!drag.started) { if (Math.hypot(x - drag.sx, y - drag.sy) < 5) return; drag.started = true; drag.ghost.style.display = 'block'; }
-    drag.ghost.style.left = x + 'px'; drag.ghost.style.top = y + 'px';
-    const sr = scroll.getBoundingClientRect();
-    if (y < sr.top + 28) scroll.scrollTop -= 9; else if (y > sr.bottom - 28) scroll.scrollTop += 9;
-    clearHints(); drag.target = null;
-    drag.ghost.style.visibility = 'hidden';
-    const under = document.elementFromPoint(x, y);
-    drag.ghost.style.visibility = 'visible';
-    const top = under?.closest('.nb-org-top');
-    if (top) { top.classList.add('drop-top'); drag.target = { top: true }; return; }
-    const row = under?.closest('.nb-org-row');
-    if (!row || row.dataset.id === drag.id) return;
-    const r = row.getBoundingClientRect(), rel = (y - r.top) / r.height;
-    const mode = rel < 0.28 ? 'before' : rel > 0.72 ? 'after' : 'inside';
-    row.classList.add('drop-' + mode);
-    drag.target = { id: row.dataset.id, mode };
-  };
-  const onUp = () => {
-    if (!drag) return;
-    if (drag.started && drag.target) {
-      if (drag.target.top) moveNode(widget, drag.id, null, 'inside');
-      else moveNode(widget, drag.id, drag.target.id, drag.target.mode);
-      store.put('widgets', widget); done();
-    }
-    drag.ghost.remove();
-    window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);
-    drag = null; clearHints(); render();
-  };
-
-  scroll.addEventListener('pointerdown', (e) => {
-    const handle = e.target.closest('.nb-org-h'); if (!handle) return; // only the grip starts a drag (taps/scroll elsewhere)
-    const row = handle.closest('.nb-org-row'); if (!row) return;
-    e.preventDefault();
-    const ghost = el('<div class="nb-org-ghost"></div>'); ghost.textContent = row.querySelector('.nb-org-name').textContent;
-    ghost.style.display = 'none'; document.body.appendChild(ghost);
-    drag = { id: row.dataset.id, ghost, started: false, sx: e.clientX, sy: e.clientY, target: null };
-    window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
-  });
-
-  render();
-}

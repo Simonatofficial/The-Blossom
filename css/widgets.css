@@ -645,6 +645,17 @@ span.anno { padding: 0 3px; }
 .nb-org-row.drop-before { box-shadow: inset 0 3px 0 var(--accent); }
 .nb-org-row.drop-after { box-shadow: inset 0 -3px 0 var(--accent); }
 .nb-org-ghost { position: fixed; z-index: 80; pointer-events: none; transform: translate(10px, 8px); background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; padding: 4px 11px; font-size: 0.85rem; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22); backdrop-filter: blur(12px); }
+/* inline drag & drop on the contents rows */
+.nb-grip { cursor: grab; touch-action: none; color: var(--text-soft); padding: 0 6px 0 0; font-size: 1rem; letter-spacing: -2px; opacity: 0.5; }
+.nb-grip:hover { opacity: 1; }
+.nb-node { position: relative; }
+.nb-node.nb-dragging { opacity: 0.4; }
+.nb-node.drop-inside { background: var(--accent-soft); outline: 1.5px solid var(--accent); outline-offset: -1px; }
+.nb-node.drop-before { box-shadow: inset 0 3px 0 var(--accent); }
+.nb-node.drop-after { box-shadow: inset 0 -3px 0 var(--accent); }
+.nb-crumb.crumb-drop { background: var(--accent-soft); outline: 1.5px solid var(--accent); }
+.nb-draghint { font-size: 0.74rem; margin: 0 0 6px; opacity: 0.85; }
+.nb-import { min-height: 34vh; max-height: 52vh; overflow-y: auto; }
 .nb-wide { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; align-items: start; margin-bottom: 14px; }
 .nb-col { min-width: 0; }
 .nb-col-h { font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 6px; }
@@ -760,10 +771,15 @@ span.anno { padding: 0 3px; }
 }
 .qz-cell.sel { border-color: var(--accent); box-shadow: 0 0 8px var(--glow); }
 .qz-cell.done { opacity: 0.35; pointer-events: none; }
-/* V2 §27 quiz overhaul */
-.qz-tree { margin-bottom: 14px; max-height: 240px; overflow-y: auto; }
-.qz-node { padding: 4px 0; align-items: center; }
+/* V2 §27 quiz overhaul — selection trees (quiz scope, flashcard sets) cleaned up */
+.qz-tree, .fc-set-tree { margin-bottom: 14px; max-height: 42vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; padding: 6px; background: var(--surface-alt); }
+.qz-node { padding: 7px 9px; align-items: center; border-radius: 9px; cursor: pointer; }
+.qz-node:hover { background: var(--accent-soft); }
+.qz-node input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; flex: none; }
 .qz-node span:nth-child(2) { flex: 1; }
+.fc-set-tree label { padding: 6px 8px; border-radius: 9px; }
+.fc-set-tree label:hover { background: var(--accent-soft); }
+.fc-set-tree input[type="checkbox"] { accent-color: var(--accent); }
 .qz-opt.qz-sel { border-color: var(--accent); }
 .qz-opt.qz-correct { border-color: var(--success); background: color-mix(in srgb, var(--success) 16%, transparent); }
 .qz-opt.qz-wrong { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
