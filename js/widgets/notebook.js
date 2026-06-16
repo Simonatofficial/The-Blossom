@@ -11,7 +11,7 @@ import { ulid } from '../core/ids.js';
 import { icon } from '../ui/icons.js';
 import { el, popMenu, promptText, confirmDialog, emptyState, toast, openDrawer } from '../ui/components.js';
 import { objectsOf, createObject } from './base.js';
-import { htmlToText } from './notebook-parse.js';
+import { htmlToText, autoKeyTermsHtml, syncTopicElements } from './notebook-parse.js';
 import { renderTopicArea } from './notebook-editor.js';
 
 const LEVELS = ['class', 'section', 'unit', 'topic'];
@@ -42,6 +42,29 @@ function removeNode(widget, id) {
   for (const o of objectsOf(widget.id, 'element')) if (ids.has(o.data.topicId)) store.del('objects', o.id);
   const prune = (arr) => { const i = arr.findIndex(x => x.id === id); if (i >= 0) { arr.splice(i, 1); return true; } return arr.some(x => x.children && prune(x.children)); };
   prune(tree(widget));
+}
+/** Swap a node with its previous/next sibling (dir -1/+1). */
+function moveSibling(widget, id, dir) {
+  const path = pathTo(widget, id); if (!path) return;
+  const arr = path.length > 1 ? (path[path.length - 2].children || []) : tree(widget);
+  const i = arr.findIndex(x => x.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= arr.length) return;
+  [arr[i], arr[j]] = [arr[j], arr[i]];
+}
+/** Reparent nodes under destId (null = top level). Skips moves into self/descendants
+    and drops ids nested under another selected id. */
+function reparent(widget, ids, destId) {
+  const set = new Set(ids);
+  ids = ids.filter(id => { const p = pathTo(widget, id); return p && !p.slice(0, -1).some(a => set.has(a.id)); });
+  const dest = destId ? pathTo(widget, destId)?.slice(-1)[0] : null;
+  for (const id of ids) {
+    const path = pathTo(widget, id); if (!path) continue;
+    const node = path[path.length - 1];
+    if (destId && (destId === id || descendantIds(node).includes(destId))) continue;
+    const arr = path.length > 1 ? path[path.length - 2].children : tree(widget);
+    const i = arr.findIndex(x => x.id === id); if (i >= 0) arr.splice(i, 1);
+    (dest ? (dest.children || (dest.children = [])) : tree(widget)).push(node);
+  }
 }
 
 /** The note object for any node (created on demand). */
@@ -113,6 +136,9 @@ registry.register({
 
     const rowMenu = (anchor, node) => popMenu(anchor, [
       { label: 'Rename', iconName: 'edit', fn: async () => { const n = await promptText({ title: `Rename ${node.name}`, value: node.name }); if (n) { node.name = n; save(); render(); } } },
+      { label: 'Move up', iconName: 'chevron-up', fn: () => { moveSibling(widget, node.id, -1); save(); render(); } },
+      { label: 'Move down', iconName: 'chevron-down', fn: () => { moveSibling(widget, node.id, 1); save(); render(); } },
+      { label: 'Move to…', iconName: 'arrow-right', fn: () => openMovePicker(widget, [node.id], () => render()) },
       { label: 'Delete', iconName: 'trash', danger: true, fn: async () => { if (await confirmDialog({ title: `Delete “${node.name}”?`, message: 'Its notes and everything inside go to the trash.' })) { removeNode(widget, node.id); if (curId === node.id) curId = pathTo(widget, node.id) ? null : curId; save(); render(); } } }
     ]);
 
@@ -156,7 +182,15 @@ registry.register({
       const addBtn = el(`<button class="btn-soft-wide">${icon('plus', 15)} ${curId ? `Add ${childLevels(node.level).map(l => LMETA[l].label).join(' / ')}` : 'Add class'}</button>`);
       addBtn.onclick = (e) => addChild(e.currentTarget, curId, node?.level);
       contents.appendChild(addBtn);
-      if (!curId) { const imp = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('upload', 15)} Import notes (doc → tree)</button>`); imp.onclick = () => openConverter(widget, ctx, () => { curId = null; render(); }); contents.appendChild(imp); }
+      if (!curId) {
+        const imp = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('upload', 15)} Import notes (paste a doc → tree)</button>`);
+        imp.onclick = () => openConverter(widget, ctx, () => { curId = null; render(); });
+        const akt = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('wand', 15)} Auto key terms (across topics)</button>`);
+        akt.onclick = () => openAutoKeyTerms(widget, () => render());
+        const mv = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('layers', 15)} Move / organize</button>`);
+        mv.onclick = () => openMoveOrganizer(widget, () => render());
+        contents.append(imp, akt, mv);
+      }
       host.appendChild(contents);
 
       // this node's own notes
@@ -171,59 +205,82 @@ registry.register({
   }
 });
 
-/* ---- doc → tree converter (Title=Class, H1=Section, H2=Unit, H3=Topic) ---- */
+/* ---- doc → tree converter: paste any doc; headings sort into the tree ---- */
 function openConverter(widget, ctx, done) {
-  const d = openDrawer({ title: 'Import notes → tree', iconName: 'upload' });
-  d.body.appendChild(el('<p class="soft" style="font-size:0.84rem;margin-bottom:8px">Paste clean notes. <b>Title</b> → Class, <b>Heading 1</b> → Section, <b>Heading 2</b> → Unit, <b>Heading 3</b> → Topic. Text under a heading becomes that node\'s notes. Use Markdown (#, ##, ###, # for title is one #? — here: a line of all-caps or “Title:” → Class) or paste HTML from the editor.</p>'));
-  d.body.appendChild(el('<p class="soft" style="font-size:0.8rem;margin-bottom:6px">Markdown headings: <code># Title→Class</code> · <code>## →Section</code> · <code>### →Unit</code> · <code>#### →Topic</code>.</p>'));
-  const ta = el('<textarea class="textarea" rows="10" placeholder="# Biology 101\nIntro to the class…\n## Genetics\n### Mendel\n#### Punnett squares\nA grid for predicting genotypes."></textarea>');
-  d.body.appendChild(ta);
+  const d = openDrawer({ title: 'Import notes → tree', iconName: 'upload', placement: 'full' });
+  d.body.appendChild(el('<p class="soft" style="font-size:0.86rem;margin-bottom:8px">Paste a Word doc, Google Doc, or web page below — its <b>headings</b> sort into Class → Section → Unit → Topic (in the order they appear), and the text under each heading becomes that node’s notes. Typed Markdown <code>#</code> <code>##</code> <code>###</code> <code>####</code> also works.</p>'));
+  d.body.appendChild(el('<label class="soft" style="font-size:0.78rem;display:block;margin-bottom:4px">Paste here</label>'));
+  const paste = el('<div class="note-editor nb-import" contenteditable="true" spellcheck="false" style="min-height:38vh"></div>');
+  d.body.appendChild(paste);
   const go = el('<button class="btn btn-primary" style="width:100%;margin-top:10px">Import</button>');
   go.onclick = () => {
-    const made = convertDoc(widget, ta.value);
-    if (!made) { toast('Add at least one # Title / heading.', 'info'); return; }
+    const made = convertDoc(widget, paste.innerHTML.trim() || paste.textContent || '');
+    if (!made) { toast('No headings found — paste a doc with headings, or type # / ## / ### lines.', 'info'); return; }
     store.put('widgets', widget);
     d.close(); toast(`Imported ${made} node${made === 1 ? '' : 's'}`, 'book-open');
-    done();
-    syncImported(widget);
+    done(); syncImported(widget);
   };
   d.body.appendChild(go);
 }
 
-/** Parse markdown-ish (or pasted HTML) into the tree. Returns node count added. */
-function convertDoc(widget, raw) {
-  // normalize pasted HTML headings → markdown; otherwise treat as markdown/plain
-  let text = raw;
-  if (/<h[1-4]|<p|<div/i.test(raw)) {
-    text = raw.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '\n# $1\n').replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n## $1\n')
-      .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n### $1\n').replace(/<h4[^>]*>(.*?)<\/h4>/gi, '\n#### $1\n')
-      .replace(/<\/(p|div|li)>/gi, '\n').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
-    const dec = document.createElement('textarea'); dec.innerHTML = text; text = dec.value;
+/** Turn pasted HTML or markdown/plain text into a flat token stream of headings
+    ({depth,name}) and body lines ({body}). Markdown inside pasted HTML still works. */
+function tokenize(raw) {
+  const tokens = [];
+  const asHeadingOrBody = (t) => { const m = t.match(/^(#{1,6})\s+(.+)$/); if (m) tokens.push({ depth: m[1].length, name: m[2].trim() }); else if (t.trim()) tokens.push({ body: t.trim() }); };
+  if (/<\w+[\s>/]/.test(raw)) {
+    const root = document.createElement('div'); root.innerHTML = raw;
+    const depthOf = (elm) => {
+      const m = elm.tagName.toLowerCase().match(/^h([1-6])$/); if (m) return +m[1];
+      const cls = elm.className || '';
+      if (/mso\w*title/i.test(cls)) return 1;
+      const mm = cls.match(/(?:mso\w*)?heading\s*([1-6])/i); if (mm) return +mm[1] + 1; // Word: Heading 1 → depth 2
+      return 0;
+    };
+    const visit = (node) => {
+      for (const child of node.childNodes) {
+        if (child.nodeType === 3) { asHeadingOrBody(child.textContent); continue; }
+        if (child.nodeType !== 1) continue;
+        const depth = depthOf(child);
+        if (depth) { const name = child.textContent.trim(); if (name) tokens.push({ depth, name }); continue; }
+        if (/^(br|hr|img)$/i.test(child.tagName)) continue;
+        const hasBlockChild = [...child.children].some(c => /^(h[1-6]|p|div|ul|ol|li|table|section|article|blockquote)$/i.test(c.tagName));
+        if (hasBlockChild) visit(child);
+        else asHeadingOrBody(child.textContent);
+      }
+    };
+    visit(root);
+  } else {
+    for (const line of raw.split(/\r?\n/)) asHeadingOrBody(line.replace(/\s+$/, ''));
   }
-  const LV = { 1: 'class', 2: 'section', 3: 'unit', 4: 'topic' };
-  const lastAt = {}; // level -> node
+  return tokens;
+}
+
+/** Build tree nodes from a doc. Heading depths map ordinally to Class/Section/
+    Unit/Topic (shallowest depth present → Class, next → Section, …). Returns count. */
+function convertDoc(widget, raw) {
+  const tokens = tokenize(raw);
+  const depths = [...new Set(tokens.filter(t => t.depth).map(t => t.depth))].sort((a, b) => a - b);
+  if (!depths.length) return 0;
+  const levelOf = (depth) => LEVELS[Math.min(depths.indexOf(depth), LEVELS.length - 1)];
+  const lastAt = {}; // depth -> node
   let current = null, made = 0;
-  const bodyByNode = new Map(); // node -> [lines]
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.replace(/\s+$/, '');
-    const m = line.match(/^(#{1,4})\s+(.+)$/);
-    if (m) {
-      const depth = m[1].length, level = LV[depth], name = m[2].trim();
-      // parent = nearest existing shallower node
+  const bodyByNode = new Map();
+  for (const tk of tokens) {
+    if (tk.depth) {
       let parentArr = tree(widget), parent = null;
-      for (let dd = depth - 1; dd >= 1; dd--) { if (lastAt[dd]) { parent = lastAt[dd]; break; } }
+      for (const dd of depths.filter(d => d < tk.depth).sort((a, b) => b - a)) { if (lastAt[dd]) { parent = lastAt[dd]; break; } }
       if (parent) { parent.children = parent.children || []; parentArr = parent.children; }
-      const node = { id: ulid(), name, level, children: [] };
+      const node = { id: ulid(), name: tk.name, level: levelOf(tk.depth), children: [] };
       parentArr.push(node); made++;
-      lastAt[depth] = node;
-      for (let dd = depth + 1; dd <= 4; dd++) delete lastAt[dd]; // deeper levels reset
+      lastAt[tk.depth] = node;
+      for (const d of depths) if (d > tk.depth) delete lastAt[d]; // deeper levels reset
       current = node;
-    } else if (current && line.trim()) {
+    } else if (current && tk.body) {
       if (!bodyByNode.has(current)) bodyByNode.set(current, []);
-      bodyByNode.get(current).push(line);
+      bodyByNode.get(current).push(tk.body);
     }
   }
-  // write bodies as the node's note html
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   for (const [node, lines] of bodyByNode) {
     const note = topicNote(widget, node.id);
@@ -234,12 +291,70 @@ function convertDoc(widget, raw) {
   return made;
 }
 
-/** Re-derive elements for every imported node that got a note. */
+/** Re-derive elements for every node that has a note (after import). */
 function syncImported(widget) {
-  import('./notebook-parse.js').then(({ syncTopicElements }) => {
-    walk(tree(widget), (n, p) => {
-      const note = objectsOf(widget.id, 'topicNote').find(o => o.data.topicId === n.id);
-      if (note && note.data.html) syncTopicElements(widget, { node: n, path: [...p, n].map(x => ({ id: x.id, name: x.name, level: x.level })), note });
-    });
+  walk(tree(widget), (n, p) => {
+    const note = objectsOf(widget.id, 'topicNote').find(o => o.data.topicId === n.id);
+    if (note && note.data.html) syncTopicElements(widget, { node: n, path: [...p, n].map(x => ({ id: x.id, name: x.name, level: x.level })), note });
   });
+}
+
+/* ---- batch: auto key terms across many nodes ---- */
+function nodeCheckTree(widget, sel) {
+  const treeEl = el('<div class="qz-tree"></div>');
+  walk(tree(widget), (n, p) => {
+    const row = el(`<label class="qz-node row" style="gap:6px;padding-left:${p.length * 16}px"><input type="checkbox"><span>${icon(LMETA[n.level].icon, 13)} <span class="nb-cn"></span></span></label>`);
+    row.querySelector('.nb-cn').textContent = n.name;
+    row.querySelector('input').onchange = (e) => (e.target.checked ? sel.add(n.id) : sel.delete(n.id));
+    treeEl.appendChild(row);
+  });
+  return treeEl;
+}
+function openAutoKeyTerms(widget, done) {
+  const sel = new Set();
+  const d = openDrawer({ title: 'Auto key terms', iconName: 'wand', placement: 'full' });
+  d.body.appendChild(el('<p class="soft" style="font-size:0.86rem;margin-bottom:8px">Tick any classes, sections, units, or topics. Every block wrapped in <code>---</code> separators in their notes (and everything inside them) becomes a Key Term.</p>'));
+  d.body.appendChild(nodeCheckTree(widget, sel));
+  const go = el('<button class="btn btn-primary" style="width:100%;margin-top:10px">Run</button>');
+  go.onclick = () => {
+    if (!sel.size) { toast('Tick at least one.', 'info'); return; }
+    const targets = new Set();
+    for (const id of sel) { const node = pathTo(widget, id)?.slice(-1)[0]; if (node) for (const did of descendantIds(node)) targets.add(did); }
+    let made = 0, touched = 0;
+    for (const nid of targets) {
+      const note = objectsOf(widget.id, 'topicNote').find(o => o.data.topicId === nid);
+      if (!note || !note.data.html) continue;
+      const r = autoKeyTermsHtml(note.data.html);
+      if (!r.made) continue;
+      note.data.html = r.html; note.data.editedAt = Date.now(); store.put('objects', note);
+      const p = pathTo(widget, nid);
+      syncTopicElements(widget, { node: p.slice(-1)[0], path: p.map(x => ({ id: x.id, name: x.name, level: x.level })), note });
+      made += r.made; touched++;
+    }
+    d.close();
+    toast(made ? `Made ${made} key term${made === 1 ? '' : 's'} across ${touched} note${touched === 1 ? '' : 's'}` : 'No --- separators found in those notes.', made ? 'check' : 'info');
+    done();
+  };
+  d.body.appendChild(go);
+}
+
+/* ---- move / organize ---- */
+function openMovePicker(widget, ids, done) {
+  const moving = new Set();
+  for (const id of ids) { const n = pathTo(widget, id)?.slice(-1)[0]; if (n) for (const did of descendantIds(n)) moving.add(did); }
+  const d = openDrawer({ title: ids.length > 1 ? `Move ${ids.length} items to…` : 'Move to…', iconName: 'arrow-right' });
+  const list = el('<div class="nb-list"></div>');
+  const destBtn = (label, destId, depth) => { const b = el(`<button class="list-item" style="padding-left:${depth * 14 + 12}px"><span class="li-main"><span class="li-title"></span></span></button>`); b.querySelector('.li-title').textContent = label; b.onclick = () => { reparent(widget, ids, destId); store.put('widgets', widget); d.close(); toast('Moved', 'check'); done(); }; return b; };
+  list.appendChild(destBtn('▲ Top level', null, 0));
+  walk(tree(widget), (n, p) => { if (moving.has(n.id)) return; list.appendChild(destBtn(n.name, n.id, p.length + 1)); });
+  d.body.appendChild(list);
+}
+function openMoveOrganizer(widget, done) {
+  const sel = new Set();
+  const d = openDrawer({ title: 'Move / organize', iconName: 'layers', placement: 'full' });
+  d.body.appendChild(el('<p class="soft" style="font-size:0.86rem;margin-bottom:8px">Tick the classes, sections, units, or topics to move, then pick where they go.</p>'));
+  d.body.appendChild(nodeCheckTree(widget, sel));
+  const go = el('<button class="btn btn-primary" style="width:100%;margin-top:10px">Move selected to…</button>');
+  go.onclick = () => { if (!sel.size) { toast('Tick at least one.', 'info'); return; } openMovePicker(widget, [...sel], () => { d.close(); done(); }); };
+  d.body.appendChild(go);
 }

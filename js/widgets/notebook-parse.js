@@ -7,6 +7,7 @@
    them via moduleElements(). No bracket syntax is ever written into the text. */
 
 import { store } from '../core/store.js';
+import { ulid } from '../core/ids.js';
 import { objectsOf, createObject } from './base.js';
 
 /** Strip HTML to plain text, turning block boundaries + <br> into newlines. */
@@ -27,7 +28,7 @@ function splitInline(def) {
   const exParts = def.split(/\s+\d+[.)]\s+/);
   if (exParts.length > 1) { def = exParts[0]; examples = exParts.slice(1); }
   let details = [];
-  const detParts = def.split(/\s+[-–—*•]\s+/);
+  const detParts = def.split(/\s+[-*•]\s+/); // hyphen/asterisk/bullet only — NOT em/en dash (those are prose punctuation)
   if (detParts.length > 1) { def = detParts[0]; details = detParts.slice(1); }
   return { definition: def.trim(), details: details.map(s => s.trim()).filter(Boolean), examples: examples.map(s => s.trim()).filter(Boolean) };
 }
@@ -42,20 +43,55 @@ function splitInline(def) {
 export function parseKeyTermText(text) {
   const lines = (text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
   if (!lines.length) return { term: '', definition: '', details: [], examples: [] };
-  let term = '', rest = '';
   const m = lines[0].match(/^([^:⟦⟧\n]{1,60}):\s*(.*)$/);
-  if (m) { term = m[1].trim(); rest = m[2].trim(); }
-  else { term = lines[0]; rest = ''; }
-  const parts = splitInline(rest);
-  const details = parts.details, examples = parts.examples;
-  let definition = parts.definition;
-  for (const line of lines.slice(1)) {
-    let mm;
-    if ((mm = line.match(/^[-–—*•]\s+(.*)/))) details.push(mm[1].trim());
-    else if ((mm = line.match(/^(?:\d+|#)[.)]\s+(.*)/))) examples.push(mm[1].trim());
-    else definition = definition ? `${definition} ${line}` : line; // prose continuation
+  const term = (m ? m[1] : lines[0]).trim();
+  const firstRest = (m ? m[2] : '').trim();
+  const rest = lines.slice(1);
+  const detailRe = /^[-–—*•]\s+(.*)/, exRe = /^(?:\d+|#)[.)]\s+(.*)/;
+  const details = [], examples = [];
+  let definition;
+  if (!rest.length) {
+    // single compact line — may pack "def - detail 1. example" inline
+    const parts = splitInline(firstRest);
+    definition = parts.definition; details.push(...parts.details); examples.push(...parts.examples);
+  } else {
+    // multi-line — the first line's text is the definition VERBATIM (em-dashes and
+    // all); only subsequent marker lines become details/examples. This stops prose
+    // like "marking locations — traditionally with chalk" being split into details.
+    definition = firstRest;
+    for (const line of rest) {
+      let mm;
+      if ((mm = detailRe.exec(line))) details.push(mm[1].trim());
+      else if ((mm = exRe.exec(line))) examples.push(mm[1].trim());
+      else definition = definition ? `${definition} ${line}` : line; // prose continuation
+    }
   }
   return { term, definition: definition.trim(), details, examples };
+}
+
+/** Wrap every block between --- separators (a literal dashes-only line OR an
+    <hr>) as a Key Term annotation; the separators themselves are removed.
+    Used by the editor's wand and the notebook-wide batch action.
+    @returns {{html:string, made:number}} */
+export function autoKeyTermsHtml(html) {
+  const root = document.createElement('div');
+  root.innerHTML = html || '';
+  const isSep = (n) => n.nodeName === 'HR' || (n.nodeType === 1 && /^[-–—_]{3,}$/.test((n.textContent || '').trim()));
+  const kids = [...root.childNodes];
+  const sepIdx = kids.map((n, i) => (isSep(n) ? i : -1)).filter(i => i >= 0);
+  if (sepIdx.length < 2) return { html, made: 0 };
+  let made = 0;
+  for (let p = 0; p < sepIdx.length - 1; p++) {
+    const between = kids.slice(sepIdx[p] + 1, sepIdx[p + 1]).filter(n => n.nodeType === 1 || (n.nodeType === 3 && n.textContent.trim()));
+    if (!between.length || !between.map(n => n.textContent || '').join('').trim()) continue;
+    if (between.length === 1 && between[0].nodeType === 1 && between[0].classList?.contains('anno-keyterm')) continue;
+    const wrap = document.createElement('div'); wrap.className = 'anno anno-keyterm'; wrap.dataset.aid = ulid();
+    root.insertBefore(wrap, between[0]);
+    for (const n of between) wrap.appendChild(n);
+    made++;
+  }
+  if (made) for (const i of sepIdx) { const n = kids[i]; if (n && n.parentNode === root) n.remove(); }
+  return { html: root.innerHTML, made };
 }
 
 const ANNO_TYPE = { 'anno-keyterm': 'term', 'anno-theme': 'theme', 'anno-concept': 'concept', 'anno-idea': 'idea', 'anno-comment': 'comment' };

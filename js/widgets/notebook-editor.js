@@ -11,7 +11,7 @@ import { ulid } from '../core/ids.js';
 import { icon } from '../ui/icons.js';
 import { el, popMenu, toast } from '../ui/components.js';
 import { saveObject } from './base.js';
-import { syncTopicElements, legacyTextToHtml } from './notebook-parse.js';
+import { syncTopicElements, legacyTextToHtml, autoKeyTermsHtml } from './notebook-parse.js';
 import { openNodePicker } from '../ui/picker.js';
 
 /** Convert a legacy plain-text note to HTML the first time it's opened. */
@@ -177,19 +177,9 @@ export function renderTopicArea(host, widget, tctx, ctx) {
     };
     /* §W fix #2b: turn every block between --- separators into a Key Term. */
     const autoKeyTerms = () => {
-      const hrs = [...editor.childNodes].filter(n => n.nodeName === 'HR');
-      if (hrs.length < 2) { toast('Wrap each term in --- separators (the divider) first.', 'info'); return; }
-      let made = 0;
-      for (let p = 0; p < hrs.length - 1; p++) {
-        const between = []; let n = hrs[p].nextSibling; while (n && n !== hrs[p + 1]) { between.push(n); n = n.nextSibling; }
-        if (!between.length || !between.map(x => x.textContent || '').join('').trim()) continue;
-        if (between.length === 1 && between[0].nodeType === 1 && between[0].classList?.contains('anno-keyterm')) continue;
-        const wrap = document.createElement('div'); wrap.className = 'anno anno-keyterm'; wrap.dataset.aid = ulid();
-        editor.insertBefore(wrap, between[0]);
-        for (const b of between) wrap.appendChild(b);
-        made++;
-      }
-      if (made) { save(editor); toast(`Made ${made} key term${made === 1 ? '' : 's'}`, 'check'); } else toast('Nothing between separators to tag.', 'info');
+      const { html, made } = autoKeyTermsHtml(editor.innerHTML);
+      if (!made) { toast('Wrap each term in --- separators — the divider button, or three hyphens (---) on their own line.', 'info'); return; }
+      editor.innerHTML = html; save(editor); toast(`Made ${made} key term${made === 1 ? '' : 's'}`, 'check');
     };
 
     const applyAnno = (type) => {
