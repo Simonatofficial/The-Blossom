@@ -27,7 +27,7 @@ function splitInline(def) {
   const exParts = def.split(/\s+\d+[.)]\s+/);
   if (exParts.length > 1) { def = exParts[0]; examples = exParts.slice(1); }
   let details = [];
-  const detParts = def.split(/\s+[-–—]\s+/);
+  const detParts = def.split(/\s+[-–—*•]\s+/);
   if (detParts.length > 1) { def = detParts[0]; details = detParts.slice(1); }
   return { definition: def.trim(), details: details.map(s => s.trim()).filter(Boolean), examples: examples.map(s => s.trim()).filter(Boolean) };
 }
@@ -51,8 +51,8 @@ export function parseKeyTermText(text) {
   let definition = parts.definition;
   for (const line of lines.slice(1)) {
     let mm;
-    if ((mm = line.match(/^[-–—]\s+(.*)/))) details.push(mm[1].trim());
-    else if ((mm = line.match(/^\d+[.)]\s+(.*)/))) examples.push(mm[1].trim());
+    if ((mm = line.match(/^[-–—*•]\s+(.*)/))) details.push(mm[1].trim());
+    else if ((mm = line.match(/^(?:\d+|#)[.)]\s+(.*)/))) examples.push(mm[1].trim());
     else definition = definition ? `${definition} ${line}` : line; // prose continuation
   }
   return { term, definition: definition.trim(), details, examples };

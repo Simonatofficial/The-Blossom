@@ -638,6 +638,8 @@ span.anno { padding: 0 3px; }
 .nb-notes-crumb { font-size: 0.78rem; margin-bottom: 8px; }
 .nb-note-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .nb-note-preview { min-height: 30vh; line-height: 1.65; }
+/* §W fix #4: default note text follows the theme so it's legible on light or dark */
+.nb-note-preview, .nb-editor { color: var(--text); }
 .nb-toolbar { flex-wrap: wrap; row-gap: 4px; }
 .anno-btn {
   font-size: 0.74rem; padding: 4px 10px; border-radius: 8px; line-height: 1.4;
