@@ -52,21 +52,34 @@ export function sourceIds(widget) {
   return (widget.config.sources || []).filter(s => s.on && store.get('widgets', s.notebookId)).map(s => s.notebookId);
 }
 
-/** Virtual nodes (Notebook→Class→Unit→Topic) from enabled sources. */
+/** Virtual nodes from enabled sources, mirroring the notebook's flexible tree
+    (Notebook → …ancestors as groups… → note-node as deck). Built from each term
+    element's `pathIds` so Section / arbitrary nesting is reflected. A node that
+    holds its own terms AND has children gets a "(notes)" self-deck. */
 export function autoNodes(widget) {
   const out = [];
   for (const nbId of sourceIds(widget)) {
     const nb = store.get('widgets', nbId);
     const terms = moduleElements(widget, { type: 'term', notebookIds: [nbId] });
     if (!terms.length) continue;
-    const nbNode = `a:${nbId}`;
-    out.push({ id: nbNode, name: nb.name, parentId: null, kind: 'group', auto: true });
-    const seen = new Set([nbNode]);
+    const root = `a:${nbId}`;
+    out.push({ id: root, name: nb.name, parentId: null, kind: 'group', auto: true });
+    const seen = new Set([root]);
+    const containers = new Set();
+    for (const t of terms) { const p = t.pathIds || [{ id: t.topicId, name: t.topicName }]; for (let i = 0; i < p.length - 1; i++) containers.add(p[i].id); }
     for (const t of terms) {
-      const clId = `a:${nbId}:${t.classId}`, uId = `${clId}:${t.unitId}`, tId = `${uId}:${t.topicId}`;
-      if (!seen.has(clId)) { out.push({ id: clId, name: t.className || 'Class', parentId: nbNode, kind: 'group', auto: true }); seen.add(clId); }
-      if (!seen.has(uId)) { out.push({ id: uId, name: t.unitName || 'Unit', parentId: clId, kind: 'group', auto: true }); seen.add(uId); }
-      if (!seen.has(tId)) { out.push({ id: tId, name: t.topicName || 'Topic', parentId: uId, kind: 'deck', auto: true, nbId, topicId: t.topicId }); seen.add(tId); }
+      const p = t.pathIds && t.pathIds.length ? t.pathIds : [{ id: t.topicId, name: t.topicName }];
+      let parent = root;
+      for (let i = 0; i < p.length; i++) {
+        const seg = p[i], nid = `a:${nbId}:${seg.id}`, isNote = i === p.length - 1, isContainer = containers.has(seg.id);
+        if (isNote && !isContainer) {
+          if (!seen.has(nid)) { out.push({ id: nid, name: seg.name, parentId: parent, kind: 'deck', auto: true, nbId, topicId: t.topicId }); seen.add(nid); }
+        } else {
+          if (!seen.has(nid)) { out.push({ id: nid, name: seg.name, parentId: parent, kind: 'group', auto: true }); seen.add(nid); }
+          if (isNote && isContainer) { const did = `${nid}:_self`; if (!seen.has(did)) { out.push({ id: did, name: `${seg.name} (notes)`, parentId: nid, kind: 'deck', auto: true, nbId, topicId: t.topicId }); seen.add(did); } }
+        }
+        parent = nid;
+      }
     }
   }
   return out;

@@ -113,16 +113,29 @@ export function legacyTextToHtml(text) {
 }
 
 /**
- * Re-derive the Element objects for one topic from its note HTML. Elements are
- * stored on the notebook widget (kind 'element') and fully replaced each save.
+ * Re-derive the Element objects for one node from its note HTML. Accepts the
+ * flexible-tree ctx `{ node, path:[{id,name,level}], note }` (path includes the
+ * node itself). Elements carry the node's full ancestry (class/section/unit) for
+ * filtering + a breadcrumb + pathIds for the Flashcard auto-tree. Fully replaced
+ * each save. (Back-compatible with the old `{ topic, classId, … }` shape.)
  */
 export function syncTopicElements(notebookWidget, ctx) {
-  const { classId, className, unitId, unitName, topic, note } = ctx;
+  const node = ctx.node || ctx.topic;
+  const path = ctx.path || [];
+  const note = ctx.note;
+  const anc = (lv) => path.find(p => p.level === lv);
   const { terms, tags } = deriveElementsFromHtml(note.data.html || '');
   for (const e of objectsOf(notebookWidget.id, 'element')) {
-    if (e.data.topicId === topic.id) store.del('objects', e.id);
+    if (e.data.topicId === node.id) store.del('objects', e.id);
   }
-  const base = { topicId: topic.id, topicName: topic.name, classId, className, unitId, unitName };
+  const base = {
+    topicId: node.id, topicName: node.name,
+    classId: anc('class')?.id ?? ctx.classId, className: anc('class')?.name ?? ctx.className,
+    sectionId: anc('section')?.id, sectionName: anc('section')?.name,
+    unitId: anc('unit')?.id ?? ctx.unitId, unitName: anc('unit')?.name ?? ctx.unitName,
+    crumb: path.length ? path.map(p => p.name).join(' › ') : node.name,
+    pathIds: path.map(p => ({ id: p.id, name: p.name, level: p.level }))
+  };
   for (const t of terms) createObject(notebookWidget.id, 'element', { type: 'term', ...base, term: t.term, definition: t.definition, details: t.details, examples: t.examples });
   for (const g of tags) createObject(notebookWidget.id, 'element', { type: g.type, ...base, text: g.text });
   store.put('widgets', notebookWidget); // touch for sync/autosave

@@ -32,7 +32,7 @@ function nbLabel(nb) {
   return [mod?.name, page?.name, nb.name].filter(Boolean).join(' › ');
 }
 function allNotebooks() { return store.all('widgets').filter(w => w.type === 'notebook'); }
-function ctxLabel(d) { return [d.className, d.unitName, d.topicName].filter(Boolean).join(' › '); }
+function ctxLabel(d) { return d.crumb || [d.className, d.sectionName, d.unitName, d.topicName].filter(Boolean).join(' › '); }
 
 function termCard(d) {
   const c = el('<div class="sn-term"></div>');

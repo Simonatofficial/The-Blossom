@@ -218,12 +218,14 @@ registry.register({
           const t = byId.get(tid); if (!t) continue;
           const terms = moduleElements(widget, { type: 'term' }).filter(e => e.topicId === t.id);
           if (!terms.length) continue;
-          const cls = M.ensureChild(widget, intoParent || null, t.className, 'group');
-          const unit = M.ensureChild(widget, cls.id, t.unitName, 'group');
-          const deck = M.ensureChild(widget, unit.id, t.name, 'deck');
+          const ids = [null];
+          let parent = M.ensureChild(widget, intoParent || null, t.className || 'Class', 'group'); ids.push(parent.id);
+          if (t.sectionName) { parent = M.ensureChild(widget, parent.id, t.sectionName, 'group'); ids.push(parent.id); }
+          if (t.unitName) { parent = M.ensureChild(widget, parent.id, t.unitName, 'group'); ids.push(parent.id); }
+          const deck = M.ensureChild(widget, parent.id, t.name, 'deck'); ids.push(deck.id);
           const existing = new Set(M.deckCards(widget, deck).map(c => c.term || c.front));
           for (const e of terms) { if (existing.has(e.term)) continue; M.addCard(widget, deck.id, { term: e.term, definition: e.definition, details: e.details || [], examples: e.examples || [] }); madeCards++; }
-          madeDecks++; lastPath = [null, cls.id, unit.id, deck.id];
+          madeDecks++; lastPath = ids;
         }
         d.close();
         toast(`Generated ${madeDecks} deck${madeDecks === 1 ? '' : 's'} · ${madeCards} card${madeCards === 1 ? '' : 's'}`, 'layers');
