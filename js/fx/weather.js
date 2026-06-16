@@ -82,12 +82,11 @@ const EFFECTS = {
      tapped (fg). */
   rain: {
     init(s) {
-      // spawn each streak from EITHER the top edge (across the full width, with a
-      // little left overhang) OR the left edge — so the rain fills the whole
-      // screen evenly instead of draining toward one corner (no blank top-left).
+      // Spawn all streaks from the top edge only, with a left overhang large enough
+      // that diagonal drift covers the top-left corner evenly (no left-edge cluster).
       s.spawn = (r) => {
-        if (Math.random() < 0.4) { r.x = -r.len; r.y = Math.random() * H() * 0.7; }
-        else { r.x = Math.random() * (W() + r.len) - r.len; r.y = -r.len; }
+        r.x = Math.random() * (W() + H() * 0.22) - H() * 0.22;
+        r.y = -r.len;
       };
       s.streaks = Array.from({ length: Math.round(60 + intensity * 160) }, () => { const r = { len: rnd(10, 26), v: rnd(550, 900) }; s.spawn(r); r.y = Math.random() * H(); return r; });
       s.drops = [];
@@ -275,9 +274,8 @@ export function setWeather() {
   const wx = fx.weather || {};
   intensity = wx.intensity ?? 0.5;
   for (const k of Object.keys(EFFECTS)) document.body.classList.toggle(`wx-${k}`, false);
-  // Tilt amplitude scales clearly with intensity (≈0.5°–6°) so the Wind slider
-  // visibly changes how far widgets lean, not just the streak speed (V2 §8).
-  document.documentElement.style.setProperty('--wx-wob', `${0.5 + intensity * 5.5}deg`);
+  // Tilt scales with intensity so the slider visibly changes lean, stays subtle throughout.
+  document.documentElement.style.setProperty('--wx-wob', `${0.2 + intensity * 1.3}deg`);
   gb?.clearRect(0, 0, W(), H()); gf?.clearRect(0, 0, W(), H());
   active = [];
   if (unsub) { unsub(); unsub = null; }
