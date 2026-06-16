@@ -170,22 +170,65 @@ registry.register({
     const generate = (intoParent) => {
       const topics = moduleTopics();
       if (!topics.length) { toast('No notebook topics found. Link or fill a Notebook first.', 'info'); return; }
-      const d = openDrawer({ title: 'Generate deck from Notebook', iconName: 'wand' });
-      d.body.appendChild(el('<label class="soft" style="font-size:0.8rem">Topic</label>'));
-      const topicSel = el('<select class="select"></select>');
-      topics.forEach((t, i) => topicSel.appendChild(new Option(`${t.className} › ${t.unitName} › ${t.name}`, i)));
-      d.body.appendChild(topicSel);
-      const go = el('<button class="btn btn-primary" style="width:100%;margin-top:12px">Generate</button>');
+      const d = openDrawer({ title: 'Generate decks from Notebook', iconName: 'wand' });
+      d.body.appendChild(el('<p class="soft" style="font-size:0.8rem;margin-bottom:8px">Tick any classes, units, or topics — each ticked topic becomes a deck.</p>'));
+
+      // Class → Unit → Topic tree from the linked notebooks; tick at any level.
+      const tree = new Map();
+      for (const t of topics) {
+        const ck = `${t.classId || ''}|${t.className}`;
+        if (!tree.has(ck)) tree.set(ck, { name: t.className || 'Class', units: new Map() });
+        const uk = `${t.unitId || ''}|${t.unitName}`;
+        const units = tree.get(ck).units;
+        if (!units.has(uk)) units.set(uk, { name: t.unitName || 'Unit', topics: [] });
+        units.get(uk).topics.push(t);
+      }
+      const sel = new Set();
+      const treeEl = el('<div class="qz-tree"></div>');
+      const refresh = () => { for (const cb of treeEl.querySelectorAll('input[data-tids]')) { const tids = cb.dataset.tids.split(','); cb.checked = tids.every(id => sel.has(id)); cb.indeterminate = !cb.checked && tids.some(id => sel.has(id)); } };
+      const toggle = (tids, on) => { tids.forEach(id => on ? sel.add(id) : sel.delete(id)); refresh(); };
+      for (const [, cl] of tree) {
+        const clTids = [...cl.units.values()].flatMap(u => u.topics.map(t => t.id));
+        const clRow = el(`<label class="qz-node row" style="gap:6px"><input type="checkbox" data-tids="${clTids.join(',')}"><strong></strong></label>`);
+        clRow.querySelector('strong').textContent = cl.name;
+        clRow.querySelector('input').onchange = (e) => toggle(clTids, e.target.checked);
+        treeEl.appendChild(clRow);
+        for (const [, u] of cl.units) {
+          const uTids = u.topics.map(t => t.id);
+          const uRow = el(`<label class="qz-node row" style="gap:6px;padding-left:18px"><input type="checkbox" data-tids="${uTids.join(',')}"><span></span></label>`);
+          uRow.querySelector('span').textContent = u.name;
+          uRow.querySelector('input').onchange = (e) => toggle(uTids, e.target.checked);
+          treeEl.appendChild(uRow);
+          for (const t of u.topics) {
+            const tRow = el(`<label class="qz-node row" style="gap:6px;padding-left:36px"><input type="checkbox" data-tids="${t.id}"><span></span><span class="soft" style="font-size:0.74rem"></span></label>`);
+            tRow.querySelector('span').textContent = t.name;
+            tRow.querySelectorAll('span')[1].textContent = moduleElements(widget, { type: 'term' }).filter(e => e.topicId === t.id).length;
+            tRow.querySelector('input').onchange = (e) => { e.target.checked ? sel.add(t.id) : sel.delete(t.id); refresh(); };
+            treeEl.appendChild(tRow);
+          }
+        }
+      }
+      d.body.appendChild(treeEl);
+      const go = el('<button class="btn btn-primary" style="width:100%;margin-top:12px">Generate selected</button>');
       go.onclick = () => {
-        const t = topics[Number(topicSel.value)];
-        const terms = moduleElements(widget, { type: 'term' }).filter(e => e.topicId === t.id);
-        if (!terms.length) { toast('That topic has no key terms yet.', 'info'); return; }
-        const cls = M.ensureChild(widget, intoParent || null, t.className, 'group');
-        const unit = M.ensureChild(widget, cls.id, t.unitName, 'group');
-        const deck = M.ensureChild(widget, unit.id, t.name, 'deck');
-        for (const e of terms) M.addCard(widget, deck.id, { term: e.term, definition: e.definition, details: e.details || [], examples: e.examples || [] });
-        d.close(); toast(`Generated ${terms.length} card${terms.length === 1 ? '' : 's'}`, 'layers');
-        stack = [null, cls.id, unit.id, deck.id]; render();
+        if (!sel.size) { toast('Tick at least one class, unit, or topic.', 'info'); return; }
+        const byId = new Map(topics.map(t => [t.id, t]));
+        let madeDecks = 0, madeCards = 0, lastPath = null;
+        for (const tid of sel) {
+          const t = byId.get(tid); if (!t) continue;
+          const terms = moduleElements(widget, { type: 'term' }).filter(e => e.topicId === t.id);
+          if (!terms.length) continue;
+          const cls = M.ensureChild(widget, intoParent || null, t.className, 'group');
+          const unit = M.ensureChild(widget, cls.id, t.unitName, 'group');
+          const deck = M.ensureChild(widget, unit.id, t.name, 'deck');
+          const existing = new Set(M.deckCards(widget, deck).map(c => c.term || c.front));
+          for (const e of terms) { if (existing.has(e.term)) continue; M.addCard(widget, deck.id, { term: e.term, definition: e.definition, details: e.details || [], examples: e.examples || [] }); madeCards++; }
+          madeDecks++; lastPath = [null, cls.id, unit.id, deck.id];
+        }
+        d.close();
+        toast(`Generated ${madeDecks} deck${madeDecks === 1 ? '' : 's'} · ${madeCards} card${madeCards === 1 ? '' : 's'}`, 'layers');
+        if (lastPath && sel.size === 1) stack = lastPath;
+        render();
       };
       d.body.appendChild(go);
     };
