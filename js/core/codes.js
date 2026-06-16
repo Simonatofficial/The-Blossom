@@ -36,7 +36,10 @@ export async function encode(type, payload) {
 
 /** Decode a Blossom code. @returns {{type: string, payload: object}} */
 export async function decode(code) {
-  const m = code.trim().match(/^BLSM1\.(obj|wgt|pg|mod|ws|thm)\.([A-Za-z0-9_-]+)$/);
+  // Strip ALL whitespace, not just the ends: copying a long code across devices
+  // (messages/email/notes-sync) often wraps it with line breaks or spaces, which
+  // would otherwise fail the match. A valid code never contains whitespace.
+  const m = String(code).replace(/\s+/g, '').match(/^BLSM1\.(obj|wgt|pg|mod|ws|thm)\.([A-Za-z0-9_-]+)$/);
   if (!m) throw new Error('Not a Blossom code.');
   const bytes = await pipe(fromB64url(m[2]), new DecompressionStream('deflate-raw'));
   return { type: m[1], payload: JSON.parse(new TextDecoder().decode(bytes)) };
