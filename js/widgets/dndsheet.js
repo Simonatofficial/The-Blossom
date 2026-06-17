@@ -9,15 +9,12 @@
 import { registry } from './registry.js';
 import { store } from '../core/store.js';
 import { icon } from '../ui/icons.js';
-import { el, popMenu, seg } from '../ui/components.js';
-import { ABILITIES, SKILLS, XP_LEVELS, mod, fmtMod, profBonus, skillBonus, saveBonus, getCharacter, saveCharacter, rollD20 } from './dnd-shared.js';
+import { el, popMenu, seg, toast, promptText, confirmDialog } from '../ui/components.js';
+import { ABILITIES, SKILLS, XP_LEVELS, mod, fmtMod, profBonus, skillBonus, saveBonus, getCharacter, saveCharacter, rollD20, listCharacters, setActiveCharacter, createCharacter } from './dnd-shared.js';
 import { renderCombat } from './dndcombat.js';
 import { renderStory } from './dndstory.js';
 import { getStamp, openStampPicker } from './wb-stamps.js';
-import { openCompendiumPicker } from './tabletop-compendium.js';
 import { openCharacterCreator } from './character-creator.js';
-import { applyClass, applyRace, applyBackground } from './tabletop-build.js';
-import { toast } from '../ui/components.js';
 
 registry.register({
   type: 'charsheet',
@@ -109,30 +106,45 @@ export function renderSheet(host, env) {
       i.onchange = () => { c[key] = key === 'level' ? Math.max(1, Math.min(20, Number(i.value) || 1)) : i.value.trim(); save(); rerender(); };
       row.appendChild(i);
     }
-    // smart-fill: pick a class / race / background from the SRD
-    const srd = el(`<button class="btn" style="font-size:0.78rem;padding:4px 10px;margin-top:6px">${icon('book', 13)} Build from SRD</button>`);
-    srd.onclick = () => openCompendiumPicker({
-      title: 'Build from the SRD',
-      onPick: (e) => {
-        if (e.kind === 'class') { applyClass(c, e); toast(`${e.name}: saves & spell slots applied.`, 'shield'); }
-        else if (e.kind === 'race') { applyRace(c, e); toast(`${e.name}: speed & traits applied.`, 'leaf'); }
-        else if (e.kind === 'background') { applyBackground(c, e); toast(`${e.name}: skill proficiencies applied.`, 'book'); }
-        else return toast('Pick a class, race, or background.', 'book');
-        save(); rerender();
-      }
-    });
-    idBox.appendChild(srd);
+    // guided setup launches the step-by-step Character Creator
+    const guide = el(`<button class="btn" style="font-size:0.78rem;padding:4px 10px;margin-top:6px">${icon('sparkles', 13)} Guided setup</button>`);
+    guide.onclick = () => openCharacterCreator({ widget, onDone: rerender });
+    idBox.appendChild(guide);
   }
   const modeBtn = head.querySelector('.dnd-mode');
   modeBtn.textContent = play ? 'Edit' : 'Done';
   modeBtn.onclick = () => { widget.config.playMode = !play; store.put('widgets', widget); rerender(); };
-  head.querySelector('[title="More"]').onclick = (e) => popMenu(e.currentTarget, [
-    { label: 'Character creation guide', iconName: 'sparkles', fn: () => openCharacterCreator({ widget, onDone: rerender }) },
-    { label: 'Copy character code', iconName: 'code', fn: async () => {
+  head.querySelector('[title="More"]').onclick = (e) => {
+    const roster = listCharacters(widget);
+    const items = [];
+    // switch between saved characters (all linked widgets follow the active one)
+    for (const ch of roster) {
+      const active = ch.id === obj.id;
+      items.push({ label: `${active ? '✓ ' : ''}${ch.data.name || 'Unnamed'}`, iconName: 'shield', fn: () => { if (!active) { setActiveCharacter(widget, ch.id); rerender(); } } });
+    }
+    items.push('sep');
+    items.push({ label: 'New character (guided)', iconName: 'sparkles', fn: () => openCharacterCreator({ widget, onDone: rerender }) });
+    items.push({ label: 'New blank character', iconName: 'plus', fn: () => { createCharacter(widget); rerender(); } });
+    items.push('sep');
+    items.push({ label: 'Rename character', iconName: 'edit', fn: async () => {
+      const name = await promptText({ title: 'Rename character', label: 'Name', value: c.name, confirmText: 'Save' });
+      if (name) { c.name = name.trim() || c.name; save(); rerender(); }
+    } });
+    items.push({ label: 'Copy character code', iconName: 'code', fn: async () => {
       const { copyNodeCode } = await import('../ui/settings.js');
       copyNodeCode('wgt', owner.id, c.name); // the anchor carries everything
-    } }
-  ]);
+    } });
+    if (roster.length > 1) items.push({ label: 'Delete this character', iconName: 'trash', danger: true, fn: async () => {
+      if (await confirmDialog({ title: `Delete “${c.name}”?`, message: 'It rests in the trash for 30 days.' })) {
+        store.trash('objects', obj.id);
+        const left = listCharacters(widget).filter(x => x.id !== obj.id);
+        setActiveCharacter(widget, left[0]?.id || null);
+        toast('Character filed away', 'leaf');
+        rerender();
+      }
+    } });
+    popMenu(e.currentTarget, items);
+  };
   host.appendChild(head);
 
   // AC · initiative · speed · proficiency — tap initiative to roll

@@ -6,7 +6,7 @@
 import { registry } from './registry.js';
 import { el, toast } from '../ui/components.js';
 import { icon } from '../ui/icons.js';
-import { getCharacter, saveCharacter, ABILITIES } from './dnd-shared.js';
+import { createCharacter, saveCharacter } from './dnd-shared.js';
 import {
   RACES, CLASSES, BACKGROUNDS, STANDARD_ARRAY, POINT_BUY_COST
 } from '../presets/tabletop/srd5e-index.js';
@@ -29,10 +29,14 @@ export function renderCreator(host, env) {
     cls: null,
     method: 'array',
     base: { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 },
-    array: {}, // ability -> assigned array value
+    array: {},   // ability -> assigned value (standard array or rolled pool)
+    rolled: null, // [6] rolled scores when method === 'roll'
     background: null,
+    alignment: '',
     name: ''
   };
+
+  const roll4d6 = () => { const d = [0, 0, 0, 0].map(() => 1 + Math.floor(Math.random() * 6)).sort((a, b) => a - b); return d[1] + d[2] + d[3]; };
 
   const wrap = el('<div class="cc-wrap"></div>');
   host.appendChild(wrap);
@@ -45,7 +49,9 @@ export function renderCreator(host, env) {
     for (const x of draft.subrace?.abilityBonuses || []) if (x.ability === key) b += x.bonus;
     return b;
   };
-  const baseScore = (key) => draft.method === 'array' ? (draft.array[key] || 0) : draft.base[key];
+  const usesPool = () => draft.method === 'array' || draft.method === 'roll';
+  const poolValues = () => draft.method === 'roll' ? (draft.rolled || []) : STANDARD_ARRAY;
+  const baseScore = (key) => usesPool() ? (draft.array[key] || 0) : draft.base[key];
   const finalScore = (key) => Math.min(20, baseScore(key) + racialBonus(key));
 
   const draw = () => {
@@ -101,6 +107,7 @@ export function renderCreator(host, env) {
 
   function abilitiesValid() {
     if (draft.method === 'array') return KEYS.every(k => draft.array[k]);
+    if (draft.method === 'roll') return !!draft.rolled && KEYS.every(k => draft.array[k]);
     if (draft.method === 'pointbuy') return pointsLeft() >= 0;
     return KEYS.every(k => draft.base[k] >= 1 && draft.base[k] <= 20);
   }
@@ -150,23 +157,32 @@ export function renderCreator(host, env) {
   function stepAbilities(body) {
     body.appendChild(el('<p class="cc-hint">Set your six ability scores. Racial bonuses are added automatically.</p>'));
     const methods = el('<div class="cc-methods"></div>');
-    for (const [m, label] of [['array', 'Standard array'], ['pointbuy', 'Point buy'], ['manual', 'Manual']]) {
+    for (const [m, label] of [['array', 'Standard array'], ['roll', 'Roll dice'], ['pointbuy', 'Point buy'], ['manual', 'Manual']]) {
       const b = el(`<button class="chip${draft.method === m ? ' accent' : ''}">${label}</button>`);
-      b.onclick = () => { draft.method = m; draw(); };
+      b.onclick = () => { draft.method = m; if (m !== 'array' && m !== 'roll') draft.array = {}; draw(); };
       methods.appendChild(b);
     }
     body.appendChild(methods);
 
-    if (draft.method === 'array') {
-      const used = new Set(Object.values(draft.array));
-      body.appendChild(el(`<p class="cc-note">Assign these values, one each: <b>${STANDARD_ARRAY.join(', ')}</b>.</p>`));
+    // shared pool-assignment UI for array + roll (each value used once)
+    const drawPool = () => {
+      const used = new Set(Object.values(draft.array).filter(v => v != null));
+      const pool = poolValues();
       for (const k of KEYS) {
         const row = el(`<div class="cc-ab"><span>${ABBR[k]}</span><select class="select"></select><em></em></div>`);
         const sel = row.querySelector('select');
         sel.appendChild(new Option('—', ''));
-        for (const v of STANDARD_ARRAY) {
+        // multiset: allow duplicate values in the pool (rolls can repeat)
+        const counts = {};
+        for (const v of pool) counts[v] = (counts[v] || 0) + 1;
+        const assignedCounts = {};
+        for (const v of Object.values(draft.array)) if (v != null) assignedCounts[v] = (assignedCounts[v] || 0) + 1;
+        const seen = new Set();
+        for (const v of pool) {
+          if (seen.has(v)) continue; seen.add(v);
           const opt = new Option(String(v), String(v));
-          if (used.has(v) && draft.array[k] !== v) opt.disabled = true;
+          const remaining = counts[v] - (assignedCounts[v] || 0) + (draft.array[k] === v ? 1 : 0);
+          if (remaining <= 0 && draft.array[k] !== v) opt.disabled = true;
           sel.appendChild(opt);
         }
         sel.value = draft.array[k] ? String(draft.array[k]) : '';
@@ -174,6 +190,18 @@ export function renderCreator(host, env) {
         row.querySelector('em').textContent = draft.array[k] ? `→ ${finalScore(k)} (${sgn(abilMod(finalScore(k)))})` : '';
         body.appendChild(row);
       }
+    };
+
+    if (draft.method === 'array') {
+      body.appendChild(el(`<p class="cc-note">Assign these values, one each: <b>${STANDARD_ARRAY.join(', ')}</b>.</p>`));
+      drawPool();
+    } else if (draft.method === 'roll') {
+      const rollRow = el(`<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><button class="btn btn-primary" style="font-size:0.82rem">${icon('dice', 14)} Roll 4d6 (drop lowest) ×6</button><span class="cc-rolled soft" style="font-size:0.84rem"></span></div>`);
+      const rolledLabel = rollRow.querySelector('.cc-rolled');
+      rolledLabel.textContent = draft.rolled ? `Rolled: ${[...draft.rolled].sort((a, b) => b - a).join(', ')}` : 'No scores rolled yet.';
+      rollRow.querySelector('button').onclick = () => { draft.rolled = Array.from({ length: 6 }, roll4d6).sort((a, b) => b - a); draft.array = {}; draw(); };
+      body.appendChild(rollRow);
+      if (draft.rolled) { body.appendChild(el('<p class="cc-note">Now assign each rolled score to an ability.</p>')); drawPool(); }
     } else if (draft.method === 'pointbuy') {
       const left = pointsLeft();
       body.appendChild(el(`<p class="cc-note">Points remaining: <b class="${left < 0 ? 'cc-bad' : ''}">${left}</b> / 27. Scores range 8–15 before racial bonuses.</p>`));
@@ -212,11 +240,19 @@ export function renderCreator(host, env) {
 
   /* ---------- step 5: review ---------- */
   function stepReview(body) {
-    const nameRow = el('<div class="cc-ab" style="margin-bottom:10px"><span>Name</span><input class="input grow" placeholder="Name your hero…"></div>');
+    const nameRow = el('<div class="cc-ab" style="margin-bottom:8px"><span>Name</span><input class="input grow" placeholder="Name your hero…"></div>');
     const ni = nameRow.querySelector('input');
     ni.value = draft.name;
     ni.oninput = () => { draft.name = ni.value; const mk = wrap.querySelector('.cc-nav .btn-primary'); if (mk) mk.disabled = !draft.name.trim(); };
     body.appendChild(nameRow);
+
+    const alRow = el('<div class="cc-ab" style="margin-bottom:10px"><span>Align</span><select class="select grow"></select></div>');
+    const alSel = alRow.querySelector('select');
+    alSel.appendChild(new Option('—', ''));
+    for (const a of ['Lawful Good', 'Neutral Good', 'Chaotic Good', 'Lawful Neutral', 'True Neutral', 'Chaotic Neutral', 'Lawful Evil', 'Neutral Evil', 'Chaotic Evil']) alSel.appendChild(new Option(a, a));
+    alSel.value = draft.alignment || '';
+    alSel.onchange = () => { draft.alignment = alSel.value; };
+    body.appendChild(alRow);
 
     const sum = el('<div class="cc-summary"></div>');
     const line = (a, b) => sum.appendChild(el(`<div class="cc-srow"><span>${a}</span><b>${b}</b></div>`));
@@ -236,9 +272,10 @@ export function renderCreator(host, env) {
 
   /* ---------- commit ---------- */
   function create() {
-    const { obj, c } = getCharacter(widget);
+    const { obj, c } = createCharacter(widget); // a NEW character, made active
     c.name = draft.name.trim() || 'New adventurer';
     c.level = 1;
+    c.alignment = draft.alignment || '';
     // base scores (pre-racial)
     for (const k of KEYS) c.abilities[k] = baseScore(k) || 10;
     c.race = ''; // force applyRace to add bonuses

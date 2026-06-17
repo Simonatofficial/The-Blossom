@@ -94,11 +94,39 @@ export function spellAttackBonus(c) {
   return c.spellAbility ? profBonus(c.level) + mod(c.abilities[c.spellAbility]) : null;
 }
 
-/** Resolve (and lazily create) the character record. @returns {{owner, c}} */
+/** All character records owned by this widget's anchor. @returns {object[]} */
+export function listCharacters(widget) {
+  return objectsOf(ownerOf(widget).id, 'character');
+}
+
+/** Point the anchor at a specific character; all sibling widgets follow. */
+export function setActiveCharacter(widget, id) {
+  const owner = ownerOf(widget);
+  owner.config = owner.config || {};
+  owner.config.activeCharId = id;
+  store.put('widgets', owner);
+}
+
+/** Create a fresh character (optionally pre-filled) and make it active. */
+export function createCharacter(widget, data = null) {
+  const owner = ownerOf(widget);
+  const obj = createObject(owner.id, 'character', { ...FRESH_CHARACTER(), ...(data || {}) });
+  setActiveCharacter(widget, obj.id);
+  return { owner, obj, c: obj.data };
+}
+
+/** Resolve (and lazily create) the active character record. @returns {{owner, obj, c}} */
 export function getCharacter(widget) {
   const owner = ownerOf(widget);
-  let obj = objectsOf(owner.id, 'character')[0];
+  const all = objectsOf(owner.id, 'character');
+  const activeId = owner.config?.activeCharId;
+  let obj = (activeId && all.find(o => o.id === activeId)) || all[0] || null;
   if (!obj) obj = createObject(owner.id, 'character', FRESH_CHARACTER());
+  if (owner.config?.activeCharId !== obj.id) {
+    owner.config = owner.config || {};
+    owner.config.activeCharId = obj.id; // keep the pointer valid
+    store.put('widgets', owner);
+  }
   for (const [k, v] of Object.entries(FRESH_CHARACTER())) {
     if (obj.data[k] === undefined) obj.data[k] = v; // older saves grow new fields
   }

@@ -538,6 +538,19 @@
 }
 @keyframes dice-tumble { 0% { transform: rotate(-12deg) scale(0.7); opacity: 0.4; } 100% { transform: none; opacity: 1; } }
 .dice-widget .d-result.tumble { animation: dice-tumble 280ms var(--ease); }
+.dice-widget .d-pool { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 8px; }
+.d-pool-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; margin-right: 2px; }
+.d-pool-die {
+  position: relative; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface-alt); cursor: pointer; font-size: 0.8rem; color: var(--text);
+}
+.d-pool-die.on { border-color: var(--accent); color: var(--accent); }
+.d-pool-die b {
+  margin-left: 3px; font-size: 0.7rem; background: var(--accent); color: #fff;
+  border-radius: 999px; padding: 0 5px;
+}
+.d-pool-roll { padding: 5px 11px; font-size: 0.8rem; }
+.d-pool-clear { padding: 5px 9px; font-size: 0.8rem; }
 
 /* ---- Calculator widget ---- */
 .calc-display {

@@ -35,6 +35,7 @@ Source: https://github.com/mattpocock/skills/blob/main/skills/productivity/grill
 | `docs/11-change-requests.md` | Active change requests from user testing — work these alongside Phase 7+ |
 | `docs/12-canvas-overhaul.md` | CR-10: full spec for the Infinite Canvas painting overhaul (Kleki parity) |
 | `docs/13-v2-framework.md` | **V2 spec** — Supabase sync, FAB nav, particles/atmosphere/weather overhaul, themes, new widgets (Blossoms game, Canva Board, Tabletop, etc.), and all V2 change requests. Read this before any V2 work. |
+| `docs/14-tabletop-overhaul.md` | **Tabletop (D&D 5e) overhaul** — SRD content counts (have vs. addable), homebrew + custom-book system, character-sheet D&D-Beyond-parity checklist, companion-app features (party/shop/encounter), dice. Read before any Tabletop work. |
 
 ## Tech stack (non-negotiable)
 
