@@ -335,6 +335,25 @@ export const LANGUAGES = [
   { name: "Thieves' Cant", type: 'Exotic (secret)', script: '—', speakers: 'Rogues and the criminal underworld' }
 ];
 
+/* Poisons: { name, type, price, desc } — type: Ingested/Contact/Inhaled/Injury */
+export const POISONS = [
+  { name: 'Basic Poison', type: 'Injury', price: '100 gp', desc: 'Apply to a weapon or piece of ammunition (lasts 1 minute). A creature hit makes a DC 10 CON save or takes 1d4 poison damage.' },
+  { name: "Assassin's Blood", type: 'Ingested', price: '150 gp', desc: 'DC 10 CON save or take 6 (1d12) poison damage and be poisoned for 24 hours (half damage, not poisoned, on a success).' },
+  { name: 'Burnt Othur Fumes', type: 'Inhaled', price: '500 gp', desc: 'DC 13 CON save or take 10 (3d6) poison damage and 3 (1d6) at the start of each turn; repeat the save each turn (3 successes ends it).' },
+  { name: 'Carrion Crawler Mucus', type: 'Contact', price: '200 gp', desc: 'DC 13 CON save or be poisoned for 1 minute and paralyzed while poisoned this way; repeat the save at the end of each turn.' },
+  { name: 'Drow Poison', type: 'Injury', price: '200 gp', desc: 'DC 13 CON save or be poisoned for 1 hour; if the save fails by 5+, also unconscious while poisoned (wakes if it takes damage or is shaken).' },
+  { name: 'Essence of Ether', type: 'Inhaled', price: '300 gp', desc: 'DC 15 CON save or be poisoned for 8 hours and unconscious while poisoned (wakes if it takes damage or is shaken awake).' },
+  { name: 'Malice', type: 'Inhaled', price: '250 gp', desc: 'DC 15 CON save or be poisoned for 1 hour and blinded while poisoned this way.' },
+  { name: 'Midnight Tears', type: 'Ingested', price: '1,500 gp', desc: 'No effect until midnight; then DC 17 CON save or take 31 (9d6) poison damage (half on a success).' },
+  { name: 'Oil of Taggit', type: 'Contact', price: '400 gp', desc: 'DC 13 CON save or be poisoned for 24 hours and unconscious while poisoned (wakes if it takes damage).' },
+  { name: 'Pale Tincture', type: 'Ingested', price: '250 gp', desc: 'DC 16 CON save or take 3 (1d6) poison damage and be poisoned; the poison recurs every 24 hours and prevents regaining HP. Three saves end it.' },
+  { name: 'Purple Worm Poison', type: 'Injury', price: '2,000 gp', desc: 'DC 19 CON save or take 42 (12d6) poison damage (half on a success).' },
+  { name: 'Serpent Venom', type: 'Injury', price: '200 gp', desc: 'DC 11 CON save or take 10 (3d6) poison damage (half on a success).' },
+  { name: 'Torpor', type: 'Ingested', price: '600 gp', desc: 'DC 15 CON save or be poisoned for 4d6 hours and incapacitated while poisoned this way.' },
+  { name: 'Truth Serum', type: 'Ingested', price: '150 gp', desc: 'DC 11 CON save or be poisoned for 1 hour and unable to knowingly speak a lie (as Zone of Truth).' },
+  { name: 'Wyvern Poison', type: 'Injury', price: '1,200 gp', desc: 'DC 15 CON save or take 24 (7d6) poison damage (half on a success).' }
+];
+
 /* Standard ability-score generation aids (SRD 5.1). */
 export const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
 /** Point-buy cost table: score -> points spent (27-point buy). */

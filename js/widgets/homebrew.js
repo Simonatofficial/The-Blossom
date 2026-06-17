@@ -142,7 +142,7 @@ registry.register({
   }
 });
 
-const KINDS = { spells: 'spell', monsters: 'monster', classes: 'class', races: 'race', backgrounds: 'background', feats: 'feat', weapons: 'weapon', armor: 'armor', gear: 'gear', tools: 'tool', mounts: 'mount', items: 'magicitem', languages: 'language', rules: 'rule', conditions: 'condition' };
+const KINDS = { spells: 'spell', monsters: 'monster', classes: 'class', races: 'race', backgrounds: 'background', feats: 'feat', weapons: 'weapon', armor: 'armor', gear: 'gear', tools: 'tool', mounts: 'mount', items: 'magicitem', languages: 'language', poisons: 'poison', rules: 'rule', conditions: 'condition' };
 const catKind = (c) => KINDS[c] || 'rule';
 
 /* ---------- field-driven entry editor ---------- */

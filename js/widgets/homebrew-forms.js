@@ -123,6 +123,12 @@ export const FORMS = {
     { key: 'script', label: 'Script', type: 'text', ph: 'Common' },
     { key: 'speakers', label: 'Typical speakers', type: 'text' }
   ],
+  poisons: [
+    { key: 'name', label: 'Name', type: 'text' },
+    { key: 'type', label: 'Type', type: 'select', options: ['Ingested', 'Contact', 'Inhaled', 'Injury'] },
+    { key: 'price', label: 'Price', type: 'text', ph: '200 gp' },
+    { key: 'desc', label: 'Effect', type: 'textarea', full: true }
+  ],
   conditions: [
     { key: 'name', label: 'Name', type: 'text' },
     { key: 'effect', label: 'Effect', type: 'textarea', full: true }
@@ -136,7 +142,7 @@ export const FORMS = {
 export const CATEGORY_LABELS = {
   spells: 'Spell', monsters: 'Monster', items: 'Magic Item', weapons: 'Weapon',
   armor: 'Armor', gear: 'Gear', tools: 'Tool', mounts: 'Mount / Vehicle',
-  languages: 'Language', feats: 'Feat', backgrounds: 'Background',
+  languages: 'Language', poisons: 'Poison', feats: 'Feat', backgrounds: 'Background',
   races: 'Race', classes: 'Class', conditions: 'Condition', rules: 'Rule'
 };
 

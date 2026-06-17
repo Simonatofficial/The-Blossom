@@ -5,7 +5,7 @@
 import { CLASSES, SPELL_SLOTS } from './srd5e-classes.js';
 import { RACES, BACKGROUNDS } from './srd5e-races.js';
 import { SPELLS } from './srd5e-spells.js';
-import { WEAPONS, ARMOR, GEAR, MAGIC_ITEMS, TOOLS, MOUNTS, LANGUAGES, STANDARD_ARRAY, POINT_BUY_COST } from './srd5e-equipment.js';
+import { WEAPONS, ARMOR, GEAR, MAGIC_ITEMS, TOOLS, MOUNTS, LANGUAGES, POISONS, STANDARD_ARRAY, POINT_BUY_COST } from './srd5e-equipment.js';
 import { MONSTERS, CR_XP } from './srd5e-monsters.js';
 import { FEATS } from './srd5e-feats.js';
 import { RULES } from './srd5e-rules.js';
@@ -13,7 +13,7 @@ import { CONDITIONS } from './srd5e.js';
 
 export {
   CLASSES, SPELL_SLOTS, RACES, BACKGROUNDS, SPELLS, WEAPONS, ARMOR, GEAR, MAGIC_ITEMS,
-  TOOLS, MOUNTS, LANGUAGES, MONSTERS, CR_XP, FEATS, RULES, CONDITIONS, STANDARD_ARRAY, POINT_BUY_COST
+  TOOLS, MOUNTS, LANGUAGES, POISONS, MONSTERS, CR_XP, FEATS, RULES, CONDITIONS, STANDARD_ARRAY, POINT_BUY_COST
 };
 
 /** Attach a default source to entries that don't carry their own. */
@@ -98,6 +98,8 @@ export const COMPENDIUM = [
     items: () => withSrc(MAGIC_ITEMS, 'SRD 5.1').map(m => ({ ...m, kind: 'magicitem' })) },
   { id: 'languages', label: 'Languages', icon: 'info',
     items: () => withSrc(LANGUAGES, 'SRD 5.1').map(l => ({ ...l, kind: 'language' })) },
+  { id: 'poisons', label: 'Poisons', icon: 'info',
+    items: () => withSrc(POISONS, 'SRD 5.1').map(p => ({ ...p, kind: 'poison' })) },
   { id: 'rules', label: 'Rules', icon: 'book',
     items: () => RULES.map(r => ({ ...r, kind: 'rule' })) },
   { id: 'conditions', label: 'Conditions', icon: 'info',

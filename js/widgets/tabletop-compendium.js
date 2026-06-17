@@ -27,6 +27,7 @@ export function entrySubtitle(e) {
     case 'tool': return `${e.category} · ${e.cost}`;
     case 'mount': return `${e.category}${e.speed && e.speed !== '—' ? ` · ${e.speed}` : ''} · ${e.cost}`;
     case 'language': return `${e.type}${e.script && e.script !== '—' ? ` · ${e.script} script` : ''}`;
+    case 'poison': return `${e.type} · ${e.price}`;
     case 'magicitem': return `${e.type} · ${e.rarity}${e.attunement ? ' · attunement' : ''}`;
     case 'feat': return e.prereq && e.prereq !== '—' ? `Feat · ${e.prereq}` : 'Feat';
     case 'rule': return 'Rule';
@@ -120,6 +121,9 @@ export function entryDetail(e) {
     p(`<b>Type:</b> ${e.type}`);
     if (e.script && e.script !== '—') p(`<b>Script:</b> ${e.script}`);
     if (e.speakers) p(`<b>Typical speakers:</b> ${e.speakers}`);
+  } else if (e.kind === 'poison') {
+    p(`<b>Type:</b> ${e.type} &nbsp; <b>Price:</b> ${e.price}`);
+    if (e.desc) box.appendChild(el('<p class="cmp-text"></p>')).textContent = e.desc;
   } else if (e.kind === 'magicitem') {
     p(`<i>${e.type}, ${e.rarity}${e.attunement ? ' (requires attunement)' : ''}</i>`);
     box.appendChild(el('<p class="cmp-text"></p>')).textContent = e.desc;
