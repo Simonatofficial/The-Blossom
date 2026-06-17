@@ -120,8 +120,8 @@ widgets. Status: ✅ done · ◻ planned.
 
 1. ✅ **v75** — multi-character + switcher, creator-creates-new, roll-for-stats, dice pool.
 2. ✅ **v76** — Homebrew core: `ttbook` + `hbentry` model, `homebrew` Workshop widget, field-driven forms for all 12 categories, compendium merge + Homebrew filter, Blossom-code book sharing.
-3. ✅ **v77–v79** — Content fill (equipment side): gear 32→76, magic items 34→92, + new categories Tools (38), Mounts & Vehicles (24), Languages (18), Poisons (15). Compendium now 16 categories / ~791 entries.
-4. **Content fill — bestiary** — bring monsters toward the full SRD set (priority: dragons, fiends, common NPCs, golems).
+3. ✅ **v77–v81** — Content fill (equipment + lore + options): gear→86, magic items→92, new categories Tools (38), Mounts (24), Languages (18), Poisons (15), Deities (30), Planes (30). **Races 9→27, Classes 12→13 (Artificer), Backgrounds 13→21** (extras are sourced summaries in `srd5e-races-extra.js`; all pickable in the Creator and buildable as homebrew). Compendium now 20 categories / ~888 entries.
+4. ⏳ **v82+** — Bestiary (Phase 4): 54→94 monsters (batch 1: NPCs, monstrosities, fiends, undead, golems, aberrations). Continue toward the full SRD (~325): remaining dragons by age/color, more demons/devils, more beasts, oozes, plants, celestials, fey.
 5. **Sheet linking** — armor object → AC auto-calc; weapon objects → Combat attacks; class features & racial traits auto-listed; subclass picker.
 6. **Shop + equip flow** — buy with gold, equip, drag-into-combat.
 7. **Party Manager** widget; encounter builder pulls compendium + XP math.
