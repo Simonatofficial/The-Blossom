@@ -116,8 +116,8 @@ widgets. Status: ✅ done · ◻ planned.
 
 ## F. Build order (phased)
 
-1. ✅ **v75** — multi-character + switcher, creator-creates-new, roll-for-stats, dice pool. *(this turn)*
-2. **Homebrew core** — `ttbook` model, `homebrew` widget, compendium merge, per-book filters, Blossom-code sharing.
+1. ✅ **v75** — multi-character + switcher, creator-creates-new, roll-for-stats, dice pool.
+2. ✅ **v76** — Homebrew core: `ttbook` + `hbentry` model, `homebrew` Workshop widget, field-driven forms for all 12 categories, compendium merge + Homebrew filter, Blossom-code book sharing.
 3. **Content fill — equipment side** — finish gear, add tools, mounts/vehicles, languages; finish magic items by rarity.
 4. **Content fill — bestiary** — bring monsters toward the full SRD set (priority: dragons, fiends, common NPCs, golems).
 5. **Sheet linking** — armor object → AC auto-calc; weapon objects → Combat attacks; class features & racial traits auto-listed; subclass picker.
