@@ -8,7 +8,7 @@ import { el, toast } from '../ui/components.js';
 import { icon } from '../ui/icons.js';
 import { createCharacter, saveCharacter } from './dnd-shared.js';
 import {
-  RACES, CLASSES, BACKGROUNDS, STANDARD_ARRAY, POINT_BUY_COST
+  ALL_RACES as RACES, ALL_CLASSES as CLASSES, ALL_BACKGROUNDS as BACKGROUNDS, STANDARD_ARRAY, POINT_BUY_COST
 } from '../presets/tabletop/srd5e-index.js';
 import {
   applyClass, applyRace, applyBackground, startingHp, abilMod

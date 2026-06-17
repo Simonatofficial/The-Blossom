@@ -10,6 +10,7 @@ import { MONSTERS, CR_XP } from './srd5e-monsters.js';
 import { FEATS } from './srd5e-feats.js';
 import { RULES } from './srd5e-rules.js';
 import { DEITIES, PLANES } from './srd5e-lore.js';
+import { EXTRA_RACES, EXTRA_CLASSES, EXTRA_BACKGROUNDS } from './srd5e-races-extra.js';
 import { CONDITIONS } from './srd5e.js';
 
 export {
@@ -19,6 +20,13 @@ export {
 
 /** Attach a default source to entries that don't carry their own. */
 const withSrc = (arr, src) => arr.map(e => (e.source ? e : { ...e, source: src }));
+
+/* SRD races/classes/backgrounds plus the sourced extras (Volo's, Tasha's, etc.).
+   These combined lists feed the compendium, the lookups, and the Character
+   Creator so every option is available to pick or build on. */
+export const ALL_RACES = [...withSrc(RACES, 'SRD 5.1'), ...EXTRA_RACES];
+export const ALL_CLASSES = [...withSrc(CLASSES, 'SRD 5.1 / PHB'), ...EXTRA_CLASSES];
+export const ALL_BACKGROUNDS = [...withSrc(BACKGROUNDS, 'SRD 5.1 / PHB'), ...EXTRA_BACKGROUNDS];
 
 const SCHOOL_FULL = {
   Abj: 'Abjuration', Con: 'Conjuration', Div: 'Divination', Enc: 'Enchantment',
@@ -48,15 +56,15 @@ export function spellsForClass(className) {
   return allSpells().filter(s => s.classes.includes(className));
 }
 
-/** Lookup a class definition by name (case-insensitive). */
+/** Lookup a class definition by name (case-insensitive). Includes the extras. */
 export function classByName(name) {
-  return CLASSES.find(c => c.name.toLowerCase() === String(name).toLowerCase());
+  return ALL_CLASSES.find(c => c.name.toLowerCase() === String(name).toLowerCase());
 }
 export function raceByName(name) {
-  return RACES.find(r => r.name.toLowerCase() === String(name).toLowerCase());
+  return ALL_RACES.find(r => r.name.toLowerCase() === String(name).toLowerCase());
 }
 export function backgroundByName(name) {
-  return BACKGROUNDS.find(b => b.name.toLowerCase() === String(name).toLowerCase());
+  return ALL_BACKGROUNDS.find(b => b.name.toLowerCase() === String(name).toLowerCase());
 }
 
 /** Spell slots for a class at a level. Returns an array [l1..l9] or null. */
@@ -78,11 +86,11 @@ export const COMPENDIUM = [
   { id: 'monsters', label: 'Monsters', icon: 'shield',
     items: () => withSrc(MONSTERS, 'SRD 5.1').map(m => ({ ...m, kind: 'monster' })) },
   { id: 'classes', label: 'Classes', icon: 'star',
-    items: () => withSrc(CLASSES, 'SRD 5.1 / PHB').map(c => ({ ...c, kind: 'class' })) },
+    items: () => ALL_CLASSES.map(c => ({ ...c, kind: 'class' })) },
   { id: 'races', label: 'Races', icon: 'leaf',
-    items: () => withSrc(RACES, 'SRD 5.1').map(r => ({ ...r, kind: 'race' })) },
+    items: () => ALL_RACES.map(r => ({ ...r, kind: 'race' })) },
   { id: 'backgrounds', label: 'Backgrounds', icon: 'book',
-    items: () => withSrc(BACKGROUNDS, "SRD 5.1 / PHB").map(b => ({ ...b, kind: 'background' })) },
+    items: () => ALL_BACKGROUNDS.map(b => ({ ...b, kind: 'background' })) },
   { id: 'feats', label: 'Feats', icon: 'star',
     items: () => FEATS.map(f => ({ ...f, kind: 'feat' })) },
   { id: 'weapons', label: 'Weapons', icon: 'zap',
