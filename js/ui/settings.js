@@ -11,6 +11,7 @@ import { allThemes, applyGlobalTheme, activeThemeId, getTheme, withOverrides, th
 import { ATMOSPHERE_PRESETS, ATMOSPHERE_OPTIONS } from '../fx/atmosphere.js';
 import { INTERACTIVE_EFFECTS } from '../fx/weather.js';
 import { PRESET_POINTER_FX, getParticlePreset, getPointerFxPreset } from '../presets/particles.js';
+import { MAX_BG_LAYERS } from '../fx/particles.js';
 import * as codes from '../core/codes.js';
 import * as saves from '../core/saves.js';
 import { syncStatus, accountInfo, upgradeAccount, kofiHandle } from '../core/sync.js';
@@ -334,9 +335,9 @@ function renderVisualEffectsSection(d) {
   d.body.appendChild(sec);
 }
 
-/* The active theme's particle layers (up to 3): pick · on/off · adjust · remove,
-   plus an Add that opens the particle picker. Wraps on a narrow screen so no
-   control is pushed off the edge (fixes the off-screen toggle, V2 §5). */
+/* The active theme's particle layers (up to MAX_BG_LAYERS): pick · on/off ·
+   adjust · remove, plus an Add that opens the particle picker. Wraps on a narrow
+   screen so no control is pushed off the edge (fixes the off-screen toggle). */
 function renderParticleLayers(wrap, theme, id, reapply) {
   const spec = theme.particles;
   const layers = (Array.isArray(spec) ? spec : spec ? [spec] : []).map(l => ({ overrides: {}, enabled: true, ...l }));
@@ -366,7 +367,7 @@ function renderParticleLayers(wrap, theme, id, reapply) {
     wrap.appendChild(row);
   });
 
-  if (layers.length < 3) {
+  if (layers.length < MAX_BG_LAYERS) {
     const add = el(`<button class="btn-soft-wide" style="margin-top:2px">${icon('plus', 14)} Add particle</button>`);
     add.onclick = async () => {
       const { openParticlePicker } = await import('./particlepicker.js');

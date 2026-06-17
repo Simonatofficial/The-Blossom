@@ -6,6 +6,9 @@ import { loop } from './loop.js';
 
 const BG_CAP = 150;
 const FX_CAP = 120;
+/** Max stacked background particle layers. Counts scale to the BG_CAP budget,
+    so more layers stay within the performance budget (each just gets fewer). */
+export const MAX_BG_LAYERS = 6;
 
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -505,9 +508,9 @@ export class Layer {
 }
 
 /* ---- public API ----
-   CR-7: the background is up to three emitters ("particle layers") sharing
-   ONE canvas, one rAF, and one 150-particle budget — per-layer counts scale
-   down proportionally when the combined total would exceed the cap. */
+   CR-7: the background is up to MAX_BG_LAYERS emitters ("particle layers")
+   sharing ONE canvas, one rAF, and one 150-particle budget — per-layer counts
+   scale down proportionally when the combined total would exceed the cap. */
 
 let bgCanvas = null, bgList = [], fx = null;
 let unsubLoop = null;
@@ -580,7 +583,7 @@ export function initParticles() {
 export function setBackground(defs, color) {
   lastColor = color || lastColor;
   if (!bgCanvas) return;
-  const list = (Array.isArray(defs) ? defs : defs ? [defs] : []).filter(Boolean).slice(0, 3);
+  const list = (Array.isArray(defs) ? defs : defs ? [defs] : []).filter(Boolean).slice(0, MAX_BG_LAYERS);
   const total = list.reduce((n, d) => n + (d.maxCount || 60), 0);
   const scale = total > BG_CAP ? BG_CAP / total : 1;
   bgList = list.map(d => {
