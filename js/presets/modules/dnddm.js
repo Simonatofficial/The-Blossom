@@ -64,6 +64,7 @@ export const DND_DM_PRESET = {
     {
       name: 'Sessions', icon: 'calendar',
       widgets: [
+        { type: 'sessionplan', name: 'Session planner' },
         { type: 'sessionlog', name: 'Session log' }
       ]
     }

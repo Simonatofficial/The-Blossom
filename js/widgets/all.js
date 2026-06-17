@@ -43,6 +43,7 @@ import './levelplanner.js';
 import './statblock.js';
 import './loottable.js';
 import './sessionlog.js';
+import './sessionplan.js'; // V2 §13: forward-looking session prep
 import './encounter.js';
 import './initiative.js';
 import './relationshipweb.js';

@@ -12,8 +12,34 @@ import { objectsOf, createObject, saveObject } from './base.js';
 import { ABILITIES, mod, fmtMod, rollD20, rollFormula } from './dnd-shared.js';
 import { siblingWidgets } from './wb-shared.js';
 import { CONDITIONS, SKILLS } from '../presets/tabletop/srd5e.js';
+import { openCompendiumPicker } from './tabletop-compendium.js';
 
 const blocks = (w) => objectsOf(w.id, 'statblock');
+
+/** Split an SRD trait/action line ("Pack Tactics: advantage…") into name+text. */
+function splitLine(s) {
+  const i = String(s).indexOf(': ');
+  return i > 0 ? { name: s.slice(0, i), text: s.slice(i + 2) } : { name: '', text: String(s) };
+}
+
+/** Map a compendium monster entry to a fresh statblock object's data. */
+function monsterToBlock(m) {
+  return {
+    name: m.name, meta: `${m.size} ${m.type}, ${m.alignment}`,
+    ac: Number(m.ac) || 10, hp: Number(m.hp) || 1, hpFormula: m.hd || '',
+    speed: m.speed || '30 ft', cr: m.cr || '?',
+    abilities: { str: m.str, dex: m.dex, con: m.con, int: m.int, wis: m.wis, cha: m.cha },
+    traits: [
+      ...(m.skills ? [{ name: 'Skills', text: m.skills }] : []),
+      ...(m.senses ? [{ name: 'Senses', text: m.senses }] : []),
+      ...(m.languages ? [{ name: 'Languages', text: m.languages }] : []),
+      { name: 'Challenge', text: `${m.cr} (${m.xp} XP)` },
+      ...(m.traits || []).map(splitLine)
+    ],
+    actions: (m.actions || []).map(splitLine),
+    notes: '', freeform: null, source: m.source || 'SRD 5.1'
+  };
+}
 
 /** SRD rules reference (V2 §13): system-accurate conditions + skills, offline. */
 function openRulesReference() {
@@ -84,9 +110,13 @@ registry.register({
 
     const showGrid = () => {
       wrap.innerHTML = '';
-      const head = el(`<div class="row" style="gap:8px;margin-bottom:12px"><input class="input grow" placeholder="Find a creature…"><button class="btn-icon" title="Rules reference">${icon('book-open', 16)}</button><button class="btn btn-primary">${icon('plus', 15)} Creature</button></div>`);
+      const head = el(`<div class="row" style="gap:8px;margin-bottom:12px"><input class="input grow" placeholder="Find a creature…"><button class="btn-icon" title="Rules reference">${icon('book-open', 16)}</button><button class="btn btn-srd" title="Add from SRD">${icon('book', 14)} SRD</button><button class="btn btn-primary">${icon('plus', 15)} Creature</button></div>`);
       const search = head.querySelector('input'), add = head.querySelector('.btn-primary');
       head.querySelector('[title="Rules reference"]').onclick = openRulesReference;
+      head.querySelector('.btn-srd').onclick = () => openCompendiumPicker({
+        title: 'Add a monster from the SRD', category: 'monsters',
+        onPick: (m) => { const o = createObject(widget.id, 'statblock', monsterToBlock(m)); toast(`${m.name} added to the bestiary.`, 'shield'); showBlock(o.id); }
+      });
       add.onclick = () => { const o = createObject(widget.id, 'statblock', FRESH()); showBlock(o.id, true); };
       wrap.appendChild(head);
       const grid = el('<div class="dm-blocks"></div>');
