@@ -118,5 +118,30 @@ export const MAGIC_ITEMS = [
   { name: 'Amulet of Health', type: 'Wondrous item', rarity: 'Rare', attunement: true, desc: 'Your Constitution score is 19 while wearing this (no effect if already higher).' },
   { name: 'Cloak of Elvenkind', type: 'Wondrous item', rarity: 'Uncommon', attunement: true, desc: 'Advantage on Stealth checks to hide; others have disadvantage on Perception to see you (hood up).' },
   { name: 'Immovable Rod', type: 'Rod', rarity: 'Uncommon', attunement: false, desc: 'Press the button to fix it in place (holds up to 8000 lb). DC 30 STR check to move 10 ft.' },
-  { name: 'Ring of Spell Storing', type: 'Ring', rarity: 'Rare', attunement: true, desc: 'Stores up to 5 levels of spells cast into it; you (or another) can cast them later.' }
+  { name: 'Ring of Spell Storing', type: 'Ring', rarity: 'Rare', attunement: true, desc: 'Stores up to 5 levels of spells cast into it; you (or another) can cast them later.' },
+  { name: 'Boots of Elvenkind', type: 'Wondrous item', rarity: 'Uncommon', attunement: false, desc: 'Your steps make no sound; you have advantage on Stealth checks that rely on moving quietly.' },
+  { name: 'Bracers of Defense', type: 'Wondrous item', rarity: 'Rare', attunement: true, desc: '+2 AC while wearing no armor and no shield.' },
+  { name: 'Cloak of the Bat', type: 'Wondrous item', rarity: 'Rare', attunement: true, desc: 'Advantage on Stealth; fly speed 40 ft in dim light/darkness; transform into a bat.' },
+  { name: 'Decanter of Endless Water', type: 'Wondrous item', rarity: 'Uncommon', attunement: false, desc: 'Command word pours fresh or salt water: stream (1 gal), fountain (5 gal), or geyser (30 gal, can shove creatures).' },
+  { name: 'Dust of Disappearance', type: 'Wondrous item', rarity: 'Uncommon', attunement: false, desc: 'Throw to make creatures in a 10-ft cube invisible for 2d4 minutes (ends if they attack or cast).' },
+  { name: 'Eyes of the Eagle', type: 'Wondrous item', rarity: 'Uncommon', attunement: true, desc: 'Advantage on Perception checks that rely on sight; see far details clearly.' },
+  { name: 'Gauntlets of Ogre Power', type: 'Wondrous item', rarity: 'Uncommon', attunement: true, desc: 'Your Strength score is 19 while worn.' },
+  { name: 'Goggles of Night', type: 'Wondrous item', rarity: 'Uncommon', attunement: false, desc: 'Gain darkvision out to 60 ft (or +60 ft if you already have it).' },
+  { name: 'Headband of Intellect', type: 'Wondrous item', rarity: 'Uncommon', attunement: true, desc: 'Your Intelligence score is 19 while worn.' },
+  { name: 'Boots of Striding and Springing', type: 'Wondrous item', rarity: 'Uncommon', attunement: true, desc: 'Speed becomes 30 ft (if lower) and can\'t be reduced below that; triple your jump distance.' },
+  { name: 'Periapt of Health', type: 'Wondrous item', rarity: 'Uncommon', attunement: false, desc: 'You are immune to disease while wearing it; existing diseases have no effect.' },
+  { name: 'Ring of Free Action', type: 'Ring', rarity: 'Rare', attunement: true, desc: 'Difficult terrain costs no extra movement; magic can\'t reduce your speed or paralyze/restrain you.' },
+  { name: 'Ring of Jumping', type: 'Ring', rarity: 'Uncommon', attunement: true, desc: 'Cast Jump on yourself as a bonus action at will.' },
+  { name: 'Slippers of Spider Climbing', type: 'Wondrous item', rarity: 'Uncommon', attunement: true, desc: 'Move up, down, and across vertical surfaces and ceilings, leaving hands free (climb speed = walk speed).' },
+  { name: 'Wand of Fireballs', type: 'Wand', rarity: 'Rare', attunement: true, desc: '7 charges. Expend 1+ charges to cast Fireball (3rd level + 1 level per extra charge). Regains 1d6+1 at dawn.' },
+  { name: 'Wand of Web', type: 'Wand', rarity: 'Uncommon', attunement: true, desc: '7 charges. Expend 1 to cast Web (save DC 15). Regains 1d6+1 charges at dawn.' },
+  { name: 'Potion of Greater Healing', type: 'Potion', rarity: 'Uncommon', attunement: false, desc: 'Regain 4d4+4 HP when you drink it.' },
+  { name: 'Potion of Fire Resistance', type: 'Potion', rarity: 'Uncommon', attunement: false, desc: 'Resistance to fire damage for 1 hour.' },
+  { name: 'Driftglobe', type: 'Wondrous item', rarity: 'Uncommon', attunement: false, desc: 'Cast Light or Daylight from it; command it to float and follow you within 60 ft.' },
+  { name: 'Sending Stones', type: 'Wondrous item', rarity: 'Uncommon', attunement: false, desc: 'A matched pair; touch one to cast Sending to the holder of the other, once per long rest.' }
 ];
+
+/* Standard ability-score generation aids (SRD 5.1). */
+export const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
+/** Point-buy cost table: score -> points spent (27-point buy). */
+export const POINT_BUY_COST = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };

@@ -38,6 +38,7 @@ import './dndsheet.js';
 import './spellbook.js';
 import './dndinventory.js';
 import './compendium.js'; // V2 §12e/§13: 5e SRD reference
+import './character-creator.js'; // V2 §12e: guided character builder
 import './levelplanner.js';
 import './statblock.js';
 import './loottable.js';

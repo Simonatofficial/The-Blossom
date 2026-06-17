@@ -10,6 +10,7 @@ export const DND_CHARACTER_PRESET = {
     {
       name: 'Sheet', icon: 'shield',
       widgets: [
+        { type: 'chargen', name: 'Start here — Character Creator' },
         { type: 'charsheet', name: 'Character', config: { section: 'sheet', playMode: false } }
       ]
     },

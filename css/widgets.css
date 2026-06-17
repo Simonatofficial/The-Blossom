@@ -1034,8 +1034,57 @@ span.anno { padding: 0 3px; }
 }
 .cmp-abilities span { font-size: 0.6rem; color: var(--text-soft); letter-spacing: 0.04em; }
 .cmp-abilities b { font-size: 0.74rem; }
+.cmp-src { font-size: 0.7rem; color: var(--text-soft); font-style: italic; margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 6px; }
 @media (max-width: 480px) {
   .cmp-abilities { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ---- Character Creator (V2 §12e) ---- */
+.cc-wrap { display: flex; flex-direction: column; gap: 12px; }
+.cc-rail { display: flex; gap: 4px; }
+.cc-dot {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px;
+  background: none; border: none; cursor: pointer; color: var(--text-soft); border-top: 2px solid var(--border);
+}
+.cc-dot.done, .cc-dot.on { border-top-color: var(--accent); color: var(--text); }
+.cc-dot b { font-size: 0.78rem; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-alt); border: 1px solid var(--border); font-weight: 600; }
+.cc-dot.on b { background: var(--accent); color: #fff; border-color: var(--accent); }
+.cc-dot.done b { background: var(--accent); color: #fff; border-color: var(--accent); opacity: 0.6; }
+.cc-dot span { font-size: 0.64rem; }
+.cc-body { display: flex; flex-direction: column; gap: 8px; min-height: 200px; }
+.cc-hint { font-size: 0.86rem; color: var(--text-soft); margin: 0; }
+.cc-sub { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); font-weight: 600; margin-top: 6px; }
+.cc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.cc-card {
+  display: flex; flex-direction: column; gap: 2px; padding: 9px 11px; text-align: left;
+  border: 1px solid var(--border); border-radius: 11px; background: var(--surface-alt); cursor: pointer; color: var(--text);
+}
+.cc-card:hover { border-color: var(--accent); }
+.cc-card.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.cc-card b { font-size: 0.9rem; }
+.cc-card span { font-size: 0.72rem; color: var(--text-soft); }
+.cc-note { font-size: 0.82rem; line-height: 1.45; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin: 4px 0 0; }
+.cc-bad, .cc-note .cc-bad { color: var(--warn, #c75d4f); }
+.cc-methods { display: flex; gap: 4px; flex-wrap: wrap; }
+.cc-ab { display: flex; align-items: center; gap: 8px; }
+.cc-ab > span:first-child { width: 38px; font-size: 0.78rem; color: var(--text-soft); font-weight: 600; }
+.cc-ab .cc-val { min-width: 24px; text-align: center; font-size: 1rem; }
+.cc-ab em { font-style: normal; font-size: 0.78rem; color: var(--accent); }
+.cc-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.cc-nav .btn { min-width: 88px; }
+.cc-summary { display: flex; flex-direction: column; gap: 2px; }
+.cc-srow { display: flex; justify-content: space-between; font-size: 0.86rem; padding: 3px 0; border-bottom: 1px solid var(--border); }
+.cc-abilities { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; margin: 6px 0; }
+.cc-abilities > div {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface-alt);
+}
+.cc-abilities span { font-size: 0.62rem; color: var(--text-soft); }
+.cc-abilities b { font-size: 1rem; color: var(--accent); }
+.cc-abilities i { font-style: normal; font-size: 0.68rem; color: var(--text-soft); }
+@media (max-width: 480px) {
+  .cc-abilities { grid-template-columns: repeat(3, 1fr); }
+  .cc-dot span { display: none; }
 }
 
 /* ---- D&D DM Campaign Manager (docs/08 §3) ---- */

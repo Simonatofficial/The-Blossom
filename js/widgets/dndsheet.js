@@ -15,42 +15,9 @@ import { renderCombat } from './dndcombat.js';
 import { renderStory } from './dndstory.js';
 import { getStamp, openStampPicker } from './wb-stamps.js';
 import { openCompendiumPicker } from './tabletop-compendium.js';
-import { classByName, raceByName, backgroundByName, slotsFor } from '../presets/tabletop/srd5e-index.js';
+import { openCharacterCreator } from './character-creator.js';
+import { applyClass, applyRace, applyBackground } from './tabletop-build.js';
 import { toast } from '../ui/components.js';
-
-const SKILL_KEY = {
-  'Acrobatics': 'acrobatics', 'Animal Handling': 'animal', 'Arcana': 'arcana', 'Athletics': 'athletics',
-  'Deception': 'deception', 'History': 'history', 'Insight': 'insight', 'Intimidation': 'intimidation',
-  'Investigation': 'investigation', 'Medicine': 'medicine', 'Nature': 'nature', 'Perception': 'perception',
-  'Performance': 'performance', 'Persuasion': 'persuasion', 'Religion': 'religion', 'Sleight of Hand': 'sleight',
-  'Stealth': 'stealth', 'Survival': 'survival'
-};
-
-/** Apply a chosen SRD class to a character: saves, hit die, spell slots. */
-function applyClass(c, cls) {
-  c.cls = cls.name;
-  c.saveProfs = [...new Set([...(c.saveProfs || []), ...cls.saves])];
-  c.hitDice = { die: cls.hitDie, used: c.hitDice?.used || 0 };
-  if (cls.spellcasting) {
-    c.spellAbility = c.spellAbility || cls.spellcasting.ability;
-    const slots = slotsFor(cls.name, c.level || 1);
-    if (slots) { c.slots = c.slots || {}; slots.forEach((max, i) => { if (max > 0) c.slots[i + 1] = { max, used: Math.min(c.slots[i + 1]?.used || 0, max) }; }); }
-  }
-}
-/** Apply a chosen SRD race: speed, darkvision senses, ability bonuses (once). */
-function applyRace(c, race) {
-  const changed = c.race !== race.name;
-  c.race = race.name;
-  c.speed = race.speed;
-  if (race.darkvision) c.senses = `Darkvision ${race.darkvision} ft`;
-  if (changed) for (const b of race.abilityBonuses || []) { if (c.abilities[b.ability] != null) c.abilities[b.ability] = Math.min(20, c.abilities[b.ability] + b.bonus); }
-}
-/** Apply a chosen SRD background: its two skill proficiencies. */
-function applyBackground(c, bg) {
-  c.background = bg.name;
-  c.skillProfs = c.skillProfs || {};
-  for (const s of bg.skills) { const k = SKILL_KEY[s]; if (k && !c.skillProfs[k]) c.skillProfs[k] = 1; }
-}
 
 registry.register({
   type: 'charsheet',
@@ -160,6 +127,7 @@ export function renderSheet(host, env) {
   modeBtn.textContent = play ? 'Edit' : 'Done';
   modeBtn.onclick = () => { widget.config.playMode = !play; store.put('widgets', widget); rerender(); };
   head.querySelector('[title="More"]').onclick = (e) => popMenu(e.currentTarget, [
+    { label: 'Character creation guide', iconName: 'sparkles', fn: () => openCharacterCreator({ widget, onDone: rerender }) },
     { label: 'Copy character code', iconName: 'code', fn: async () => {
       const { copyNodeCode } = await import('../ui/settings.js');
       copyNodeCode('wgt', owner.id, c.name); // the anchor carries everything

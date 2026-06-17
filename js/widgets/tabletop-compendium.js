@@ -25,6 +25,8 @@ export function entrySubtitle(e) {
     case 'armor': return `${e.category} · AC ${e.ac} · ${e.cost}`;
     case 'gear': return `${e.cost}${e.weight ? ` · ${e.weight} lb` : ''}`;
     case 'magicitem': return `${e.type} · ${e.rarity}${e.attunement ? ' · attunement' : ''}`;
+    case 'feat': return e.prereq && e.prereq !== '—' ? `Feat · ${e.prereq}` : 'Feat';
+    case 'rule': return 'Rule';
     case 'condition': return 'Condition';
     default: return '';
   }
@@ -104,9 +106,15 @@ export function entryDetail(e) {
   } else if (e.kind === 'magicitem') {
     p(`<i>${e.type}, ${e.rarity}${e.attunement ? ' (requires attunement)' : ''}</i>`);
     box.appendChild(el('<p class="cmp-text"></p>')).textContent = e.desc;
+  } else if (e.kind === 'feat') {
+    if (e.prereq && e.prereq !== '—') p(`<b>Prerequisite:</b> ${e.prereq}`);
+    box.appendChild(el('<p class="cmp-text"></p>')).textContent = e.desc;
+  } else if (e.kind === 'rule') {
+    box.appendChild(el('<p class="cmp-text"></p>')).textContent = e.text;
   } else if (e.kind === 'condition') {
     box.appendChild(el('<p class="cmp-text"></p>')).textContent = e.effect;
   }
+  if (e.source) box.appendChild(el(`<p class="cmp-src">Source: ${e.source}</p>`));
   return box;
 }
 

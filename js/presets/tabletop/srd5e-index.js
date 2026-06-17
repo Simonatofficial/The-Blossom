@@ -5,11 +5,19 @@
 import { CLASSES, SPELL_SLOTS } from './srd5e-classes.js';
 import { RACES, BACKGROUNDS } from './srd5e-races.js';
 import { SPELLS } from './srd5e-spells.js';
-import { WEAPONS, ARMOR, GEAR, MAGIC_ITEMS } from './srd5e-equipment.js';
+import { WEAPONS, ARMOR, GEAR, MAGIC_ITEMS, STANDARD_ARRAY, POINT_BUY_COST } from './srd5e-equipment.js';
 import { MONSTERS, CR_XP } from './srd5e-monsters.js';
+import { FEATS } from './srd5e-feats.js';
+import { RULES } from './srd5e-rules.js';
 import { CONDITIONS } from './srd5e.js';
 
-export { CLASSES, SPELL_SLOTS, RACES, BACKGROUNDS, SPELLS, WEAPONS, ARMOR, GEAR, MAGIC_ITEMS, MONSTERS, CR_XP, CONDITIONS };
+export {
+  CLASSES, SPELL_SLOTS, RACES, BACKGROUNDS, SPELLS, WEAPONS, ARMOR, GEAR, MAGIC_ITEMS,
+  MONSTERS, CR_XP, FEATS, RULES, CONDITIONS, STANDARD_ARRAY, POINT_BUY_COST
+};
+
+/** Attach a default source to entries that don't carry their own. */
+const withSrc = (arr, src) => arr.map(e => (e.source ? e : { ...e, source: src }));
 
 const SCHOOL_FULL = {
   Abj: 'Abjuration', Con: 'Conjuration', Div: 'Divination', Enc: 'Enchantment',
@@ -65,25 +73,29 @@ export function slotsFor(className, level) {
     Each entry has at least { name } and a `kind` tag matching the category. */
 export const COMPENDIUM = [
   { id: 'spells', label: 'Spells', icon: 'sparkles',
-    items: () => allSpells().map(s => ({ ...s, kind: 'spell' })) },
+    items: () => withSrc(allSpells(), 'SRD 5.1').map(s => ({ ...s, kind: 'spell' })) },
   { id: 'monsters', label: 'Monsters', icon: 'shield',
-    items: () => MONSTERS.map(m => ({ ...m, kind: 'monster' })) },
+    items: () => withSrc(MONSTERS, 'SRD 5.1').map(m => ({ ...m, kind: 'monster' })) },
   { id: 'classes', label: 'Classes', icon: 'star',
-    items: () => CLASSES.map(c => ({ ...c, kind: 'class' })) },
+    items: () => withSrc(CLASSES, 'SRD 5.1 / PHB').map(c => ({ ...c, kind: 'class' })) },
   { id: 'races', label: 'Races', icon: 'leaf',
-    items: () => RACES.map(r => ({ ...r, kind: 'race' })) },
+    items: () => withSrc(RACES, 'SRD 5.1').map(r => ({ ...r, kind: 'race' })) },
   { id: 'backgrounds', label: 'Backgrounds', icon: 'book',
-    items: () => BACKGROUNDS.map(b => ({ ...b, kind: 'background' })) },
+    items: () => withSrc(BACKGROUNDS, "SRD 5.1 / PHB").map(b => ({ ...b, kind: 'background' })) },
+  { id: 'feats', label: 'Feats', icon: 'star',
+    items: () => FEATS.map(f => ({ ...f, kind: 'feat' })) },
   { id: 'weapons', label: 'Weapons', icon: 'zap',
-    items: () => WEAPONS.map(w => ({ ...w, kind: 'weapon' })) },
+    items: () => withSrc(WEAPONS, 'SRD 5.1').map(w => ({ ...w, kind: 'weapon' })) },
   { id: 'armor', label: 'Armor', icon: 'shield',
-    items: () => ARMOR.map(a => ({ ...a, kind: 'armor' })) },
+    items: () => withSrc(ARMOR, 'SRD 5.1').map(a => ({ ...a, kind: 'armor' })) },
   { id: 'gear', label: 'Gear', icon: 'bag',
-    items: () => GEAR.map(g => ({ ...g, kind: 'gear' })) },
+    items: () => withSrc(GEAR, 'SRD 5.1').map(g => ({ ...g, kind: 'gear' })) },
   { id: 'items', label: 'Magic Items', icon: 'sparkles',
-    items: () => MAGIC_ITEMS.map(m => ({ ...m, kind: 'magicitem' })) },
+    items: () => withSrc(MAGIC_ITEMS, 'SRD 5.1').map(m => ({ ...m, kind: 'magicitem' })) },
+  { id: 'rules', label: 'Rules', icon: 'book',
+    items: () => RULES.map(r => ({ ...r, kind: 'rule' })) },
   { id: 'conditions', label: 'Conditions', icon: 'info',
-    items: () => CONDITIONS.map(c => ({ ...c, kind: 'condition' })) }
+    items: () => withSrc(CONDITIONS, 'SRD 5.1').map(c => ({ ...c, kind: 'condition' })) }
 ];
 
 /** Search across one category (or all) by a query string. */
