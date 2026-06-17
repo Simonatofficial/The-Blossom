@@ -24,6 +24,9 @@ export function entrySubtitle(e) {
     case 'weapon': return `${e.category} · ${e.damage} ${e.damageType} · ${e.cost}`;
     case 'armor': return `${e.category} · AC ${e.ac} · ${e.cost}`;
     case 'gear': return `${e.cost}${e.weight ? ` · ${e.weight} lb` : ''}`;
+    case 'tool': return `${e.category} · ${e.cost}`;
+    case 'mount': return `${e.category}${e.speed && e.speed !== '—' ? ` · ${e.speed}` : ''} · ${e.cost}`;
+    case 'language': return `${e.type}${e.script && e.script !== '—' ? ` · ${e.script} script` : ''}`;
     case 'magicitem': return `${e.type} · ${e.rarity}${e.attunement ? ' · attunement' : ''}`;
     case 'feat': return e.prereq && e.prereq !== '—' ? `Feat · ${e.prereq}` : 'Feat';
     case 'rule': return 'Rule';
@@ -103,6 +106,20 @@ export function entryDetail(e) {
   } else if (e.kind === 'gear') {
     p(`<b>Cost:</b> ${e.cost}${e.weight ? ` &nbsp; <b>Weight:</b> ${e.weight} lb` : ''}`);
     box.appendChild(el('<p class="cmp-text"></p>')).textContent = e.desc;
+  } else if (e.kind === 'tool') {
+    p(`<b>Category:</b> ${e.category}`);
+    p(`<b>Cost:</b> ${e.cost}${e.weight ? ` &nbsp; <b>Weight:</b> ${e.weight} lb` : ''}`);
+    if (e.desc) box.appendChild(el('<p class="cmp-text"></p>')).textContent = e.desc;
+  } else if (e.kind === 'mount') {
+    p(`<b>Category:</b> ${e.category}`);
+    if (e.speed && e.speed !== '—') p(`<b>Speed:</b> ${e.speed}`);
+    if (e.capacity && e.capacity !== '—') p(`<b>Carrying capacity:</b> ${e.capacity}`);
+    p(`<b>Cost:</b> ${e.cost}`);
+    if (e.desc) box.appendChild(el('<p class="cmp-text"></p>')).textContent = e.desc;
+  } else if (e.kind === 'language') {
+    p(`<b>Type:</b> ${e.type}`);
+    if (e.script && e.script !== '—') p(`<b>Script:</b> ${e.script}`);
+    if (e.speakers) p(`<b>Typical speakers:</b> ${e.speakers}`);
   } else if (e.kind === 'magicitem') {
     p(`<i>${e.type}, ${e.rarity}${e.attunement ? ' (requires attunement)' : ''}</i>`);
     box.appendChild(el('<p class="cmp-text"></p>')).textContent = e.desc;

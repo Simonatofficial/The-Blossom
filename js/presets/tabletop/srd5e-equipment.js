@@ -243,6 +243,98 @@ export const MAGIC_ITEMS = [
   { name: 'Portable Hole', type: 'Wondrous item', rarity: 'Rare', attunement: false, desc: 'A cloth that unfolds into a 10-ft-deep extradimensional hole (held breathable air for ~10 minutes if sealed inside).' }
 ];
 
+/* Tools: { name, category, cost, weight, desc } */
+export const TOOLS = [
+  { name: "Alchemist's Supplies", category: "Artisan's Tools", cost: '50 gp', weight: 8, desc: 'Identify and create alchemical substances; craft acid, alchemist\'s fire, and similar.' },
+  { name: "Brewer's Supplies", category: "Artisan's Tools", cost: '20 gp', weight: 9, desc: 'Brew ale and other drinks; knowledge of purification and fermentation.' },
+  { name: "Calligrapher's Supplies", category: "Artisan's Tools", cost: '10 gp', weight: 5, desc: 'Fine writing, decorative lettering, and forgery detection.' },
+  { name: "Carpenter's Tools", category: "Artisan's Tools", cost: '8 gp', weight: 6, desc: 'Build and repair wooden structures and furniture.' },
+  { name: "Cartographer's Tools", category: "Artisan's Tools", cost: '15 gp', weight: 6, desc: 'Create and read maps; chart unexplored areas.' },
+  { name: "Cobbler's Tools", category: "Artisan's Tools", cost: '5 gp', weight: 5, desc: 'Make and repair footwear; hide small items in shoes.' },
+  { name: "Cook's Utensils", category: "Artisan's Tools", cost: '1 gp', weight: 8, desc: 'Prepare meals; turn rations into appetizing fare and improve morale.' },
+  { name: "Glassblower's Tools", category: "Artisan's Tools", cost: '30 gp', weight: 5, desc: 'Craft glass objects and assess the quality of glasswork.' },
+  { name: "Jeweler's Tools", category: "Artisan's Tools", cost: '25 gp', weight: 2, desc: 'Appraise, cut, and set gemstones.' },
+  { name: "Leatherworker's Tools", category: "Artisan's Tools", cost: '5 gp', weight: 5, desc: 'Work leather into armor, clothing, and goods.' },
+  { name: "Mason's Tools", category: "Artisan's Tools", cost: '10 gp', weight: 8, desc: 'Build and assess stone structures.' },
+  { name: "Painter's Supplies", category: "Artisan's Tools", cost: '10 gp', weight: 5, desc: 'Produce paintings and assess art.' },
+  { name: "Potter's Tools", category: "Artisan's Tools", cost: '10 gp', weight: 3, desc: 'Create pottery; find hidden things in or behind ceramics.' },
+  { name: "Smith's Tools", category: "Artisan's Tools", cost: '20 gp', weight: 8, desc: 'Forge and repair metal items and weapons.' },
+  { name: "Tinker's Tools", category: "Artisan's Tools", cost: '50 gp', weight: 10, desc: 'Repair many mundane items and build small devices from spare parts.' },
+  { name: "Weaver's Tools", category: "Artisan's Tools", cost: '1 gp', weight: 5, desc: 'Make and mend cloth and clothing; embed messages in weaves.' },
+  { name: "Woodcarver's Tools", category: "Artisan's Tools", cost: '1 gp', weight: 5, desc: 'Carve wood into arrows, figurines, and instruments.' },
+  { name: "Navigator's Tools", category: 'Kit', cost: '25 gp', weight: 2, desc: 'Chart a course and follow navigation; sextant, compass, and calipers.' },
+  { name: "Thieves' Tools", category: 'Kit', cost: '25 gp', weight: 1, desc: 'Picks, a file, and small tools for disarming traps and picking locks.' },
+  { name: "Healer's Kit", category: 'Kit', cost: '5 gp', weight: 3, desc: '10 uses; stabilize a dying creature without a Medicine check.' },
+  { name: 'Disguise Kit', category: 'Kit', cost: '25 gp', weight: 3, desc: 'Cosmetics and props to create disguises.' },
+  { name: 'Forgery Kit', category: 'Kit', cost: '15 gp', weight: 5, desc: 'Produce convincing fake documents and seals.' },
+  { name: 'Herbalism Kit', category: 'Kit', cost: '5 gp', weight: 3, desc: 'Identify plants and create antitoxin and potions of healing.' },
+  { name: "Poisoner's Kit", category: 'Kit', cost: '50 gp', weight: 2, desc: 'Craft and apply poisons.' },
+  { name: 'Dice Set', category: 'Gaming Set', cost: '1 sp', weight: 0, desc: 'A set of dice for gambling games.' },
+  { name: 'Playing Card Set', category: 'Gaming Set', cost: '5 sp', weight: 0, desc: 'A deck of cards for games of chance and skill.' },
+  { name: 'Dragonchess Set', category: 'Gaming Set', cost: '1 gp', weight: 0.5, desc: 'A three-dimensional strategy board game.' },
+  { name: 'Three-Dragon Ante Set', category: 'Gaming Set', cost: '1 gp', weight: 0, desc: 'A popular card game of bluff and luck.' },
+  { name: 'Bagpipes', category: 'Instrument', cost: '30 gp', weight: 6, desc: 'A wind instrument with a reservoir bag.' },
+  { name: 'Drum', category: 'Instrument', cost: '6 gp', weight: 3, desc: 'A percussion instrument.' },
+  { name: 'Dulcimer', category: 'Instrument', cost: '25 gp', weight: 10, desc: 'A stringed instrument played with hammers.' },
+  { name: 'Flute', category: 'Instrument', cost: '2 gp', weight: 1, desc: 'A simple wind instrument.' },
+  { name: 'Lute', category: 'Instrument', cost: '35 gp', weight: 2, desc: 'A plucked string instrument.' },
+  { name: 'Lyre', category: 'Instrument', cost: '30 gp', weight: 2, desc: 'A small harp-like string instrument.' },
+  { name: 'Horn', category: 'Instrument', cost: '3 gp', weight: 2, desc: 'A brass wind instrument.' },
+  { name: 'Pan Flute', category: 'Instrument', cost: '12 gp', weight: 2, desc: 'A wind instrument of bound pipes.' },
+  { name: 'Shawm', category: 'Instrument', cost: '2 gp', weight: 1, desc: 'A double-reed wind instrument.' },
+  { name: 'Viol', category: 'Instrument', cost: '30 gp', weight: 1, desc: 'A bowed string instrument.' }
+];
+
+/* Mounts & vehicles: { name, category, cost, speed, capacity, desc } */
+export const MOUNTS = [
+  { name: 'Camel', category: 'Mount', cost: '50 gp', speed: '50 ft', capacity: '480 lb', desc: 'A desert mount well suited to long, dry travel.' },
+  { name: 'Donkey / Mule', category: 'Mount', cost: '8 gp', speed: '40 ft', capacity: '420 lb', desc: 'A sturdy pack animal that can bear heavy loads.' },
+  { name: 'Elephant', category: 'Mount', cost: '200 gp', speed: '40 ft', capacity: '1,320 lb', desc: 'A massive war and labor mount.' },
+  { name: 'Horse, Draft', category: 'Mount', cost: '50 gp', speed: '40 ft', capacity: '540 lb', desc: 'A heavy horse bred for pulling and hauling.' },
+  { name: 'Horse, Riding', category: 'Mount', cost: '75 gp', speed: '60 ft', capacity: '480 lb', desc: 'A swift, even-tempered riding horse.' },
+  { name: 'Mastiff', category: 'Mount', cost: '25 gp', speed: '40 ft', capacity: '195 lb', desc: 'A large dog usable as a mount by Small folk.' },
+  { name: 'Pony', category: 'Mount', cost: '30 gp', speed: '40 ft', capacity: '225 lb', desc: 'A small mount suited to halflings and gnomes.' },
+  { name: 'Warhorse', category: 'Mount', cost: '400 gp', speed: '60 ft', capacity: '540 lb', desc: 'A trained battle mount.' },
+  { name: 'Saddle, Riding', category: 'Tack', cost: '10 gp', speed: '—', capacity: '25 lb', desc: 'A standard riding saddle.' },
+  { name: 'Saddle, Military', category: 'Tack', cost: '20 gp', speed: '—', capacity: '30 lb', desc: 'Holds you in place; advantage on checks to stay mounted.' },
+  { name: 'Saddle, Exotic', category: 'Tack', cost: '60 gp', speed: '—', capacity: '40 lb', desc: 'Required to ride aquatic or flying mounts.' },
+  { name: 'Bit and Bridle', category: 'Tack', cost: '2 gp', speed: '—', capacity: '1 lb', desc: 'Controls a mount.' },
+  { name: 'Feed (per day)', category: 'Tack', cost: '5 cp', speed: '—', capacity: '10 lb', desc: 'A day of feed for one mount.' },
+  { name: 'Cart', category: 'Vehicle (land)', cost: '15 gp', speed: '—', capacity: '200 lb', desc: 'A two-wheeled animal-drawn cart.' },
+  { name: 'Carriage', category: 'Vehicle (land)', cost: '100 gp', speed: '—', capacity: '600 lb', desc: 'A four-wheeled enclosed passenger vehicle.' },
+  { name: 'Chariot', category: 'Vehicle (land)', cost: '250 gp', speed: '—', capacity: '100 lb', desc: 'A light, fast war or racing vehicle.' },
+  { name: 'Sled', category: 'Vehicle (land)', cost: '20 gp', speed: '—', capacity: '200 lb', desc: 'A runner-mounted vehicle for snow and ice.' },
+  { name: 'Wagon', category: 'Vehicle (land)', cost: '35 gp', speed: '—', capacity: '600 lb', desc: 'A heavy four-wheeled hauler.' },
+  { name: 'Rowboat', category: 'Vehicle (water)', cost: '50 gp', speed: '1.5 mph', capacity: '—', desc: 'A small oared boat for a few passengers.' },
+  { name: 'Keelboat', category: 'Vehicle (water)', cost: '3,000 gp', speed: '1 mph', capacity: '—', desc: 'A small river and coastal vessel.' },
+  { name: 'Longship', category: 'Vehicle (water)', cost: '10,000 gp', speed: '3 mph', capacity: '—', desc: 'A fast oared-and-sailed raiding ship.' },
+  { name: 'Sailing Ship', category: 'Vehicle (water)', cost: '10,000 gp', speed: '2 mph', capacity: '—', desc: 'A seagoing merchant or exploration vessel.' },
+  { name: 'Warship', category: 'Vehicle (water)', cost: '25,000 gp', speed: '2.5 mph', capacity: '—', desc: 'A large oared-and-sailed military ship.' },
+  { name: 'Galley', category: 'Vehicle (water)', cost: '30,000 gp', speed: '4 mph', capacity: '—', desc: 'A large fast warship rowed by many oars.' }
+];
+
+/* Languages: { name, type, script, speakers } */
+export const LANGUAGES = [
+  { name: 'Common', type: 'Standard', script: 'Common', speakers: 'Humans and most civilized folk' },
+  { name: 'Dwarvish', type: 'Standard', script: 'Dwarvish', speakers: 'Dwarves' },
+  { name: 'Elvish', type: 'Standard', script: 'Elvish', speakers: 'Elves' },
+  { name: 'Giant', type: 'Standard', script: 'Dwarvish', speakers: 'Ogres, giants' },
+  { name: 'Gnomish', type: 'Standard', script: 'Dwarvish', speakers: 'Gnomes' },
+  { name: 'Goblin', type: 'Standard', script: 'Dwarvish', speakers: 'Goblinoids' },
+  { name: 'Halfling', type: 'Standard', script: 'Common', speakers: 'Halflings' },
+  { name: 'Orc', type: 'Standard', script: 'Dwarvish', speakers: 'Orcs' },
+  { name: 'Abyssal', type: 'Exotic', script: 'Infernal', speakers: 'Demons, chaotic-evil outsiders' },
+  { name: 'Celestial', type: 'Exotic', script: 'Celestial', speakers: 'Celestials (angels, etc.)' },
+  { name: 'Draconic', type: 'Exotic', script: 'Draconic', speakers: 'Dragons, dragonborn, kobolds' },
+  { name: 'Deep Speech', type: 'Exotic', script: '—', speakers: 'Aberrations (mind flayers, beholders)' },
+  { name: 'Infernal', type: 'Exotic', script: 'Infernal', speakers: 'Devils, lawful-evil outsiders' },
+  { name: 'Primordial', type: 'Exotic', script: 'Dwarvish', speakers: 'Elementals (includes Aquan, Auran, Ignan, Terran)' },
+  { name: 'Sylvan', type: 'Exotic', script: 'Elvish', speakers: 'Fey creatures' },
+  { name: 'Undercommon', type: 'Exotic', script: 'Elvish', speakers: 'Underdark traders' },
+  { name: 'Druidic', type: 'Exotic (secret)', script: 'Druidic', speakers: 'Druids only' },
+  { name: "Thieves' Cant", type: 'Exotic (secret)', script: '—', speakers: 'Rogues and the criminal underworld' }
+];
+
 /* Standard ability-score generation aids (SRD 5.1). */
 export const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
 /** Point-buy cost table: score -> points spent (27-point buy). */

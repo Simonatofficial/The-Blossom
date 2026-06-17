@@ -13,7 +13,8 @@ const HB = '__homebrew__'; // global owner id for all homebrew objects
 export const CAT_KIND = {
   spells: 'spell', monsters: 'monster', classes: 'class', races: 'race',
   backgrounds: 'background', feats: 'feat', weapons: 'weapon', armor: 'armor',
-  gear: 'gear', items: 'magicitem', rules: 'rule', conditions: 'condition'
+  gear: 'gear', tools: 'tool', mounts: 'mount', items: 'magicitem',
+  languages: 'language', rules: 'rule', conditions: 'condition'
 };
 
 /* ---------- books ---------- */

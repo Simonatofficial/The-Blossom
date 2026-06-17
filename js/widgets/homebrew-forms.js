@@ -102,6 +102,27 @@ export const FORMS = {
     { key: 'skillFrom', label: 'Skill list (blank = any)', type: 'tags' },
     { key: 'features', label: 'Features (one per line)', type: 'lines', full: true }
   ],
+  tools: [
+    { key: 'name', label: 'Name', type: 'text' },
+    { key: 'category', label: 'Category', type: 'text', ph: "Artisan's Tools" },
+    { key: 'cost', label: 'Cost', type: 'text', ph: '10 gp' },
+    { key: 'weight', label: 'Weight (lb)', type: 'num' },
+    { key: 'desc', label: 'Description', type: 'textarea', full: true }
+  ],
+  mounts: [
+    { key: 'name', label: 'Name', type: 'text' },
+    { key: 'category', label: 'Category', type: 'text', ph: 'Mount / Vehicle (land)' },
+    { key: 'cost', label: 'Cost', type: 'text', ph: '75 gp' },
+    { key: 'speed', label: 'Speed', type: 'text', ph: '60 ft' },
+    { key: 'capacity', label: 'Carrying capacity', type: 'text', ph: '480 lb' },
+    { key: 'desc', label: 'Description', type: 'textarea', full: true }
+  ],
+  languages: [
+    { key: 'name', label: 'Name', type: 'text' },
+    { key: 'type', label: 'Type', type: 'select', options: ['Standard', 'Exotic', 'Exotic (secret)'] },
+    { key: 'script', label: 'Script', type: 'text', ph: 'Common' },
+    { key: 'speakers', label: 'Typical speakers', type: 'text' }
+  ],
   conditions: [
     { key: 'name', label: 'Name', type: 'text' },
     { key: 'effect', label: 'Effect', type: 'textarea', full: true }
@@ -114,7 +135,8 @@ export const FORMS = {
 
 export const CATEGORY_LABELS = {
   spells: 'Spell', monsters: 'Monster', items: 'Magic Item', weapons: 'Weapon',
-  armor: 'Armor', gear: 'Gear', feats: 'Feat', backgrounds: 'Background',
+  armor: 'Armor', gear: 'Gear', tools: 'Tool', mounts: 'Mount / Vehicle',
+  languages: 'Language', feats: 'Feat', backgrounds: 'Background',
   races: 'Race', classes: 'Class', conditions: 'Condition', rules: 'Rule'
 };
 
