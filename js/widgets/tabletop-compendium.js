@@ -139,6 +139,7 @@ export function openCompendiumPicker({ title = 'Compendium', category = null, on
     };
     mk(null, 'All');
     for (const c of COMPENDIUM) mk(c.id, c.label);
+    mk('homebrew', 'Homebrew');
     d.body.appendChild(row);
   }
 

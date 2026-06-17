@@ -49,7 +49,8 @@ export const DND_DM_PRESET = {
         { type: 'encounter', name: 'Encounters' },
         { type: 'initiative', name: 'Initiative tracker' },
         { type: 'loottable', name: 'Loot tables' },
-        { type: 'compendium', name: 'SRD Compendium' }
+        { type: 'compendium', name: 'SRD Compendium' },
+        { type: 'homebrew', name: 'Homebrew Workshop' }
       ]
     },
     {

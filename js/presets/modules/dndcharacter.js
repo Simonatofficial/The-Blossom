@@ -29,7 +29,8 @@ export const DND_CHARACTER_PRESET = {
       name: 'Spells', icon: 'sparkles',
       widgets: [
         { type: 'spellbook', name: 'Spell Book' },
-        { type: 'compendium', name: 'SRD Compendium' }
+        { type: 'compendium', name: 'SRD Compendium' },
+        { type: 'homebrew', name: 'Homebrew Workshop' }
       ]
     },
     {

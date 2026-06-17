@@ -552,6 +552,16 @@
 .d-pool-roll { padding: 5px 11px; font-size: 0.8rem; }
 .d-pool-clear { padding: 5px 9px; font-size: 0.8rem; }
 
+/* ---- Homebrew Workshop (docs/14 §B) ---- */
+.hb-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+.hb-flabel { display: block; font-size: 0.74rem; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.04em; margin: 10px 0 3px; }
+.hb-field { width: 100%; }
+.hb-abil { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+.hb-abil > div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.hb-abil span { font-size: 0.62rem; color: var(--text-soft); }
+.hb-abil input { text-align: center; padding: 4px 2px; }
+@media (max-width: 480px) { .hb-abil { grid-template-columns: repeat(3, 1fr); } }
+
 /* ---- Calculator widget ---- */
 .calc-display {
   text-align: right; font-size: 1.3rem; font-variant-numeric: tabular-nums;

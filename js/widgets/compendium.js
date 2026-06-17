@@ -7,7 +7,7 @@ import { registry } from './registry.js';
 import { store } from '../core/store.js';
 import { el } from '../ui/components.js';
 import { icon } from '../ui/icons.js';
-import { COMPENDIUM, searchCompendium } from '../presets/tabletop/srd5e-index.js';
+import { COMPENDIUM, searchCompendium, compendiumTotal } from '../presets/tabletop/srd5e-index.js';
 import { entryDetail, entrySubtitle } from './tabletop-compendium.js';
 
 registry.register({
@@ -22,7 +22,7 @@ registry.register({
 
   renderCard(host, widget) {
     host.innerHTML = '';
-    const total = COMPENDIUM.reduce((n, c) => n + c.items().length, 0);
+    const total = compendiumTotal();
     host.appendChild(el(`<div><div class="row" style="gap:8px;align-items:center">
       <span style="color:var(--accent)">${icon('book', 22)}</span>
       <div><div style="font-weight:650">Compendium</div>
@@ -51,6 +51,7 @@ registry.register({
     };
     mkCat(null, 'All');
     for (const c of COMPENDIUM) mkCat(c.id, c.label);
+    mkCat('homebrew', 'Homebrew');
     host.appendChild(cats);
 
     const list = el('<div class="cmp-list"></div>');

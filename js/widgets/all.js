@@ -39,6 +39,7 @@ import './spellbook.js';
 import './dndinventory.js';
 import './compendium.js'; // V2 §12e/§13: 5e SRD reference
 import './character-creator.js'; // V2 §12e: guided character builder
+import './homebrew.js'; // docs/14 §B: homebrew + custom books
 import './levelplanner.js';
 import './statblock.js';
 import './loottable.js';

@@ -98,15 +98,37 @@ export const COMPENDIUM = [
     items: () => withSrc(CONDITIONS, 'SRD 5.1').map(c => ({ ...c, kind: 'condition' })) }
 ];
 
-/** Search across one category (or all) by a query string. */
+/* Homebrew provider: the homebrew store injects a function that returns
+   user-created entries already shaped like compendium entries (with `_cat`,
+   `kind`, `name`, `source`, `homebrew: true`). Kept as an injected hook so this
+   pure-data module never depends on the IndexedDB layer. */
+let _homebrew = () => [];
+export function setHomebrewProvider(fn) { _homebrew = typeof fn === 'function' ? fn : (() => []); }
+export function homebrewEntries() { return _homebrew() || []; }
+
+/** Total number of compendium entries (SRD + homebrew). */
+export function compendiumTotal() {
+  return COMPENDIUM.reduce((n, c) => n + c.items().length, 0) + homebrewEntries().length;
+}
+
+/** Search across one category (or all) by a query string. Includes homebrew.
+    categoryId 'homebrew' returns only homebrew entries. */
 export function searchCompendium(query, categoryId = null) {
   const q = String(query || '').trim().toLowerCase();
-  const cats = categoryId ? COMPENDIUM.filter(c => c.id === categoryId) : COMPENDIUM;
+  const match = (e) => !q || (e.name || '').toLowerCase().includes(q);
   const out = [];
-  for (const cat of cats) {
-    for (const entry of cat.items()) {
-      if (!q || entry.name.toLowerCase().includes(q)) out.push({ ...entry, _cat: cat.id });
+  if (categoryId !== 'homebrew') {
+    const cats = categoryId ? COMPENDIUM.filter(c => c.id === categoryId) : COMPENDIUM;
+    for (const cat of cats) {
+      for (const entry of cat.items()) {
+        if (match(entry)) out.push({ ...entry, _cat: cat.id });
+      }
     }
+  }
+  // merge homebrew (all, the chosen category, or the dedicated 'homebrew' view)
+  for (const hb of homebrewEntries()) {
+    if (categoryId && categoryId !== 'homebrew' && hb._cat !== categoryId) continue;
+    if (match(hb)) out.push(hb);
   }
   return out;
 }
