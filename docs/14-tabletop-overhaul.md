@@ -29,16 +29,18 @@ Live data lives in `js/presets/tabletop/`. "SRD 5.1" = the full free SRD target;
 | **Feats** | 43 | 1 SRD (+~42 PHB) | SRD only has Grappler; rest are PHB summaries. |
 | **Weapons** | 37 | 37 | Complete. |
 | **Armor** | 13 | 13 | Complete. |
-| **Adventuring gear** | 32 | ~120 | Add the rest: containers, kits, holy symbols, ammunition types, spellcasting foci, trade goods. |
-| **Tools** *(new category)* | 0 | ~40 | Artisan's tools, kits (herbalism/healer/etc.), gaming sets, instruments, navigator's/thieves' tools. |
-| **Mounts & vehicles** *(new)* | 0 | ~20 | Riding/draft animals, carts, ships, their speeds & capacities. |
-| **Magic items** | 34 | ~362 | Large gap. Add the full SRD magic-item list by rarity, with attunement and charges. |
+| **Adventuring gear** | 76 | ~120 | ✅ batch added (foci, kits, containers, ammo, utility). Remaining: trade goods, services. |
+| **Tools** *(category)* | 38 | ~40 | ✅ artisan's tools, kits, gaming sets, instruments. |
+| **Mounts & vehicles** *(category)* | 24 | ~24 | ✅ mounts, tack, land/water vehicles with speed & capacity. |
+| **Magic items** | 92 | ~362 | ✅ batch added across all rarities. Keep growing toward the full list. |
 | **Conditions** | 15 | 15 | Complete. |
-| **Rules** | 25 | open | Add: full combat sequence, environment (vision, suffocation, falling), travel/downtime, traps, diseases, poisons, madness, the planes. |
-| **Languages** *(new)* | 0 | ~16 | Standard + exotic languages with scripts. |
+| **Rules** | 25 | open | Add: full combat sequence, environment (vision, suffocation, falling), travel/downtime, traps, diseases, madness, the planes. |
+| **Languages** *(category)* | 18 | ~16 | ✅ standard + exotic with scripts and speakers. |
+| **Poisons** *(category)* | 15 | ~14 | ✅ full SRD poison list (type, price, effect). |
 | **Deities** *(new)* | 0 | ~30 | The SRD example pantheon. |
-| **Poisons** *(new)* | 0 | ~14 | SRD poisons (type, price, effect). |
 | **Planes** *(new)* | 0 | ~25 | The SRD cosmology entries. |
+
+**Compendium now: 16 categories / ~791 entries.**
 
 **Compendium categories now (12):** Spells · Monsters · Classes · Races ·
 Backgrounds · Feats · Weapons · Armor · Gear · Magic Items · Rules · Conditions.
@@ -118,7 +120,7 @@ widgets. Status: ✅ done · ◻ planned.
 
 1. ✅ **v75** — multi-character + switcher, creator-creates-new, roll-for-stats, dice pool.
 2. ✅ **v76** — Homebrew core: `ttbook` + `hbentry` model, `homebrew` Workshop widget, field-driven forms for all 12 categories, compendium merge + Homebrew filter, Blossom-code book sharing.
-3. **Content fill — equipment side** — finish gear, add tools, mounts/vehicles, languages; finish magic items by rarity.
+3. ✅ **v77–v79** — Content fill (equipment side): gear 32→76, magic items 34→92, + new categories Tools (38), Mounts & Vehicles (24), Languages (18), Poisons (15). Compendium now 16 categories / ~791 entries.
 4. **Content fill — bestiary** — bring monsters toward the full SRD set (priority: dragons, fiends, common NPCs, golems).
 5. **Sheet linking** — armor object → AC auto-calc; weapon objects → Combat attacks; class features & racial traits auto-listed; subclass picker.
 6. **Shop + equip flow** — buy with gold, equip, drag-into-combat.
