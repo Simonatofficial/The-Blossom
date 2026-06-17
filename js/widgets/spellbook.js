@@ -9,6 +9,7 @@ import { icon } from '../ui/icons.js';
 import { el, toast, popMenu, openPanel, input } from '../ui/components.js';
 import { objectsOf, createObject, saveObject } from './base.js';
 import { SCHOOLS, ABILITIES, fmtMod, spellSaveDC, spellAttackBonus, getCharacter, saveCharacter } from './dnd-shared.js';
+import { openCompendiumPicker } from './tabletop-compendium.js';
 
 const LV_NAME = (n) => n === 0 ? 'Cantrips' : `Level ${n}`;
 
@@ -98,11 +99,25 @@ registry.register({
     const bar = el(`<div class="row" style="gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
       <span class="chip prep-count"></span>
       <span class="soft" style="font-size:0.78rem">limit</span><input class="input prep-lim" type="number" style="width:52px;padding:2px 6px">
-      <span class="grow"></span><button class="btn btn-primary" style="font-size:0.8rem;padding:4px 11px">${icon('plus', 13)} Spell</button></div>`);
+      <span class="grow"></span>
+      <button class="btn btn-srd" style="font-size:0.8rem;padding:4px 11px">${icon('book', 13)} SRD</button>
+      <button class="btn btn-primary" style="font-size:0.8rem;padding:4px 11px">${icon('plus', 13)} Spell</button></div>`);
     const limIn = bar.querySelector('.prep-lim');
     limIn.value = c.preparedLimit || 0;
     limIn.onchange = () => { c.preparedLimit = Math.max(0, Number(limIn.value) || 0); saveChar(); drawList(); };
     bar.querySelector('.btn-primary').onclick = () => editSpell();
+    bar.querySelector('.btn-srd').onclick = () => openCompendiumPicker({
+      title: 'Add a spell from the SRD', category: 'spells',
+      onPick: (sp) => {
+        createObject(owner.id, 'spell', {
+          name: sp.name, level: sp.level, school: sp.school, time: sp.time, range: sp.range,
+          comps: sp.comps, duration: sp.duration, text: sp.text,
+          concentration: sp.concentration, ritual: sp.ritual, prepared: false
+        });
+        toast(`${sp.name} added to the spellbook.`, 'sparkles');
+        drawFilters(); drawList();
+      }
+    });
     host.appendChild(bar);
 
     const filters = el('<div class="row" style="gap:4px;flex-wrap:wrap;margin-bottom:8px"></div>');

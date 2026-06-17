@@ -37,6 +37,7 @@ import './pinboard.js';
 import './dndsheet.js';
 import './spellbook.js';
 import './dndinventory.js';
+import './compendium.js'; // V2 §12e/§13: 5e SRD reference
 import './levelplanner.js';
 import './statblock.js';
 import './loottable.js';

@@ -48,7 +48,8 @@ export const DND_DM_PRESET = {
       widgets: [
         { type: 'encounter', name: 'Encounters' },
         { type: 'initiative', name: 'Initiative tracker' },
-        { type: 'loottable', name: 'Loot tables' }
+        { type: 'loottable', name: 'Loot tables' },
+        { type: 'compendium', name: 'SRD Compendium' }
       ]
     },
     {

@@ -9,8 +9,17 @@ import { icon } from '../ui/icons.js';
 import { el, toast, popMenu, openPanel, input } from '../ui/components.js';
 import { objectsOf, createObject, saveObject } from './base.js';
 import { getCharacter, saveCharacter } from './dnd-shared.js';
+import { openCompendiumPicker } from './tabletop-compendium.js';
 
 const COINS = [['pp', 'Platinum'], ['gp', 'Gold'], ['ep', 'Electrum'], ['sp', 'Silver'], ['cp', 'Copper']];
+
+/** Parse an SRD cost string ("5 gp", "1 sp", "2 cp") into a gp value. */
+function costToGp(cost) {
+  const m = String(cost || '').match(/([\d.]+)\s*(pp|gp|ep|sp|cp)/i);
+  if (!m) return 0;
+  const mult = { pp: 10, gp: 1, ep: 0.5, sp: 0.1, cp: 0.01 }[m[2].toLowerCase()] || 1;
+  return Math.round(Number(m[1]) * mult * 100) / 100;
+}
 
 registry.register({
   type: 'dndinventory',
@@ -66,9 +75,23 @@ registry.register({
     host.appendChild(status);
 
     /* ---- items ---- */
-    const bar = el(`<div class="row" style="gap:6px;margin-bottom:8px"><input class="input grow" placeholder="Search the pack…"><button class="btn btn-primary" style="font-size:0.8rem;padding:4px 11px">${icon('plus', 13)} Item</button></div>`);
-    const [search, addB] = bar.children;
+    const bar = el(`<div class="row" style="gap:6px;margin-bottom:8px"><input class="input grow" placeholder="Search the pack…"><button class="btn btn-srd" style="font-size:0.8rem;padding:4px 11px">${icon('book', 13)} SRD</button><button class="btn btn-primary" style="font-size:0.8rem;padding:4px 11px">${icon('plus', 13)} Item</button></div>`);
+    const [search, srdB, addB] = bar.children;
     host.appendChild(bar);
+    srdB.onclick = () => openCompendiumPicker({
+      title: 'Add gear from the SRD',
+      onPick: (e) => {
+        if (!['weapon', 'armor', 'gear', 'magicitem'].includes(e.kind)) return toast('Pick a weapon, armor, or gear entry.', 'bag');
+        const note = e.kind === 'weapon' ? `${e.damage} ${e.damageType}` : e.kind === 'armor' ? `AC ${e.ac}` : '';
+        createObject(owner.id, 'item', {
+          name: e.name + (note ? ` (${note})` : ''), qty: 1,
+          weight: Number(e.weight) || 0, value: costToGp(e.cost),
+          equipped: false, attuned: false
+        });
+        toast(`${e.name} added to the pack.`, 'bag');
+        drawList();
+      }
+    });
     const list = el('<div></div>');
     host.appendChild(list);
 

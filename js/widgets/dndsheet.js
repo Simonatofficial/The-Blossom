@@ -14,6 +14,43 @@ import { ABILITIES, SKILLS, XP_LEVELS, mod, fmtMod, profBonus, skillBonus, saveB
 import { renderCombat } from './dndcombat.js';
 import { renderStory } from './dndstory.js';
 import { getStamp, openStampPicker } from './wb-stamps.js';
+import { openCompendiumPicker } from './tabletop-compendium.js';
+import { classByName, raceByName, backgroundByName, slotsFor } from '../presets/tabletop/srd5e-index.js';
+import { toast } from '../ui/components.js';
+
+const SKILL_KEY = {
+  'Acrobatics': 'acrobatics', 'Animal Handling': 'animal', 'Arcana': 'arcana', 'Athletics': 'athletics',
+  'Deception': 'deception', 'History': 'history', 'Insight': 'insight', 'Intimidation': 'intimidation',
+  'Investigation': 'investigation', 'Medicine': 'medicine', 'Nature': 'nature', 'Perception': 'perception',
+  'Performance': 'performance', 'Persuasion': 'persuasion', 'Religion': 'religion', 'Sleight of Hand': 'sleight',
+  'Stealth': 'stealth', 'Survival': 'survival'
+};
+
+/** Apply a chosen SRD class to a character: saves, hit die, spell slots. */
+function applyClass(c, cls) {
+  c.cls = cls.name;
+  c.saveProfs = [...new Set([...(c.saveProfs || []), ...cls.saves])];
+  c.hitDice = { die: cls.hitDie, used: c.hitDice?.used || 0 };
+  if (cls.spellcasting) {
+    c.spellAbility = c.spellAbility || cls.spellcasting.ability;
+    const slots = slotsFor(cls.name, c.level || 1);
+    if (slots) { c.slots = c.slots || {}; slots.forEach((max, i) => { if (max > 0) c.slots[i + 1] = { max, used: Math.min(c.slots[i + 1]?.used || 0, max) }; }); }
+  }
+}
+/** Apply a chosen SRD race: speed, darkvision senses, ability bonuses (once). */
+function applyRace(c, race) {
+  const changed = c.race !== race.name;
+  c.race = race.name;
+  c.speed = race.speed;
+  if (race.darkvision) c.senses = `Darkvision ${race.darkvision} ft`;
+  if (changed) for (const b of race.abilityBonuses || []) { if (c.abilities[b.ability] != null) c.abilities[b.ability] = Math.min(20, c.abilities[b.ability] + b.bonus); }
+}
+/** Apply a chosen SRD background: its two skill proficiencies. */
+function applyBackground(c, bg) {
+  c.background = bg.name;
+  c.skillProfs = c.skillProfs || {};
+  for (const s of bg.skills) { const k = SKILL_KEY[s]; if (k && !c.skillProfs[k]) c.skillProfs[k] = 1; }
+}
 
 registry.register({
   type: 'charsheet',
@@ -105,6 +142,19 @@ export function renderSheet(host, env) {
       i.onchange = () => { c[key] = key === 'level' ? Math.max(1, Math.min(20, Number(i.value) || 1)) : i.value.trim(); save(); rerender(); };
       row.appendChild(i);
     }
+    // smart-fill: pick a class / race / background from the SRD
+    const srd = el(`<button class="btn" style="font-size:0.78rem;padding:4px 10px;margin-top:6px">${icon('book', 13)} Build from SRD</button>`);
+    srd.onclick = () => openCompendiumPicker({
+      title: 'Build from the SRD',
+      onPick: (e) => {
+        if (e.kind === 'class') { applyClass(c, e); toast(`${e.name}: saves & spell slots applied.`, 'shield'); }
+        else if (e.kind === 'race') { applyRace(c, e); toast(`${e.name}: speed & traits applied.`, 'leaf'); }
+        else if (e.kind === 'background') { applyBackground(c, e); toast(`${e.name}: skill proficiencies applied.`, 'book'); }
+        else return toast('Pick a class, race, or background.', 'book');
+        save(); rerender();
+      }
+    });
+    idBox.appendChild(srd);
   }
   const modeBtn = head.querySelector('.dnd-mode');
   modeBtn.textContent = play ? 'Edit' : 'Done';
