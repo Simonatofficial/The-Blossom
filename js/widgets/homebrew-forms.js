@@ -129,6 +129,17 @@ export const FORMS = {
     { key: 'price', label: 'Price', type: 'text', ph: '200 gp' },
     { key: 'desc', label: 'Effect', type: 'textarea', full: true }
   ],
+  deities: [
+    { key: 'name', label: 'Name', type: 'text' },
+    { key: 'alignment', label: 'Alignment', type: 'text', ph: 'NG' },
+    { key: 'domains', label: 'Suggested domains', type: 'text', ph: 'Life, Light' },
+    { key: 'symbol', label: 'Holy symbol', type: 'text' }
+  ],
+  planes: [
+    { key: 'name', label: 'Name', type: 'text' },
+    { key: 'category', label: 'Category', type: 'text', ph: 'Outer (Upper)' },
+    { key: 'desc', label: 'Description', type: 'textarea', full: true }
+  ],
   conditions: [
     { key: 'name', label: 'Name', type: 'text' },
     { key: 'effect', label: 'Effect', type: 'textarea', full: true }
@@ -142,7 +153,8 @@ export const FORMS = {
 export const CATEGORY_LABELS = {
   spells: 'Spell', monsters: 'Monster', items: 'Magic Item', weapons: 'Weapon',
   armor: 'Armor', gear: 'Gear', tools: 'Tool', mounts: 'Mount / Vehicle',
-  languages: 'Language', poisons: 'Poison', feats: 'Feat', backgrounds: 'Background',
+  languages: 'Language', poisons: 'Poison', deities: 'Deity', planes: 'Plane',
+  feats: 'Feat', backgrounds: 'Background',
   races: 'Race', classes: 'Class', conditions: 'Condition', rules: 'Rule'
 };
 

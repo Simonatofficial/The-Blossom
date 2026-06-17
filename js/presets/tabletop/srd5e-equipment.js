@@ -144,7 +144,17 @@ export const GEAR = [
   { name: 'Signet Ring', cost: '5 gp', weight: 0, desc: 'A ring engraved with a personal or family seal.' },
   { name: 'Sling Bullets (20)', cost: '4 cp', weight: 1.5, desc: 'Ammunition for a sling.' },
   { name: 'Blowgun Needles (50)', cost: '1 gp', weight: 1, desc: 'Ammunition for a blowgun.' },
-  { name: 'Holy Water (flask)', cost: '25 gp', weight: 1, desc: 'Thrown as an action: a fiend or undead within 5 ft takes 2d6 radiant damage on a hit.' }
+  { name: 'Holy Water (flask)', cost: '25 gp', weight: 1, desc: 'Thrown as an action: a fiend or undead within 5 ft takes 2d6 radiant damage on a hit.' },
+  { name: 'Lodging (per day, squalid–wealthy)', cost: '1 cp – 4 gp', weight: 0, desc: 'A night\'s stay: squalid 7 cp/week, modest 5 sp, comfortable 8 sp, wealthy 2 gp, aristocratic 4 gp per day.' },
+  { name: 'Meals (per day)', cost: '1 cp – 8 sp', weight: 0, desc: 'A day of food: squalid 1 cp, poor 2 sp, modest 5 sp, comfortable 8 sp, wealthy 2 gp, aristocratic 5+ gp.' },
+  { name: 'Ale / Wine', cost: '4 cp – 10 gp', weight: 0, desc: 'Gallon of ale 2 sp, mug 4 cp; common wine (pitcher) 2 sp; fine wine (bottle) 10 gp.' },
+  { name: 'Hireling, Skilled (per day)', cost: '2 gp', weight: 0, desc: 'A trained mercenary, artisan, scribe, or other professional.' },
+  { name: 'Hireling, Untrained (per day)', cost: '2 sp', weight: 0, desc: 'A laborer hired for unskilled work.' },
+  { name: 'Messenger', cost: '2 cp per mile', weight: 0, desc: 'Carries a message overland.' },
+  { name: 'Ship\'s Passage (per mile)', cost: '1 sp', weight: 0, desc: 'Booked passage aboard a sailing vessel, per person per mile.' },
+  { name: 'Coach / Cart Travel (per mile)', cost: '3 cp', weight: 0, desc: 'A seat in a hired coach or cart between towns.' },
+  { name: 'Trade Goods', cost: 'varies', weight: 0, desc: '1 gp = 1 lb wheat / 1 chicken; 2 gp = flour or salt; 5 gp = silk (1 lb) or a cow; 10 gp = a goat or fine cloth (1 sq yd); 50 gp = an ox.' },
+  { name: 'Gemstones', cost: '10 – 5,000 gp', weight: 0, desc: 'Common: 10 gp (azurite, quartz). Precious: 100 gp (amber, jade). Rare: 500–5,000 gp (emerald, diamond, ruby).' }
 ];
 
 /* A taste of magic items from the SRD: { name, type, rarity, attunement, desc } */

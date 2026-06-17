@@ -28,6 +28,8 @@ export function entrySubtitle(e) {
     case 'mount': return `${e.category}${e.speed && e.speed !== '—' ? ` · ${e.speed}` : ''} · ${e.cost}`;
     case 'language': return `${e.type}${e.script && e.script !== '—' ? ` · ${e.script} script` : ''}`;
     case 'poison': return `${e.type} · ${e.price}`;
+    case 'deity': return `${e.alignment} · ${e.domains}`;
+    case 'plane': return e.category;
     case 'magicitem': return `${e.type} · ${e.rarity}${e.attunement ? ' · attunement' : ''}`;
     case 'feat': return e.prereq && e.prereq !== '—' ? `Feat · ${e.prereq}` : 'Feat';
     case 'rule': return 'Rule';
@@ -123,6 +125,13 @@ export function entryDetail(e) {
     if (e.speakers) p(`<b>Typical speakers:</b> ${e.speakers}`);
   } else if (e.kind === 'poison') {
     p(`<b>Type:</b> ${e.type} &nbsp; <b>Price:</b> ${e.price}`);
+    if (e.desc) box.appendChild(el('<p class="cmp-text"></p>')).textContent = e.desc;
+  } else if (e.kind === 'deity') {
+    p(`<b>Alignment:</b> ${e.alignment}`);
+    p(`<b>Suggested domains:</b> ${e.domains}`);
+    if (e.symbol) p(`<b>Holy symbol:</b> ${e.symbol}`);
+  } else if (e.kind === 'plane') {
+    p(`<b>Category:</b> ${e.category}`);
     if (e.desc) box.appendChild(el('<p class="cmp-text"></p>')).textContent = e.desc;
   } else if (e.kind === 'magicitem') {
     p(`<i>${e.type}, ${e.rarity}${e.attunement ? ' (requires attunement)' : ''}</i>`);

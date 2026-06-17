@@ -14,7 +14,8 @@ export const CAT_KIND = {
   spells: 'spell', monsters: 'monster', classes: 'class', races: 'race',
   backgrounds: 'background', feats: 'feat', weapons: 'weapon', armor: 'armor',
   gear: 'gear', tools: 'tool', mounts: 'mount', items: 'magicitem',
-  languages: 'language', poisons: 'poison', rules: 'rule', conditions: 'condition'
+  languages: 'language', poisons: 'poison', deities: 'deity', planes: 'plane',
+  rules: 'rule', conditions: 'condition'
 };
 
 /* ---------- books ---------- */

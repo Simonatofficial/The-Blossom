@@ -9,11 +9,12 @@ import { WEAPONS, ARMOR, GEAR, MAGIC_ITEMS, TOOLS, MOUNTS, LANGUAGES, POISONS, S
 import { MONSTERS, CR_XP } from './srd5e-monsters.js';
 import { FEATS } from './srd5e-feats.js';
 import { RULES } from './srd5e-rules.js';
+import { DEITIES, PLANES } from './srd5e-lore.js';
 import { CONDITIONS } from './srd5e.js';
 
 export {
   CLASSES, SPELL_SLOTS, RACES, BACKGROUNDS, SPELLS, WEAPONS, ARMOR, GEAR, MAGIC_ITEMS,
-  TOOLS, MOUNTS, LANGUAGES, POISONS, MONSTERS, CR_XP, FEATS, RULES, CONDITIONS, STANDARD_ARRAY, POINT_BUY_COST
+  TOOLS, MOUNTS, LANGUAGES, POISONS, MONSTERS, CR_XP, FEATS, RULES, DEITIES, PLANES, CONDITIONS, STANDARD_ARRAY, POINT_BUY_COST
 };
 
 /** Attach a default source to entries that don't carry their own. */
@@ -100,6 +101,10 @@ export const COMPENDIUM = [
     items: () => withSrc(LANGUAGES, 'SRD 5.1').map(l => ({ ...l, kind: 'language' })) },
   { id: 'poisons', label: 'Poisons', icon: 'info',
     items: () => withSrc(POISONS, 'SRD 5.1').map(p => ({ ...p, kind: 'poison' })) },
+  { id: 'deities', label: 'Deities', icon: 'sparkles',
+    items: () => withSrc(DEITIES, 'SRD 5.1').map(d => ({ ...d, kind: 'deity' })) },
+  { id: 'planes', label: 'Planes', icon: 'info',
+    items: () => withSrc(PLANES, 'SRD 5.1').map(p => ({ ...p, kind: 'plane' })) },
   { id: 'rules', label: 'Rules', icon: 'book',
     items: () => RULES.map(r => ({ ...r, kind: 'rule' })) },
   { id: 'conditions', label: 'Conditions', icon: 'info',

@@ -42,6 +42,7 @@ self.SW_ASSETS = [
   './js/presets/tabletop/srd5e-equipment.js',
   './js/presets/tabletop/srd5e-feats.js',
   './js/presets/tabletop/srd5e-index.js',
+  './js/presets/tabletop/srd5e-lore.js',
   './js/presets/tabletop/srd5e-monsters.js',
   './js/presets/tabletop/srd5e-races.js',
   './js/presets/tabletop/srd5e-rules.js',
