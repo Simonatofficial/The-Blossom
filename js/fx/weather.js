@@ -371,7 +371,7 @@ const EFFECTS = {
   },
 
   /* LIGHTNING — periodic forking bolts from the top; tap anywhere to trigger one. */
-  lightning: {
+   /* lightning: {
     init(s) { s.bolts = []; s.flash = 0; s.next = rnd(2, 6) / (0.3 + intensity); s.acc = 0; },
     tickBg(g, s, dt, now) {
       s.acc += dt;
@@ -400,7 +400,7 @@ const EFFECTS = {
     },
     tickFg() {},
     pointer(s) { s.next = 0.01; return true; }
-  },
+  }, */
 
   /* LEAVES — falling autumn leaves that spin; tap to swirl nearby ones upward. */
   leaves: {
@@ -514,7 +514,7 @@ export const INTERACTIVE_EFFECTS = [
   { key: 'clouds',     name: 'Clouds',     group: 'Weather' },
   { key: 'wind',       name: 'Wind',       group: 'Weather' },
   { key: 'fire',       name: 'Fire',       group: 'Weather' },
-  { key: 'lightning',  name: 'Lightning',  group: 'Weather' },
+  //{ key: 'lightning',  name: 'Lightning',  group: 'Weather' },
   { key: 'bubbles',    name: 'Bubbles',    group: 'Fun' },
   { key: 'petals',     name: 'Petals',     group: 'Fun' },
   { key: 'leaves',     name: 'Leaves',     group: 'Fun' },
