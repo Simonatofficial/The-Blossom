@@ -52,6 +52,7 @@ self.SW_ASSETS = [
   './js/presets/themes.js',
   './js/ui/components.js',
   './js/ui/fab.js',
+  './js/ui/groupmanager.js',
   './js/ui/icons.js',
   './js/ui/navpanels.js',
   './js/ui/onboarding.js',

@@ -9,7 +9,6 @@ import { icon, iconOrEmoji, iconNames } from './icons.js';
 import { el, toast, confirmDialog, openDrawer, popMenu, promptText, openPopover } from './components.js';
 import { openSettings } from './settings.js';
 import { initFab } from './fab.js';
-import { openModulesPanel } from './navpanels.js';
 import { getTheme, allThemes } from '../fx/themes.js';
 import { activeGroupId, setActiveGroup, getGroup, groupModuleIds, groupLastModule, listGroups, createGroup } from '../core/groups.js';
 
@@ -140,8 +139,8 @@ function openGroupPicker(anchor) {
     const name = await promptText({ title: 'New group', label: 'Group name', placeholder: 'School', confirmText: 'Create' });
     if (name) switchGroup(createGroup(name).id);
   };
-  const mng = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('grid', 15)} Manage in Modules</button>`);
-  mng.onclick = () => { pop.close(); openModulesPanel(); };
+  const mng = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('layers', 15)} Manage groups</button>`);
+  mng.onclick = async () => { pop.close(); const { openGroupManager } = await import('./groupmanager.js'); openGroupManager(); };
   pop.body.append(ng, mng);
 }
 

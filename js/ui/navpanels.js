@@ -49,8 +49,10 @@ async function copyCode(type, id, name) {
 export function openModulesPanel() {
   const d = openPanel({ title: 'Modules', iconName: 'grid' });
   const search = el('<input class="input" placeholder="Search modules, categories, tags" style="margin-bottom:10px">');
+  const groupsBtn = el(`<button class="btn-soft-wide" style="margin-bottom:10px">${icon('layers', 15)} Manage groups</button>`);
+  groupsBtn.onclick = async () => { const { openGroupManager } = await import('./groupmanager.js'); openGroupManager(); };
   const list = el('<div class="nav-list"></div>');
-  d.body.append(search, list);
+  d.body.append(search, groupsBtn, list);
 
   const render = () => {
     list.innerHTML = '';
