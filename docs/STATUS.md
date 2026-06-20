@@ -9,8 +9,8 @@
 
 ## Now (in progress)
 
-- **Big "Study + UX" brief** (2026-06-20 user request) — study workstream complete (v86–v92). Next per user order: **grill-me the big design pieces** (D → G → F).
-  ⏸ next step: run `grill-me` on **Module-nav overhaul (D)** — module groups + Favorites + top arrow/swipe switcher — to resolve the data model + interaction tree before any code.
+- **Big "Study + UX" brief** (2026-06-20 user request) — study workstream complete (v86–v92). **D design resolved via grill-me → spec in `docs/13` §3b.** Next per user order: build D, then grill G, then F.
+  ⏸ next step: build **Module-nav overhaul (D)** per `docs/13` §3b (module groups + Favorites + top swipe rail), or grill **G (help-me-build)** next — awaiting user pick.
 
 ## Next (queued, in order)
 

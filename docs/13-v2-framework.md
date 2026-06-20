@@ -134,6 +134,42 @@ Opens as a Panel. Scope: widgets on the active page. Shows:
 
 ---
 
+## §3b — Module Groups & Top Switcher (workstream D)
+
+**Goal:** fast switching between sets of modules. A slim top rail shows the active *group's* modules; swipe/arrows change the module; a group pill changes the group. Resolved with the user via grill-me (2026-06-20).
+
+### The group model
+- A **group** is a user-created, named, ordered set of module ids (a module may belong to several). Groups are *quick-switch lanes*, separate from the existing category/subcategory/tags (those still organize the FAB Modules panel — §11; unchanged).
+- Two **built-in** groups always exist and aren't hand-edited:
+  - **All** — every module, in store order. Default active group on first launch & for existing users (nothing is ever hidden).
+  - **Favorites** — auto most-used: rank by a recency-weighted open count, top ~8; minus `favHides`, with `favPins` forced to the front.
+- Custom groups sit alongside the two built-ins.
+
+### Data model (all in synced `meta.settings`)
+- `moduleGroups: [{ id, name, icon, moduleIds: [] }]` — custom groups only.
+- `activeGroupId` — default `'all'`.
+- `groupLast: { [groupId]: moduleId }` — each group remembers its own last-open module ("separate desks").
+- `moduleUsage: { [moduleId]: { count, last } }` — incremented in `router.go` on a module change; powers Favorites ranking.
+- `favPins: [moduleId]`, `favHides: [moduleId]`.
+- Built-ins are *computed*, never stored as membership: `all` = `store.all('modules')`; `favorites` = ranked usage.
+- On module delete: prune it from every group, pins, hides, and `groupLast`. New modules: appear in All immediately; in Favorites once used; never auto-added to custom groups.
+
+### The top rail (new chrome)
+- Slim horizontal rail pinned in the top safe-area, **sharing the existing chrome awake/idle fade** (appears on touch, softens after ~3.5s) so it stays calm. The Settings gear keeps its corner.
+- Shows the active group's modules: active module **centred + larger with its name**; neighbours are dimmer icons; **chevrons** at the edges; **swipe horizontally on the rail** (gesture scoped to the rail element only, so it never fights Canvas/Calendar swipes) to move between modules — instant `router.go`.
+- A small **group-name pill**; tapping it opens the **group picker Popover** (CR-11): list of groups (active checked) + "New group" + "Manage". Switching group navigates to that group's `groupLast` module (or its first), and re-centres the rail.
+- **Hidden inside widget internal views (`/w`) and focus pages (`/f`)** — listens to `route:changed`; the rail is module-level nav, and inside a widget the back arrow governs. Returns on back to a page.
+- Respect `prefers-reduced-motion` (snap, no slide).
+
+### Management (in the FAB Modules panel — §3 + row menus)
+- The Modules panel gains group management: create/rename/reorder/delete groups, reorder modules within a group.
+- Each module row `···` menu gains **"Add to group…"** and a **star** to pin/unpin Favorites.
+- The group-picker Popover's "New group" / "Manage" route here.
+
+**Accept when:** a slim top rail shows the active group's modules with the active one centred; swipe/arrows switch modules instantly; the pill switches groups (landing on that group's last module); Favorites auto-fills from usage with pin/hide overrides; All is always present; the rail hides inside widget views; everything persists across restart and survives module deletion.
+
+---
+
 ## §4 — Theme Transitions Between Scopes
 
 **Goal:** when navigating to a module, page, or widget with a different theme set, the full visual environment transitions — colors, particles, atmosphere, and weather all cross-fade together.
