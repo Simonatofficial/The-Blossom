@@ -3,26 +3,28 @@
 > The fast resume point. Read this + `CLAUDE.md` to know where we are without re-scanning the tree.
 > Keep it current per `docs/00-claude-framework.md` §4. Newest first.
 
-**Last updated:** 2026-06-20 · **Latest pushed version:** v89
+**Last updated:** 2026-06-20 · **Latest pushed version:** v92
 
 ---
 
 ## Now (in progress)
 
-- **Big "Study + UX" brief** (2026-06-20 user request) — quick wins shipped (v86–v89). Working through the rest in this order:
-  ⏸ next step: **A5 bookmarks** — a ★ toggle in flashcard study + quiz runtime that auto-collects into a dynamic "Bookmarked" set (flag on the real flashcard object; skip auto/notebook cards). Then the study-analytics group below.
+- **Big "Study + UX" brief** (2026-06-20 user request) — study workstream complete (v86–v92). Next per user order: **grill-me the big design pieces** (D → G → F).
+  ⏸ next step: run `grill-me` on **Module-nav overhaul (D)** — module groups + Favorites + top arrow/swipe switcher — to resolve the data model + interaction tree before any code.
 
 ## Next (queued, in order)
 
-1. **Study analytics (A1–A6)** — one cohesive release: add a **tip** card field (`flashcards-model.js` FIELDS + parse + faces); a per-card/per-Class·Unit·Topic **mastery** layer recording correct/incorrect/partial/easy; a "what to work on" weak-spots view; **smart auto study sets** ("Needs work" overall + per weak node) per the chosen approach; per-part **% breakdown** at flashcard/quiz finish.
-2. **Module-nav overhaul (D)** — module **groups** + **Favorites** group + top arrow/swipe switcher. New data model → run `grill-me` before building.
-3. **"Help me build" (G)** — guided module + page builders; default path from presets; per-preset question sets; functional linked pages/widgets. Run `grill-me`.
-4. **UI/feel overhaul (F)** — modules/pages/widgets/popups/menus/settings; fold its design language into D & G rather than a separate sweep.
-5. **Nav return-to-origin fix (E)** — exiting settings/widget should return where you were, not dump to the module page.
-6. Older backlog: i18n strings (Phase 8), open CRs in `docs/11`, Tabletop companion features (`docs/14`), V2 items (`docs/13`).
+1. **Module-nav overhaul (D)** — module **groups** the user swaps between + a **Favorites** group; top-of-screen left/right arrows + swipe; active-group concept. New data model → `grill-me` first.
+2. **"Help me build" (G)** — guided module + page builders; default path from presets; per-preset question sets; functional linked pages/widgets. `grill-me` first.
+3. **UI/feel overhaul (F)** — modules/pages/widgets/popups/menus/settings; fold its design language into D & G rather than a separate sweep.
+4. **Nav return-to-origin fix (E)** — exiting settings/widget should return where you were, not dump to the module page.
+5. Older backlog: i18n strings (Phase 8), open CRs in `docs/11`, Tabletop companion features (`docs/14`), V2 items (`docs/13`).
 
 ## Done (recent, newest first)
 
+- v92 — study: bookmark (★) cards while studying/quizzing → dynamic "Bookmarked" study set.
+- v91 — study: mastery tracking + "what to work on" weak-spot focus (smart "Needs work" + per-area sets) + per-part % breakdown at finish.
+- v90 — study: optional **Tip** field on terms/cards/quizzes (notebook "Tip:" line → flashcard model → faces → quiz Q/A).
 - v89 — quiz: results/card/history show correct/incorrect **counts** + an all-time tally instead of a lone %.
 - v88 — shell: removed Modules from the top menu; chrome button opens Settings directly (modules live on the FAB).
 - v87 — picker: +Add widget gallery organized into collapsible categories (Character Sheet → Tabletop).
