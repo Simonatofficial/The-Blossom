@@ -6,10 +6,12 @@ import { events } from '../core/events.js';
 import { ulid } from '../core/ids.js';
 import { router } from '../core/router.js';
 import { icon, iconOrEmoji, iconNames } from './icons.js';
-import { el, toast, confirmDialog, openDrawer, popMenu, promptText } from './components.js';
+import { el, toast, confirmDialog, openDrawer, popMenu, promptText, openPopover } from './components.js';
 import { openSettings } from './settings.js';
 import { initFab } from './fab.js';
+import { openModulesPanel } from './navpanels.js';
 import { getTheme, allThemes } from '../fx/themes.js';
+import { activeGroupId, setActiveGroup, getGroup, groupModuleIds, groupLastModule, listGroups, createGroup } from '../core/groups.js';
 
 const MAX_TABS = 5;
 
@@ -17,17 +19,25 @@ export function initShell(app) {
   app.innerHTML = '';
   // V2 §5: the top-right chrome collapses to a single small menu button so it
   // never crowds the top widget's ··· menu; richer navigation lives in the FAB.
+  // Top chrome: the module rail (docs/13 §3b) on the left/centre, Settings gear
+  // at the right. The rail swaps modules within the active group; the gear opens
+  // Settings (modules also live on the FAB).
   const chrome = el(`
     <div id="chrome-top">
+      <div id="module-rail" role="tablist" aria-label="Module switcher">
+        <button class="rail-group" aria-label="Module group">${icon('grid', 15)}${icon('chevron-down', 12)}</button>
+        <button class="rail-arrow rail-prev" aria-label="Previous module">${icon('chevron-left', 18)}</button>
+        <div class="rail-mods"></div>
+        <button class="rail-arrow rail-next" aria-label="Next module">${icon('chevron-right', 18)}</button>
+      </div>
       <button class="chrome-btn" id="btn-chrome" aria-label="Settings">${icon('settings', 18)}</button>
     </div>`);
-  // Modules now live on the FAB (Modules · Pages · Widgets), so the top-right
-  // chrome button is just Settings — one tap, no menu.
   chrome.querySelector('#btn-chrome').onclick = () => openSettings();
   app.appendChild(chrome);
   app.appendChild(el('<div id="page-host"></div>'));
   app.appendChild(el('<nav id="tab-bar" aria-label="Pages"></nav>'));
   initFab();
+  attachRailSwipe(chrome.querySelector('#module-rail'));
 
   // chrome wakes on any touch, settles after a pause
   let awakeTimer = null;
@@ -43,7 +53,104 @@ export function initShell(app) {
 
   events.on('route:changed', renderTabs);
   events.on('module:changed', renderTabs);
+  events.on('route:changed', renderRail);
+  events.on('module:changed', renderRail);
+  events.on('groups:changed', renderRail);
   renderTabs();
+  renderRail();
+}
+
+/* ---------- module rail (top switcher — docs/13 §3b) ---------- */
+
+function renderRail() {
+  const rail = document.getElementById('module-rail');
+  if (!rail) return;
+  const { moduleId, widgetId, focus } = router.current();
+  // module-level nav — hide inside a widget's internal view / focus page
+  rail.classList.toggle('hidden', !!widgetId || !!focus);
+  if (widgetId || focus) return;
+
+  const gid = activeGroupId();
+  const group = getGroup(gid);
+  const ids = groupModuleIds(gid);
+
+  const pill = rail.querySelector('.rail-group');
+  pill.innerHTML = `${icon(group?.icon || 'grid', 15)}${icon('chevron-down', 12)}`;
+  pill.setAttribute('aria-label', `Group: ${group?.name || 'All'}`);
+  pill.onclick = (e) => openGroupPicker(e.currentTarget);
+
+  const mods = rail.querySelector('.rail-mods');
+  mods.innerHTML = '';
+  const idx = ids.indexOf(moduleId);
+  // a window of up to 5 modules centred on the active one
+  const WIN = 2, span = WIN * 2 + 1, base = idx < 0 ? 0 : idx;
+  let start = Math.max(0, base - WIN);
+  start = Math.max(0, Math.min(start, ids.length - span));
+  const end = Math.min(ids.length, start + span);
+  for (let k = start; k < end; k++) {
+    const m = store.get('modules', ids[k]); if (!m) continue;
+    const active = m.id === moduleId;
+    const b = el(`<button class="rail-mod${active ? ' active' : ''}" role="tab" aria-selected="${active}">${iconOrEmoji(m.icon, 18)}${active ? '<span class="rail-mod-name"></span>' : ''}</button>`);
+    if (active) b.querySelector('.rail-mod-name').textContent = m.name; else b.setAttribute('aria-label', m.name);
+    b.onclick = () => router.go(m.id);
+    mods.appendChild(b);
+  }
+
+  const prev = rail.querySelector('.rail-prev'), next = rail.querySelector('.rail-next');
+  const lone = ids.length <= 1;
+  prev.style.display = next.style.display = lone ? 'none' : '';
+  prev.disabled = idx <= 0;
+  next.disabled = idx < 0 || idx >= ids.length - 1;
+  prev.onclick = () => stepModule(-1);
+  next.onclick = () => stepModule(1);
+}
+
+/** Move ±1 within the active group from whatever module is current. */
+function stepModule(dir) {
+  const ids = groupModuleIds(activeGroupId());
+  const i = ids.indexOf(router.current().moduleId);
+  const j = i + dir;
+  if (i >= 0 && j >= 0 && j < ids.length) router.go(ids[j]);
+}
+
+function attachRailSwipe(rail) {
+  const surf = rail.querySelector('.rail-mods');
+  let x0 = null;
+  surf.addEventListener('pointerdown', (e) => { x0 = e.clientX; }, { passive: true });
+  surf.addEventListener('pointercancel', () => { x0 = null; }, { passive: true });
+  surf.addEventListener('pointerup', (e) => {
+    if (x0 == null) return;
+    const dx = e.clientX - x0; x0 = null;
+    if (Math.abs(dx) >= 40) stepModule(dx < 0 ? 1 : -1); // swipe left → next
+  }, { passive: true });
+}
+
+function openGroupPicker(anchor) {
+  const pop = openPopover(anchor, { title: 'Groups' });
+  const cur = activeGroupId();
+  for (const g of listGroups()) {
+    const row = el(`<button class="list-item">${icon(g.icon, 16)}<span class="li-main"><span class="li-title"></span></span>${g.id === cur ? icon('check', 16) : ''}</button>`);
+    row.querySelector('.li-title').textContent = g.name;
+    row.onclick = () => { pop.close(); switchGroup(g.id); };
+    pop.body.appendChild(row);
+  }
+  const ng = el(`<button class="btn-soft-wide" style="margin-top:8px">${icon('plus', 15)} New group</button>`);
+  ng.onclick = async () => {
+    pop.close();
+    const name = await promptText({ title: 'New group', label: 'Group name', placeholder: 'School', confirmText: 'Create' });
+    if (name) switchGroup(createGroup(name).id);
+  };
+  const mng = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('grid', 15)} Manage in Modules</button>`);
+  mng.onclick = () => { pop.close(); openModulesPanel(); };
+  pop.body.append(ng, mng);
+}
+
+/** Switch active group → land on that group's last-used module (or its first). */
+function switchGroup(id) {
+  setActiveGroup(id);
+  const target = groupLastModule(id);
+  if (target && target !== router.current().moduleId) router.go(target);
+  else renderRail();
 }
 
 /* ---------- page tabs ---------- */

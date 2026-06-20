@@ -5,14 +5,61 @@
 #chrome-top {
   position: fixed;
   top: max(10px, env(safe-area-inset-top));
-  right: 14px;
+  left: 0;
+  right: 0;
   z-index: 30;
   display: flex;
+  align-items: center;
   gap: 6px;
+  padding: 0 12px;
   opacity: 0.55;
   transition: opacity var(--t-med) var(--ease);
+  pointer-events: none; /* taps pass through the gaps to content; children opt back in */
 }
+#chrome-top > *, #module-rail > * { pointer-events: auto; }
 #chrome-top:hover, #chrome-top:focus-within, #chrome-top.awake { opacity: 1; }
+
+/* ---- module rail (top switcher, docs/13 §3b) ---- */
+#module-rail {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+#module-rail.hidden { display: none; }
+.rail-group {
+  display: flex; align-items: center; gap: 2px;
+  height: 34px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: 11px;
+  background: var(--surface); color: var(--text-soft);
+  backdrop-filter: blur(8px);
+}
+.rail-arrow {
+  flex: none; width: 30px; height: 34px;
+  display: grid; place-items: center;
+  border: none; background: transparent; color: var(--text-soft);
+  border-radius: 9px;
+}
+.rail-arrow:disabled { opacity: 0.22; }
+.rail-mods { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.rail-mod {
+  flex: none; display: flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 9px;
+  border: 1px solid transparent; border-radius: 11px;
+  background: var(--surface); color: var(--text-soft);
+  backdrop-filter: blur(8px);
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.rail-mod.active {
+  background: var(--accent-soft); border-color: var(--accent); color: var(--text);
+  box-shadow: 0 0 10px var(--glow);
+}
+.rail-mod-name {
+  font-size: 0.84rem; font-weight: 600;
+  max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .chrome-btn {
   display: grid;
@@ -34,7 +81,7 @@
 #page-host {
   max-width: 1280px;
   margin: 0 auto;
-  padding: calc(max(10px, env(safe-area-inset-top)) + 10px) 16px calc(86px + env(safe-area-inset-bottom));
+  padding: calc(max(10px, env(safe-area-inset-top)) + 52px) 16px calc(86px + env(safe-area-inset-bottom));
   min-height: 100svh;
 }
 

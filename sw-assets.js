@@ -14,6 +14,7 @@ self.SW_ASSETS = [
   './js/app.js',
   './js/core/codes.js',
   './js/core/events.js',
+  './js/core/groups.js',
   './js/core/ids.js',
   './js/core/router.js',
   './js/core/saves.js',

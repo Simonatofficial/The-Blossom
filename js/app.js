@@ -4,6 +4,7 @@
 import { store } from './core/store.js';
 import { events } from './core/events.js';
 import { router } from './core/router.js';
+import { initGroups } from './core/groups.js';
 import { registry } from './widgets/registry.js';
 import './widgets/all.js';
 import { makeCtx } from './widgets/base.js';
@@ -86,6 +87,7 @@ async function boot() {
   initSaves();
   checkDayRollover();
   maybeBackupReminder(); // gentle off-device backup nudge when overdue
+  initGroups(); // usage tracking — listen before router.init fires the first route
   router.init();
   initOnboarding();
   navigator.storage?.persist?.();

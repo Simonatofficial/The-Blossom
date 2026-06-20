@@ -10,6 +10,7 @@ import { icon, iconOrEmoji } from './icons.js';
 import { el, toast, confirmDialog, openPanel, popMenu, promptText, input, field, emptyState } from './components.js';
 import { getTheme } from '../fx/themes.js';
 import { PRESET_CATEGORIES } from '../presets/modules/index.js';
+import { listGroups, inGroup, toggleModuleInGroup, createGroup, isPinned, toggleFavPin, pruneModule } from '../core/groups.js';
 
 /* ---------- shared helpers ---------- */
 
@@ -115,14 +116,30 @@ function moduleRow(m, active, d, rerender) {
   });
   row.querySelector('.nav-menu').addEventListener('click', (e) => {
     e.stopPropagation();
-    popMenu(e.currentTarget, [
+    const anchor = e.currentTarget;
+    popMenu(anchor, [
       { label: 'Edit', iconName: 'edit', fn: () => editModule(m, rerender) },
+      { label: isPinned(m.id) ? 'Unpin from Favorites' : 'Pin to Favorites', iconName: 'star', fn: () => { toggleFavPin(m.id); rerender?.(); } },
+      { label: 'Add to group…', iconName: 'layers', fn: () => groupAssignMenu(anchor, m) },
       { label: 'Copy Code', iconName: 'code', fn: () => copyCode('mod', m.id, m.name) },
       'sep',
       { label: 'Delete', iconName: 'trash', danger: true, fn: () => deleteModule(m, rerender) }
     ]);
   });
   return row;
+}
+
+/** Toggle a module's membership in custom groups (docs/13 §3b). */
+function groupAssignMenu(anchor, m) {
+  const items = listGroups().filter(g => !g.builtin).map(g => ({
+    label: `${inGroup(g.id, m.id) ? '✓ ' : ''}${g.name}`, iconName: 'layers',
+    fn: () => { toggleModuleInGroup(g.id, m.id); toast(inGroup(g.id, m.id) ? `Added to ${g.name}` : `Removed from ${g.name}`, 'layers'); }
+  }));
+  items.push({ label: 'New group…', iconName: 'plus', fn: async () => {
+    const name = await promptText({ title: 'New group', label: 'Group name', placeholder: 'School', confirmText: 'Create' });
+    if (name) { const g = createGroup(name); toggleModuleInGroup(g.id, m.id); toast(`Added to ${g.name}`, 'layers'); }
+  } });
+  popMenu(anchor, items);
 }
 
 /** Edit a module's name, icon, and organisation (V2 §14). */
@@ -166,6 +183,7 @@ async function deleteModule(m, rerender) {
     store.trash('pages', pid);
   }
   store.trash('modules', m.id);
+  pruneModule(m.id); // drop it from groups / pins / hides / per-group last
   events.emit('module:changed', {});
   if (router.current().moduleId === m.id) router.go(store.all('modules')[0].id);
   rerender?.();
