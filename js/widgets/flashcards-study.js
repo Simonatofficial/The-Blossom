@@ -110,7 +110,7 @@ function runSession(env, opts) {
     stage.innerHTML = `
       <div class="row-between" style="margin-bottom:8px">
         <span class="soft" style="font-size:0.78rem">${opts.label || 'Study'} · ${i + 1} / ${queue.length}</span>
-        <span class="row" style="gap:4px"><button class="btn-icon fc-pause" title="Pause">${icon('pause', 15)}</button><button class="btn-icon fc-close" title="Close">${icon('x', 15)}</button></span>
+        <span class="row" style="gap:4px">${card.real ? `<button class="btn-icon fc-bm" title="Bookmark" style="${M.isBookmarked(card.real) ? 'color:var(--highlight)' : ''}">${icon('star', 15)}</button>` : ''}<button class="btn-icon fc-pause" title="Pause">${icon('pause', 15)}</button><button class="btn-icon fc-close" title="Close">${icon('x', 15)}</button></span>
       </div>
       <div class="fc-progress"><span style="width:${Math.round(i / queue.length * 100)}%"></span></div>
       <div class="fc-card anim-flip ${flipped ? 'flipped' : ''}"><div class="fc-inner">
@@ -121,6 +121,8 @@ function runSession(env, opts) {
     stage.querySelector('.fc-front').textContent = f.front;
     stage.querySelector('.fc-back').textContent = f.back;
     stage.querySelector('.fc-card').onclick = () => { flipped = !flipped; face(); };
+    const bm = stage.querySelector('.fc-bm');
+    if (bm) bm.onclick = () => { const on = M.toggleBookmark(card.real); bm.style.color = on ? 'var(--highlight)' : ''; toast(on ? 'Bookmarked' : 'Removed bookmark', 'star'); };
     stage.querySelector('.fc-pause').onclick = () => { snapshot(); toast('Session saved — resume from the deck list.', 'check'); env.render(); };
     stage.querySelector('.fc-close').onclick = () => { snapshot(); env.render(); };
     for (const b of stage.querySelectorAll('[data-g]')) b.onclick = () => {

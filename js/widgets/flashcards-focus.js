@@ -48,6 +48,18 @@ function weakAreas(widget, all) {
     .sort((x, y) => x.accuracy - y.accuracy);
 }
 
+/** A5: a dynamic "Bookmarked" study set, shown whenever any card is starred. */
+export function renderBookmarks(env, all) {
+  const { widget, host } = env;
+  const marked = realCards(widget, all).filter(c => M.isBookmarked(c.real));
+  if (!marked.length) return;
+  const row = el(`<button class="list-item fc-set"><span style="color:var(--highlight)">${icon('star', 16)}</span><span class="li-main"><span class="li-title">Bookmarked</span><span class="li-sub">${marked.length} starred card${marked.length === 1 ? '' : 's'}</span></span><span class="btn-icon set-go" title="Study">${icon('play', 15)}</span></button>`);
+  const go = () => startStudy(env, { label: 'Bookmarked', cards: marked.map(c => ({ ...c, result: undefined })) });
+  row.querySelector('.set-go').onclick = (e) => { e.stopPropagation(); go(); };
+  row.onclick = (e) => { if (e.target.closest('.btn-icon')) return; go(); };
+  host.appendChild(row);
+}
+
 /** Append the Focus section to env.host, if there's anything worth surfacing. */
 export function renderFocus(env, all) {
   const { widget, host } = env;

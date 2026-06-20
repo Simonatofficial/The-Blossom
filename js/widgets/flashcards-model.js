@@ -175,6 +175,17 @@ export function deleteNode(widget, id) {
 }
 export function addCard(widget, deckId, data) { return createObject(widget.id, 'flashcard', { nodeId: deckId, due: todayStr(), ease: 2.3, interval: 0, reps: 0, ...data }); }
 
+/* ---- bookmarks (A5) — a flag on the real card; auto cards can't be marked ---- */
+export function isBookmarked(realId) { return !!(realId && store.get('objects', realId)?.data.bookmarked); }
+/** Flip a real card's bookmark; returns the new state. */
+export function toggleBookmark(realId) {
+  const o = realId && store.get('objects', realId);
+  if (!o) return false;
+  o.data.bookmarked = !o.data.bookmarked;
+  saveObject(o);
+  return !!o.data.bookmarked;
+}
+
 /* ---- study sets (config-stored) ---- */
 export function studySets(widget) { return widget.config.studySets || (widget.config.studySets = []); }
 export function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }

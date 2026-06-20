@@ -6,10 +6,11 @@
 
 import { store } from '../core/store.js';
 import { icon } from '../ui/icons.js';
-import { el } from '../ui/components.js';
+import { el, toast } from '../ui/components.js';
 import { createObject, saveObject, todayStr, bloomBurst } from './base.js';
 import { gradeQuestion, correctText, givenText } from './quiz-build.js';
 import { recordOutcome } from './study-mastery.js';
+import { isBookmarked, toggleBookmark } from './flashcards-model.js';
 
 const STATUS_COLOR = { correct: 'var(--success)', semi: 'var(--highlight)', incorrect: 'var(--warn)' };
 
@@ -37,18 +38,23 @@ export function runQuiz(env, questions, cfg, resume) {
   const wrap = el('<div class="qz-run"></div>');
   host.innerHTML = ''; host.appendChild(wrap);
 
-  const head = () => `
+  const head = () => {
+    const q = questions[i];
+    return `
     <div class="row-between" style="margin-bottom:8px">
       <span class="soft" style="font-size:0.78rem">${label} · ${i + 1} / ${questions.length}</span>
-      <span class="row" style="gap:4px"><button class="btn-icon qz-pause" title="Pause">${icon('pause', 15)}</button><button class="btn-icon qz-quit" title="Close">${icon('x', 15)}</button></span>
+      <span class="row" style="gap:4px">${q && q.real ? `<button class="btn-icon qz-bm" title="Bookmark" style="${isBookmarked(q.real) ? 'color:var(--highlight)' : ''}">${icon('star', 15)}</button>` : ''}<button class="btn-icon qz-pause" title="Pause">${icon('pause', 15)}</button><button class="btn-icon qz-quit" title="Close">${icon('x', 15)}</button></span>
     </div>
     <div class="fc-progress"><span style="width:${Math.round(i / questions.length * 100)}%"></span></div>`;
+  };
 
   const ask = () => {
     const q = questions[i];
     wrap.innerHTML = head();
     wrap.querySelector('.qz-pause').onclick = () => { snapshot(); env.render(); };
     wrap.querySelector('.qz-quit').onclick = () => { snapshot(); env.render(); };
+    const bm = wrap.querySelector('.qz-bm');
+    if (bm) bm.onclick = () => { const on = toggleBookmark(q.real); bm.style.color = on ? 'var(--highlight)' : ''; toast(on ? 'Bookmarked' : 'Removed bookmark', 'star'); };
     const panel = el('<div class="panel" style="padding:16px"></div>');
     panel.appendChild(el('<div class="soft" style="font-size:0.74rem;margin-bottom:6px"></div>')).textContent = q.context;
     wrap.appendChild(panel);
