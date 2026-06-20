@@ -114,7 +114,7 @@
 .widget-head {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   padding: 8px 8px 8px 6px;
 }
 .widget-head .w-drag { cursor: grab; touch-action: none; color: var(--text-soft); opacity: 0.6; }
@@ -137,6 +137,26 @@
 
 /* tappable card body that opens an internal view */
 .widget-body.openable { cursor: pointer; }
+
+/* F surface redesign: widget cards & page layout — quieter chrome, clearer
+   interactive affordance, calmer wide-screen layout. */
+@media (hover: hover) {
+  /* secondary controls rest at half opacity and return when you reach for the card
+     (design philosophy: chrome fades when idle, comes back on interaction) */
+  .widget-head .w-drag, .widget-head .w-collapse, .widget-head .w-menu {
+    opacity: 0.5;
+    transition: opacity var(--t-med) var(--ease), color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+  }
+  .widget-card:hover .w-drag, .widget-card:hover .w-collapse, .widget-card:hover .w-menu,
+  .widget-card:focus-within .w-drag, .widget-card:focus-within .w-collapse, .widget-card:focus-within .w-menu { opacity: 1; }
+  /* a tappable body hints it opens: the card border warms on hover */
+  .widget-card:has(.widget-body.openable):hover { border-color: var(--accent); }
+}
+/* …and presses softly when opened */
+.widget-body.openable:active { transform: scale(0.996); }
+
+/* page content stops stretching edge-to-edge on wide screens */
+.page-scope { max-width: 1180px; margin-inline: auto; }
 
 /* ---- celebration bloom (docs/07) ---- */
 @keyframes bloom-petal {
