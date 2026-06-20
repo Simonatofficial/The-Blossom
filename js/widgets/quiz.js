@@ -48,7 +48,8 @@ registry.register({
   renderCard(host, widget) {
     host.innerHTML = '';
     const last = objectsOf(widget.id, 'quizResult').sort((a, b) => b.createdAt - a.createdAt)[0];
-    host.appendChild(el(`<div class="row-between"><span class="soft" style="font-size:0.88rem">${last ? `Last: ${last.data.score}/${last.data.total} · ${fmtDate(last.date)}` : 'No quizzes yet'}</span><span class="chip accent">${icon('play', 11)} quiz me</span></div>`));
+    const lastTxt = last ? `Last: ${last.data.score}✓ · ${(last.data.total - last.data.score - (last.data.semi || 0))}✗ · ${fmtDate(last.date)}` : 'No quizzes yet';
+    host.appendChild(el(`<div class="row-between"><span class="soft" style="font-size:0.88rem">${lastTxt}</span><span class="chip accent">${icon('play', 11)} quiz me</span></div>`));
   },
 
   renderFull(host, widget, ctx) {
@@ -176,12 +177,18 @@ registry.register({
       };
       host.appendChild(saveSet);
 
-      // history
-      const results = objectsOf(widget.id, 'quizResult').sort((a, b) => b.createdAt - a.createdAt).slice(0, 8);
-      if (results.length) {
+      // history + all-time tally (raw counts say more than a lone %)
+      const allResults = objectsOf(widget.id, 'quizResult').sort((a, b) => b.createdAt - a.createdAt);
+      if (allResults.length) {
+        const tot = allResults.reduce((a, r) => {
+          a.correct += r.data.score; a.semi += r.data.semi || 0;
+          a.incorrect += r.data.total - r.data.score - (r.data.semi || 0); a.q += r.data.total; return a;
+        }, { correct: 0, semi: 0, incorrect: 0, q: 0 });
         host.appendChild(el('<h3 class="soft" style="font-size:0.74rem;letter-spacing:.05em;margin:16px 0 6px">HISTORY</h3>'));
-        for (const r of results) {
-          const row = el(`<button class="list-item"><span class="li-main"><span class="li-title">${r.data.score} / ${r.data.total} (${Math.round(r.data.score / r.data.total * 100)}%)</span><span class="li-sub">${fmtDate(r.date)}${r.data.timeMs ? ` · ${Math.round(r.data.timeMs / 1000)}s` : ''}</span></span>${icon('chevron-right', 14)}</button>`);
+        host.appendChild(el(`<div class="panel" style="padding:10px 12px;margin-bottom:8px"><div class="row-between"><span style="color:var(--success)">${tot.correct} correct ✓</span><span style="color:var(--warn)">${tot.incorrect} incorrect ✗</span></div><div class="soft" style="font-size:0.74rem;margin-top:2px">${allResults.length} quiz${allResults.length === 1 ? '' : 'zes'} · ${tot.q} question${tot.q === 1 ? '' : 's'}${tot.semi ? ` · ${tot.semi} partial` : ''}</div></div>`));
+        for (const r of allResults.slice(0, 8)) {
+          const inc = r.data.total - r.data.score - (r.data.semi || 0);
+          const row = el(`<button class="list-item"><span class="li-main"><span class="li-title">${r.data.score}✓ · ${inc}✗${r.data.semi ? ` · ${r.data.semi}~` : ''}</span><span class="li-sub">${fmtDate(r.date)} · ${r.data.total} Q${r.data.timeMs ? ` · ${Math.round(r.data.timeMs / 1000)}s` : ''}</span></span>${icon('chevron-right', 14)}</button>`);
           row.onclick = () => review({ ...env, canRetry: true }, r.data, false);
           host.appendChild(row);
         }

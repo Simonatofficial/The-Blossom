@@ -126,9 +126,10 @@ export function review(env, data, justFinished) {
   const { host } = env;
   const pct = data.total ? data.score / data.total : 0;
   host.innerHTML = '';
+  const incorrect = data.total - data.score - (data.semi || 0);
   const sum = el(`<div class="empty-state">${icon(pct >= 0.7 ? 'flower' : 'sprout', 32)}
-    <h3 style="margin:8px 0 4px">${data.score} / ${data.total} · ${Math.round(pct * 100)}%</h3>
-    <p>${data.timeMs ? `${Math.round(data.timeMs / 1000)}s · ` : ''}${data.semi ? `${data.semi} semi-correct · ` : ''}${data.questions.filter(q => q.status === 'incorrect').length} incorrect.</p></div>`);
+    <h3 style="margin:8px 0 4px">${data.score} correct ✓ · ${incorrect} incorrect ✗</h3>
+    <p>${Math.round(pct * 100)}% · ${data.total} question${data.total === 1 ? '' : 's'}${data.semi ? ` · ${data.semi} partial` : ''}${data.timeMs ? ` · ${Math.round(data.timeMs / 1000)}s` : ''}</p></div>`);
   host.appendChild(sum);
   if (justFinished && pct >= 0.7) bloomBurst(sum);
 
