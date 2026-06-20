@@ -170,6 +170,42 @@ Opens as a Panel. Scope: widgets on the active page. Shows:
 
 ---
 
+## §3c — "Help me build" guided builders (workstream G)
+
+**Goal:** turn the blank-canvas problem into a calm, guided build. A wizard asks tailored questions and assembles a well-wired module (or page) for the user. Resolved via grill-me (2026-06-20).
+
+### Engine (generic) + blueprints (data)
+- One generic **wizard engine** (`js/ui/buildwizard.js`) consumes a declarative **blueprint** and emits a normal preset-def, then calls the existing `instantiatePreset` (which mints ids, wires `@ref` links, and drops any unresolved `@ref` — so excluded blocks never leave dangling links).
+- **Blueprints are pure data** in `js/presets/blueprints/` (everything-is-data). v1 authors one deep **Study/School** blueprint + a generic **from-scratch** blueprint + a generic **page** blueprint. Other presets keep one-tap planting until a blueprint exists.
+
+### Blueprint schema
+```
+{ key, base: { name, icon, theme? },            // module defaults (params can override)
+  questions: [                                  // asked one per screen, in order
+    { id, type:'toggle'|'choice'|'text'|'number', prompt, help?,
+      default?, options?:[{value,label,blocks?:[id]}],   // choice
+      blocks?:[id],                              // toggle → blocks enabled when on
+      param?, placeholder?, min?, max? } ],
+  blocks: { [id]: {                              // a block is a page OR widgets appended to a page-block
+      page?: { name, icon, home?, widgets:[…wDef] },     // wDefs use ref/@ref + @p.<param> tokens
+      widgets?:[…wDef], target?:<pageBlockId>,   // append to another block's page
+      requires?:[id] } } }
+```
+- **Two question kinds:** *toggle/choice* include blocks; *text/number* fill **parameters**. Before instantiation a param pass replaces `@p.<key>` tokens (exact-match → typed value; embedded → string subst) — so "What subject?" → names the Notebook, tints the module, seeds a deck. `requires` auto-includes prerequisite blocks.
+
+### Wizard UX (cozy)
+- Opens as a **Panel**. **One focused question per screen** with Back / Skip and subtle progress dots — leads down the path without a wall of options (cozy law 2). Most blueprints are ~3–6 questions.
+- Ends on a **preview screen** ("Here's your build"): the pages + tools it will plant, with last-minute toggles, then **Plant**. On plant: assemble → `instantiatePreset` → navigate to the new module.
+
+### Entry points
+- **Preset gallery:** tapping a preset opens its wizard; a quiet **"Plant the full preset instead"** escape is on screen 1. Presets without a blueprint plant one-tap as today.
+- **New Module → From Scratch:** choose **Blank** (today's empty Home) or **Guided** (the generic from-scratch blueprint: asks domain/goals → offers relevant page/tool blocks).
+- **Add Page:** a **"Help me build a page"** option runs the page blueprint (same engine, scoped to one page → appends a wired page to the current module).
+
+**Accept when:** tapping the Study preset asks tailored questions (subject, what to include), shows a preview, and plants a module whose Notebook→Flashcards→Quiz (and any chosen extras) are correctly wired and named from the answers; "Plant full preset" still works; From Scratch offers Blank vs Guided; Add Page can build a wired page; un-blueprinted presets are unaffected.
+
+---
+
 ## §4 — Theme Transitions Between Scopes
 
 **Goal:** when navigating to a module, page, or widget with a different theme set, the full visual environment transitions — colors, particles, atmosphere, and weather all cross-fade together.

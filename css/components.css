@@ -61,6 +61,12 @@
   max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* ---- build wizard (docs/13 §3c) ---- */
+.bw-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: background var(--t-fast) var(--ease); }
+.bw-dot.done { background: var(--accent-soft); }
+.bw-dot.active { background: var(--accent); box-shadow: 0 0 8px var(--glow); }
+.bw-sel { border-color: var(--accent); background: var(--accent-soft); }
+
 .chrome-btn {
   display: grid;
   place-items: center;

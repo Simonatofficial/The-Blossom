@@ -4,6 +4,7 @@ import { router } from '../core/router.js';
 import { icon } from './icons.js';
 import { el, toast, openDrawer } from './components.js';
 import { PRESET_MODULES, instantiatePreset } from '../presets/modules/index.js';
+import { getBlueprint } from '../presets/blueprints.js';
 
 export function openPresetGallery() {
   const d = openDrawer({ title: 'Preset modules', iconName: 'gift' });
@@ -16,9 +17,13 @@ export function openPresetGallery() {
       </span>${icon('plus', 16)}</button>`);
     card.querySelector('.li-title').textContent = preset.name;
     card.querySelector('.li-sub').textContent = preset.description;
-    card.onclick = () => {
-      const mod = instantiatePreset(preset);
+    card.onclick = async () => {
       d.close();
+      // Help me build is the default for presets that have a blueprint (docs/13
+      // §3c); the wizard offers a "plant full preset" escape. Others plant 1-tap.
+      const bp = getBlueprint(preset.key);
+      if (bp) { const { openBuildWizard } = await import('./buildwizard.js'); openBuildWizard(bp, { fullPreset: preset }); return; }
+      const mod = instantiatePreset(preset);
       toast(`${preset.name} planted`, 'sprout');
       router.go(mod.id);
     };
