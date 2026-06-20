@@ -224,7 +224,7 @@ registry.register({
           if (t.unitName) { parent = M.ensureChild(widget, parent.id, t.unitName, 'group'); ids.push(parent.id); }
           const deck = M.ensureChild(widget, parent.id, t.name, 'deck'); ids.push(deck.id);
           const existing = new Set(M.deckCards(widget, deck).map(c => c.term || c.front));
-          for (const e of terms) { if (existing.has(e.term)) continue; M.addCard(widget, deck.id, { term: e.term, definition: e.definition, details: e.details || [], examples: e.examples || [] }); madeCards++; }
+          for (const e of terms) { if (existing.has(e.term)) continue; M.addCard(widget, deck.id, { term: e.term, definition: e.definition, details: e.details || [], examples: e.examples || [], tip: e.tip || '' }); madeCards++; }
           madeDecks++; lastPath = ids;
         }
         d.close();

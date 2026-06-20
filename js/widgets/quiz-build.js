@@ -6,8 +6,8 @@
 import { store } from '../core/store.js';
 import * as M from './flashcards-model.js';
 
-export const FIELDS = ['term', 'definition', 'details', 'examples'];
-export const FIELD_LABEL = { term: 'Term', definition: 'Definition', details: 'Details', examples: 'Examples' };
+export const FIELDS = ['term', 'definition', 'details', 'examples', 'tip'];
+export const FIELD_LABEL = { term: 'Term', definition: 'Definition', details: 'Details', examples: 'Examples', tip: 'Tip' };
 
 const shuffle = (a) => { const x = [...a]; for (let i = x.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [x[i], x[j]] = [x[j], x[i]]; } return x; };
 const norm = (s) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -29,9 +29,9 @@ export function quizCards(widget) {
       const cls = unit && all.find(n => n.id === unit.parentId);
       for (const c of M.deckCards(fc, deck)) {
         out.push({
-          key: `${fcId}:${c.id}`, fcId, deckId: deck.id, unitId: unit?.id || null, classId: cls?.id || null,
+          key: `${fcId}:${c.id}`, fcId, real: c.real || null, deckId: deck.id, unitId: unit?.id || null, classId: cls?.id || null,
           deckName: deck.name, unitName: unit?.name || '', className: cls?.name || '',
-          term: c.term, definition: c.definition, details: c.details || [], examples: c.examples || [], front: c.front, back: c.back
+          term: c.term, definition: c.definition, details: c.details || [], examples: c.examples || [], tip: c.tip || '', front: c.front, back: c.back
         });
       }
     }
@@ -89,6 +89,7 @@ function fieldVal(card, field, limits) {
   if (field === 'definition') return card.definition ?? card.back ?? '';
   if (field === 'details') return (card.details || []).slice(0, limits.detailN).join('; ');
   if (field === 'examples') return (card.examples || []).slice(0, limits.exampleN).join('; ');
+  if (field === 'tip') return card.tip || '';
   return '';
 }
 export function joinFields(card, fields, limits, sep = '\n') {
@@ -129,7 +130,7 @@ export function buildQuestions(cfg, cards) {
     const qText = joinFields(subj, qF, limits), aText = joinFields(subj, aF, limits);
     if (!qText || !aText) continue;
     const context = [subj.className, subj.unitName, subj.deckName].filter(Boolean).join(' › ');
-    const base = { id: subj.key + ':' + out.length, context, qText };
+    const base = { id: subj.key + ':' + out.length, context, qText, real: subj.real || null, fcId: subj.fcId };
     if (cfg.type === 'truefalse') {
       const makeTrue = Math.random() < 0.5;
       let shown = aText;

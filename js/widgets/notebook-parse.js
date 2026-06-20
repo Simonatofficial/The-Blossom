@@ -38,35 +38,37 @@ function splitInline(def) {
  * "Term: definition", then "- detail" lines and "N. example" lines (or the
  * inline compact form). If no "Term:" colon is present, the first line becomes
  * the term name and the rest the definition (spec §W-1).
- * @returns {{term:string, definition:string, details:string[], examples:string[]}}
+ * A line beginning "Tip:" (or "Hint:") becomes the optional study tip.
+ * @returns {{term:string, definition:string, details:string[], examples:string[], tip:string}}
  */
 export function parseKeyTermText(text) {
   const lines = (text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-  if (!lines.length) return { term: '', definition: '', details: [], examples: [] };
+  if (!lines.length) return { term: '', definition: '', details: [], examples: [], tip: '' };
   const m = lines[0].match(/^([^:⟦⟧\n]{1,60}):\s*(.*)$/);
   const term = (m ? m[1] : lines[0]).trim();
   const firstRest = (m ? m[2] : '').trim();
   const rest = lines.slice(1);
-  const detailRe = /^[-–—*•]\s+(.*)/, exRe = /^(?:\d+|#)[.)]\s+(.*)/;
+  const detailRe = /^[-–—*•]\s+(.*)/, exRe = /^(?:\d+|#)[.)]\s+(.*)/, tipRe = /^(?:tip|hint)s?:\s*(.*)/i;
   const details = [], examples = [];
-  let definition;
+  let definition, tip = '';
   if (!rest.length) {
     // single compact line — may pack "def - detail 1. example" inline
     const parts = splitInline(firstRest);
     definition = parts.definition; details.push(...parts.details); examples.push(...parts.examples);
   } else {
     // multi-line — the first line's text is the definition VERBATIM (em-dashes and
-    // all); only subsequent marker lines become details/examples. This stops prose
-    // like "marking locations — traditionally with chalk" being split into details.
+    // all); only subsequent marker lines become details/examples/tip. This stops
+    // prose like "marking locations — traditionally with chalk" being split.
     definition = firstRest;
     for (const line of rest) {
       let mm;
-      if ((mm = detailRe.exec(line))) details.push(mm[1].trim());
+      if ((mm = tipRe.exec(line))) tip = mm[1].trim();
+      else if ((mm = detailRe.exec(line))) details.push(mm[1].trim());
       else if ((mm = exRe.exec(line))) examples.push(mm[1].trim());
       else definition = definition ? `${definition} ${line}` : line; // prose continuation
     }
   }
-  return { term, definition: definition.trim(), details, examples };
+  return { term, definition: definition.trim(), details, examples, tip };
 }
 
 /** Wrap every block between --- separators (a literal dashes-only line OR an
@@ -172,7 +174,7 @@ export function syncTopicElements(notebookWidget, ctx) {
     crumb: path.length ? path.map(p => p.name).join(' › ') : node.name,
     pathIds: path.map(p => ({ id: p.id, name: p.name, level: p.level }))
   };
-  for (const t of terms) createObject(notebookWidget.id, 'element', { type: 'term', ...base, term: t.term, definition: t.definition, details: t.details, examples: t.examples });
+  for (const t of terms) createObject(notebookWidget.id, 'element', { type: 'term', ...base, term: t.term, definition: t.definition, details: t.details, examples: t.examples, tip: t.tip || '' });
   for (const g of tags) createObject(notebookWidget.id, 'element', { type: g.type, ...base, text: g.text });
   store.put('widgets', notebookWidget); // touch for sync/autosave
   return { terms: terms.length, tags: tags.length };

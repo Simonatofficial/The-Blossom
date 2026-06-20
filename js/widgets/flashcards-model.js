@@ -15,8 +15,8 @@ import { ulid } from '../core/ids.js';
 import { objectsOf, createObject, saveObject, dayObject, todayStr, dateAdd } from './base.js';
 import { moduleElements } from './notebook-parse.js';
 
-export const FIELDS = ['term', 'definition', 'details', 'examples'];
-export const FIELD_LABEL = { term: 'Term', definition: 'Definition', details: 'Details', examples: 'Examples' };
+export const FIELDS = ['term', 'definition', 'details', 'examples', 'tip'];
+export const FIELD_LABEL = { term: 'Term', definition: 'Definition', details: 'Details', examples: 'Examples', tip: 'Tip' };
 
 /** One-time migration to the §W-4 model (idempotent, guarded by config.fcV2). */
 export function ensureModel(widget) {
@@ -94,12 +94,12 @@ export function findNode(widget, id) { return allNodes(widget).find(n => n.id ==
 function realDeckCards(widget, deckId) {
   return objectsOf(widget.id, 'flashcard').filter(c => c.data.nodeId === deckId).map(c => ({
     id: c.id, real: c.id, term: c.data.term, definition: c.data.definition,
-    details: c.data.details || [], examples: c.data.examples || [], front: c.data.front, back: c.data.back, bucket: c.data.bucket
+    details: c.data.details || [], examples: c.data.examples || [], tip: c.data.tip || '', front: c.data.front, back: c.data.back, bucket: c.data.bucket
   }));
 }
 function autoDeckCards(widget, deck) {
   const terms = moduleElements(widget, { type: 'term', notebookIds: [deck.nbId] }).filter(t => t.topicId === deck.topicId);
-  return terms.map((t, i) => ({ id: `${deck.id}#${i}`, auto: true, term: t.term, definition: t.definition, details: t.details || [], examples: t.examples || [] }));
+  return terms.map((t, i) => ({ id: `${deck.id}#${i}`, auto: true, term: t.term, definition: t.definition, details: t.details || [], examples: t.examples || [], tip: t.tip || '' }));
 }
 export function deckCards(widget, deck) { return deck.auto ? autoDeckCards(widget, deck) : realDeckCards(widget, deck.id); }
 
@@ -125,6 +125,7 @@ export function cardFaces(card, frontFields, backFields) {
     if (f === 'definition') return card.definition || '';
     if (f === 'details') return (card.details || []).map(d => '• ' + d).join('\n');
     if (f === 'examples') return (card.examples || []).map((e, i) => `${i + 1}. ${e}`).join('\n');
+    if (f === 'tip') return card.tip ? `Tip: ${card.tip}` : '';
     return '';
   };
   return { front: frontFields.map(part).filter(Boolean).join('\n'), back: backFields.map(part).filter(Boolean).join('\n') };
