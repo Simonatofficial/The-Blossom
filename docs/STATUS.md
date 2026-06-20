@@ -3,18 +3,22 @@
 > The fast resume point. Read this + `CLAUDE.md` to know where we are without re-scanning the tree.
 > Keep it current per `docs/00-claude-framework.md` §4. Newest first.
 
-**Last updated:** 2026-06-20 · **Latest pushed version:** v101
+**Last updated:** 2026-06-20 · **Latest pushed version:** v102
 
 ---
 
 ## Now (in progress)
 
-- **Nav return-to-origin fix (E)** — exiting settings/a widget view should return you where you were, not dump you onto the module page. *(Pulled into Now after F completed v101.)*
-  - **Investigation (2026-06-20, not yet reproduced):** read `js/core/router.js` + `js/modules/engine.js`. From static reading the happy paths look correct: `closeWidget()` uses `history.back()` when `viewPushed` (returns to the exact prior page entry) and `location.replace(.../page)` on deep-link/refresh; Settings is a `drawer` (panel) that closes via `ctl.close()` with **no** route change, so it shouldn't move you. `route:changed` runs `closeStrayPanels` + `renderPage`. **No obvious dump found by reading** → needs a concrete repro before any change.
-  - **⚠ Do not blind-fix:** router has balanced push-vs-`replace`, the `/f` focus flag, `viewPushed`, and deep-link fallback — a speculative change risks regressing back-button/deep-link/focus-page. Requires *interactive* nav testing (hashchange → `history.back()` → re-render), which the **backgrounded preview can't drive** (rAF throttled). Next session: get an exact repro (which surface, what route before/after, hardware-back vs in-app back vs Esc), reproduce in a foreground browser, then fix narrowly. Suspects to probe first: scroll-position reset on `renderPage` (feels like a "dump" even when route is right); module-rail/FAB `router.go(m.id)` with no pageId landing on home instead of last-page-in-module.
+- *(Nothing actively in progress — F complete; E scroll-restoration shipped v102. Pull the next backlog item below into Now when starting.)*
+
+## Next (queued, in order)
+
+1. **E — confirm the literal-page case (if any).** v102 fixed the *scroll-position* "dump" (you now return to where you were on the page). If a separate bug still lands you on the **wrong page** (not just wrong scroll), it was NOT reproducible by reading — get an exact repro (which surface; route before/after; in-app back vs hardware back vs Esc) and fix narrowly. ⚠ Don't blind-touch the router's push-vs-`replace`/`viewPushed`/focus-flag/deep-link logic.
+2. Older backlog: i18n strings (Phase 8), open CRs in `docs/11`, Tabletop companion features (`docs/14`), V2 items (`docs/13` — V2-21 Char Sheet multi-system, V2-23 World Map), Blossoms phase 2 (paused).
 
 ## Done (recent, newest first)
 
+- v102 — nav: **E return-to-origin (scroll)** — `engine.js` remembers the module page's scroll across re-renders, so returning from a widget view *or* a same-page rebuild (e.g. toggling an effect in Settings) lands you where you were, not at the top; genuine page switches still top. Render-layer only — router history/push/replace untouched. Verified: same-page re-render preserves scroll, page switch tops.
 - **UI/feel overhaul (F) — COMPLETE** (v97–v101): system pass + four surface redesigns (Settings, menus/popovers, widget cards & page layout, panels & drawers), all *within the current cozy identity* (cozy purple, theming preserved, nothing jarring). See per-version entries below.
 - v101 — ui: F **panels & drawers** — side panels round only their inner (app-facing) corners (`overflow:hidden` + radius-lg) so they read as a soft sheet; panel title weight 600 + tighter tracking; scrim 0.32→0.38; sheet grab-handle widens/warms on hover, accent on grab. CSS-only (`components.css`).
 - v100 — ui: F **widget cards & page layout** — idle-fade card controls (return on hover/focus), openable affordance (`:has` border warm + press), page max-width 1180 centered.

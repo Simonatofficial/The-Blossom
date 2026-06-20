@@ -16,6 +16,14 @@ let host = null;
 const cardEls = new Map(); // widgetId -> card element
 const ctx = makeCtx();
 
+// Nav return-to-origin (E): the page wipes + rebuilds on every route/page change,
+// which would dump you at the top. Remember the module page's scroll so coming
+// back from a widget view — or a same-page re-render (e.g. toggling an effect in
+// Settings) — returns you where you were instead of the top of the page.
+let prevRoute = { moduleId: null, pageId: null, widgetId: null };
+let pageScroll = 0; // last module-page scroll position
+const pageY = () => window.scrollY || document.documentElement.scrollTop || 0;
+
 export function initEngine(hostEl) {
   host = hostEl;
   engineHooks.renderWidgetCard = renderWidgetCard;
@@ -66,6 +74,10 @@ export function initEngine(hostEl) {
 export function renderPage() {
   if (!host) return;
   const route = router.current();
+  const prev = prevRoute;
+  prevRoute = route;
+  // capture the scroll of the module page we're leaving (not a widget view)
+  if (!prev.widgetId) pageScroll = pageY();
   const mod = store.get('modules', route.moduleId);
   const page = store.get('pages', route.pageId);
   cardEls.clear();
@@ -78,6 +90,8 @@ export function renderPage() {
   const viewWidget = route.widgetId ? store.get('widgets', route.widgetId) : null;
   if (viewWidget && registry.get(viewWidget.type)?.internal) {
     renderWidgetPage(viewWidget, page, mod, route.focus);
+    const sameView = prev.widgetId === route.widgetId && prev.pageId === route.pageId;
+    if (!sameView) window.scrollTo(0, 0); // a freshly opened view starts at the top
     return;
   }
 
@@ -121,6 +135,12 @@ export function renderPage() {
     scope.appendChild(add);
   }
   host.appendChild(scope);
+
+  // return-to-origin (E): if this is the same page we just left (back from its
+  // widget view, or a same-page re-render), restore the scroll; otherwise a
+  // genuine page switch lands at the top.
+  const samePage = prev.moduleId === route.moduleId && prev.pageId === route.pageId;
+  window.scrollTo(0, samePage ? pageScroll : 0);
 }
 
 /* ---------- widget pages (CR-11): the /w/<id> route renders the widget's
