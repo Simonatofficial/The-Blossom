@@ -9,7 +9,6 @@ import { icon, iconOrEmoji, iconNames } from './icons.js';
 import { el, toast, confirmDialog, openDrawer, popMenu, promptText } from './components.js';
 import { openSettings } from './settings.js';
 import { initFab } from './fab.js';
-import { openModulesPanel } from './navpanels.js';
 import { getTheme, allThemes } from '../fx/themes.js';
 
 const MAX_TABS = 5;
@@ -20,12 +19,11 @@ export function initShell(app) {
   // never crowds the top widget's ··· menu; richer navigation lives in the FAB.
   const chrome = el(`
     <div id="chrome-top">
-      <button class="chrome-btn" id="btn-chrome" aria-label="Menu">${icon('more', 18)}</button>
+      <button class="chrome-btn" id="btn-chrome" aria-label="Settings">${icon('settings', 18)}</button>
     </div>`);
-  chrome.querySelector('#btn-chrome').onclick = (e) => popMenu(e.currentTarget, [
-    { label: 'Settings', iconName: 'settings', fn: () => openSettings() },
-    { label: 'Modules', iconName: 'grid', fn: () => openModulesPanel() }
-  ]);
+  // Modules now live on the FAB (Modules · Pages · Widgets), so the top-right
+  // chrome button is just Settings — one tap, no menu.
+  chrome.querySelector('#btn-chrome').onclick = () => openSettings();
   app.appendChild(chrome);
   app.appendChild(el('<div id="page-host"></div>'));
   app.appendChild(el('<nav id="tab-bar" aria-label="Pages"></nav>'));
