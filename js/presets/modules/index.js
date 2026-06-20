@@ -140,7 +140,7 @@ export const PRESET_MODULES = [
         name: 'Home', icon: 'home',
         widgets: [
           { type: 'time', name: 'Today' },
-          { type: 'notes', name: 'Welcome', objects: [{ kind: 'note', data: { html: '<h1>Welcome to The Blossom</h1><p>This space is yours. Tap any card to open it, drag the dots to rearrange, and use the + below to plant more widgets.</p>', lastOpened: null } }] },
+          { type: 'notes', name: 'Welcome', objects: [{ kind: 'note', data: { html: '<h1>Welcome to My Blossom</h1><p>This space is yours. Tap any card to open it, drag the dots to rearrange, and use the + below to plant more widgets.</p>', lastOpened: null } }] },
           { type: 'counter', name: 'Glasses of water', w: 'half', config: { count: 0, step: 1, dailyReset: true, target: 8 } }
         ]
       }

@@ -15,7 +15,7 @@ export function initOnboarding(force = false) {
 
   const steps = [
     {
-      title: 'Welcome to The Blossom',
+      title: 'Welcome to My Blossom',
       body: 'Build a space that’s yours.',
       content(host, next) {
         const nameIn = el('<input class="input" placeholder="What should we call you? (optional)">');
@@ -42,7 +42,7 @@ export function initOnboarding(force = false) {
     },
     {
       title: 'Meet Modules',
-      body: 'Modules are whole apps inside The Blossom. The switcher lives up here — your garden is pre-planted.',
+      body: 'Modules are whole apps inside My Blossom. The switcher lives up here — your garden is pre-planted.',
       spotlight: '#btn-modules'
     },
     {

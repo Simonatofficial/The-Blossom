@@ -60,7 +60,7 @@ registry.register({
       now.textContent = trackName(track);
       if (autoplay) p.audio.play();
       if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: trackName(track), artist: 'The Blossom' });
+        navigator.mediaSession.metadata = new MediaMetadata({ title: trackName(track), artist: 'My Blossom' });
         navigator.mediaSession.setActionHandler('previoustrack', () => step(-1));
         navigator.mediaSession.setActionHandler('nexttrack', () => step(1));
       }

@@ -214,7 +214,7 @@ registry.register({
       const add = el(`<button class="btn-soft-wide">${icon('plus', 14)} New profile</button>`);
       add.onclick = () => { widget.config.profiles.push({ id: ulid(), name: 'Profile ' + (widget.config.profiles.length + 1), color: '#7cc4ff', volume: 80, fadeIn: 0, vibrate: 'soft', loop: false }); save(); render(); };
       body.appendChild(add);
-      body.appendChild(el('<p class="soft" style="font-size:0.8rem;margin-top:10px">Honest note: as a web app, alarms ring only while The Blossom is open. For wake-ups, your phone’s clock is the safer gardener.</p>'));
+      body.appendChild(el('<p class="soft" style="font-size:0.8rem;margin-top:10px">Honest note: as a web app, alarms ring only while My Blossom is open. For wake-ups, your phone’s clock is the safer gardener.</p>'));
     };
 
     buildTabs(); render();

@@ -41,7 +41,7 @@ window.addEventListener('unhandledrejection', (e) => gentleError(e.reason));
    a backup. store.js throttles this, so just surface it once it arrives. */
 events.on('storage:full', ({ quota }) => {
   const text = quota
-    ? 'Storage is full. Free up space (or export a backup and clear old data) so The Blossom can keep saving.'
+    ? 'Storage is full. Free up space (or export a backup and clear old data) so My Blossom can keep saving.'
     : 'A recent change could not be written to storage. Your work is still here — export a backup to be safe.';
   try { toast(quota ? 'Storage is full — recent changes may not be saved.' : 'A save didn’t go through.', 'leaf'); } catch { /* pre-boot */ }
   events.emit('notify', { category: 'storage', text });
@@ -158,5 +158,5 @@ boot().catch(err => {
   const W = window.__blossom;
   if (W && !W.booted && W.showRecovery) W.showRecovery();
   else if (!W || !W.booted) document.getElementById('app').innerHTML =
-    '<div style="padding:40px;text-align:center;opacity:0.8">The Blossom could not open. Please refresh.</div>';
+    '<div style="padding:40px;text-align:center;opacity:0.8">My Blossom could not open. Please refresh.</div>';
 });

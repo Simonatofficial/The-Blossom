@@ -647,7 +647,7 @@ async function checkForUpdates(btn) {
 
 function renderAboutSection(d) {
   const sec = el(`<div class="dsec"><h3>About</h3>
-    <p class="soft" style="font-size:0.86rem;margin-bottom:10px">The Blossom — your cozy, all-in-one space to grow. Everything lives on your device.</p>
+    <p class="soft" style="font-size:0.86rem;margin-bottom:10px">My Blossom — your cozy, all-in-one space to grow. Everything lives on your device.</p>
     <button class="btn" data-act="tour" style="width:100%">${icon('flower', 15)} Replay the tour</button>
     <button class="btn" data-act="update" style="width:100%;margin-top:10px">${icon('refresh', 15)} Check for updates</button>
     <button class="btn" data-act="reset" style="width:100%;margin-top:10px">${icon('leaf', 15)} Reset app (keeps your data)</button>
