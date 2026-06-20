@@ -3,24 +3,30 @@
 > The fast resume point. Read this + `CLAUDE.md` to know where we are without re-scanning the tree.
 > Keep it current per `docs/00-claude-framework.md` §4. Newest first.
 
-**Last updated:** 2026-06-20 · **Latest pushed version:** v85
+**Last updated:** 2026-06-20 · **Latest pushed version:** v89
 
 ---
 
 ## Now (in progress)
 
-- **Tabletop sheet linking polish** — uncommitted WIP in `js/widgets/dndsheet.js`, `dndinventory.js`, `dnd-shared.js`, plus `js/fx/weather.js` and docs (`01-architecture.md`, `07-gamification.md`), `sw-assets.js`.
-  ⏸ next step: review these diffs against `docs/14-tabletop-overhaul.md`, run the cozy + Done checks, then commit each as its own feature and push.
+- **Big "Study + UX" brief** (2026-06-20 user request) — quick wins shipped (v86–v89). Working through the rest in this order:
+  ⏸ next step: **A5 bookmarks** — a ★ toggle in flashcard study + quiz runtime that auto-collects into a dynamic "Bookmarked" set (flag on the real flashcard object; skip auto/notebook cards). Then the study-analytics group below.
 
 ## Next (queued, in order)
 
-1. **i18n-ready strings file** — the only remaining Phase 8 item (`docs/10-roadmap.md`). Low priority, single-language app; architectural string extraction.
-2. **Open change requests** — sweep `docs/11-change-requests.md` for anything still open and work in stated order.
-3. **Tabletop companion features** — party / shop / encounter / dice per `docs/14-tabletop-overhaul.md`.
-4. **V2 framework items** — pull next from `docs/13-v2-framework.md` (target the relevant heading, never load the whole file).
+1. **Study analytics (A1–A6)** — one cohesive release: add a **tip** card field (`flashcards-model.js` FIELDS + parse + faces); a per-card/per-Class·Unit·Topic **mastery** layer recording correct/incorrect/partial/easy; a "what to work on" weak-spots view; **smart auto study sets** ("Needs work" overall + per weak node) per the chosen approach; per-part **% breakdown** at flashcard/quiz finish.
+2. **Module-nav overhaul (D)** — module **groups** + **Favorites** group + top arrow/swipe switcher. New data model → run `grill-me` before building.
+3. **"Help me build" (G)** — guided module + page builders; default path from presets; per-preset question sets; functional linked pages/widgets. Run `grill-me`.
+4. **UI/feel overhaul (F)** — modules/pages/widgets/popups/menus/settings; fold its design language into D & G rather than a separate sweep.
+5. **Nav return-to-origin fix (E)** — exiting settings/widget should return where you were, not dump to the module page.
+6. Older backlog: i18n strings (Phase 8), open CRs in `docs/11`, Tabletop companion features (`docs/14`), V2 items (`docs/13`).
 
 ## Done (recent, newest first)
 
+- v89 — quiz: results/card/history show correct/incorrect **counts** + an all-time tally instead of a lone %.
+- v88 — shell: removed Modules from the top menu; chrome button opens Settings directly (modules live on the FAB).
+- v87 — picker: +Add widget gallery organized into collapsible categories (Character Sheet → Tabletop).
+- v86 — brand: renamed app to **My Blossom** across visible chrome (display-name only).
 - **Claude Operating Framework** — added `docs/00-claude-framework.md` (prompt-overhaul, token, cozy, continuity, DoD) + this STATUS ledger; slimmed `CLAUDE.md` to a lean entry point. *(docs)*
 - v85 — fx: removed lightning effect; rebuilt aurora as an atmosphere.
 - v84 — tabletop: sheet linking — armor→AC auto-calc & weapon→attacks.
