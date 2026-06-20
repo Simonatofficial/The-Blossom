@@ -106,6 +106,10 @@
 }
 .widget-card.w-holding { animation: w-hold-glow 600ms var(--ease) forwards; }
 .widget-card.focus-glow { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 24px var(--glow); }
+/* F system pass (v97): cards lift gently on pointer devices — no sticky mobile hover. */
+@media (hover: hover) {
+  .widget-card:not(.dragging):hover { box-shadow: var(--shadow); }
+}
 
 .widget-head {
   display: flex;

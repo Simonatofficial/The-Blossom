@@ -719,3 +719,41 @@ body.focus-page #chrome-top, body.focus-page #tab-bar { display: none; }
 .tour-dots { display: flex; gap: 5px; }
 .tour-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
 .tour-dots span.on { background: var(--accent); }
+
+/* ============================================================================
+   F — system pass: depth · interaction states · motion (docs/03; v97).
+   Elevate within the current identity — refinements layered over the components
+   above so the whole app reads more finished without changing structure/themes.
+   ============================================================================ */
+
+/* Floating surfaces sit clearly above the page (deeper, softer elevation). */
+.menu, .popover { box-shadow: var(--shadow-pop); }
+.drawer.place-right, .drawer.place-left, .drawer.place-sheet, .drawer.place-full { box-shadow: var(--shadow-pop); }
+
+/* List rows: a gentle hover lift + a soft press, so they feel alive not static. */
+.list-item {
+  transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+}
+.list-item:hover { background: var(--surface); box-shadow: var(--shadow-soft); }
+.list-item:active { transform: scale(0.992); }
+
+/* Menu items: icon warms to accent on hover, subtle press feedback. */
+.menu button { transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+.menu button:hover .icon { color: var(--accent); }
+.menu button:active { transform: scale(0.98); }
+
+/* Buttons: a touch of lift on hover; the primary carries a soft themed glow. */
+.btn:hover { box-shadow: var(--shadow-soft); }
+.btn-primary { box-shadow: 0 2px 10px var(--glow); }
+.btn-primary:hover { box-shadow: 0 5px 18px var(--glow); }
+.btn-icon:active { transform: scale(0.92); }
+
+/* Inputs: a calm focus ring reads more finished than a bare border swap. */
+.input:focus, .select:focus, .textarea:focus { box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* Chips animate their state changes rather than snapping. */
+.chip { transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+
+/* Section/overline headers: a touch more deliberate spacing. */
+.dsec > h3, .pop-title { letter-spacing: 0.07em; }
