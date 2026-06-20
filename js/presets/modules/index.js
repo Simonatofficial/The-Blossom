@@ -3,6 +3,7 @@
    Widgets may carry `ref` keys; links can point at '@ref' to wire presets. */
 
 import { store } from '../../core/store.js';
+import { events } from '../../core/events.js';
 import { ulid } from '../../core/ids.js';
 import { registry } from '../../widgets/registry.js';
 import { BLOSSOM_PRESET } from './blossom.js';
@@ -52,6 +53,52 @@ function resolveTokens(value, refs) {
   return value;
 }
 
+/** Build one widget (recursing into children), recording @refs + the created list. */
+function buildWidget(wDef, pageId, parentWidgetId, refs, created) {
+  const widget = store.put('widgets', {
+    id: ulid(), type: wDef.type,
+    pageId: parentWidgetId ? null : pageId,
+    parentWidgetId: parentWidgetId || null,
+    name: wDef.name || wDef.type,
+    collapsed: !!wDef.collapsed,
+    themeOverride: null,
+    w: wDef.w || 'full',
+    // merge the type's defaults exactly like createWidget does, so preset
+    // definitions only need to state what differs
+    config: { ...(registry.get(wDef.type)?.defaultConfig?.() || {}), ...structuredClone(wDef.config || {}) },
+    links: structuredClone(wDef.links || [])
+  });
+  if (wDef.ref) refs.set('@' + wDef.ref, widget.id);
+  created.push(widget);
+  if (wDef.children?.length) {
+    widget.config.childOrder = wDef.children.map(c => buildWidget(c, pageId, widget.id, refs, created).id);
+    store.put('widgets', widget);
+  }
+  if (wDef.objects?.length) {
+    for (const o of wDef.objects) {
+      store.put('objects', { id: ulid(), widgetId: widget.id, kind: o.kind, date: o.date || null, data: structuredClone(o.data || {}) });
+    }
+  }
+  return widget;
+}
+
+/** Build one page-def's widgets into an existing page record. */
+function buildPageWidgets(pDef, page, refs, created) {
+  page.widgets = (pDef.widgets || []).map(wDef => buildWidget(wDef, page.id, null, refs, created).id);
+  store.put('pages', page);
+}
+
+/** Resolve '@ref' links + deep '@' tokens once every widget exists. */
+function resolveCreated(created, refs) {
+  for (const widget of created) {
+    widget.links = (widget.links || [])
+      .map(l => resolveTokens(l, refs))
+      .filter(l => l.sourceWidgetId && !String(l.sourceWidgetId).startsWith('@'));
+    widget.config = resolveTokens(widget.config, refs);
+    store.put('widgets', widget);
+  }
+}
+
 /**
  * Instantiate a preset module definition.
  * @param {{key, name, icon, pages: object[]}} def
@@ -70,55 +117,27 @@ export function instantiatePreset(def) {
     category: cat.category, subcategory: cat.subcategory, tags: cat.tags || []
   });
 
-  const buildWidget = (wDef, pageId, parentWidgetId) => {
-    const widget = store.put('widgets', {
-      id: ulid(), type: wDef.type,
-      pageId: parentWidgetId ? null : pageId,
-      parentWidgetId: parentWidgetId || null,
-      name: wDef.name || wDef.type,
-      collapsed: !!wDef.collapsed,
-      themeOverride: null,
-      w: wDef.w || 'full',
-      // merge the type's defaults exactly like createWidget does, so preset
-      // definitions only need to state what differs
-      config: { ...(registry.get(wDef.type)?.defaultConfig?.() || {}), ...structuredClone(wDef.config || {}) },
-      links: structuredClone(wDef.links || [])
-    });
-    if (wDef.ref) refs.set('@' + wDef.ref, widget.id);
-    created.push(widget);
-    if (wDef.children?.length) {
-      widget.config.childOrder = wDef.children.map(c => buildWidget(c, pageId, widget.id).id);
-      store.put('widgets', widget);
-    }
-    if (wDef.objects?.length) {
-      for (const o of wDef.objects) {
-        store.put('objects', { id: ulid(), widgetId: widget.id, kind: o.kind, date: o.date || null, data: structuredClone(o.data || {}) });
-      }
-    }
-    return widget;
-  };
-
   for (const pDef of def.pages) {
-    const page = store.put('pages', {
-      id: ulid(), moduleId: mod.id, name: pDef.name, icon: pDef.icon || 'circle',
-      widgets: [], themeOverride: null
-    });
-    page.widgets = (pDef.widgets || []).map(wDef => buildWidget(wDef, page.id, null).id);
-    store.put('pages', page);
+    const page = store.put('pages', { id: ulid(), moduleId: mod.id, name: pDef.name, icon: pDef.icon || 'circle', widgets: [], themeOverride: null });
+    buildPageWidgets(pDef, page, refs, created);
     mod.pages.push(page.id);
     if (pDef.home) mod.homePageId = page.id; // V2 §25: a preset can mark its home page
   }
   store.put('modules', mod);
-
-  // resolve '@ref' links and any '@' tokens deep inside configs
-  for (const widget of created) {
-    widget.links = (widget.links || [])
-      .map(l => resolveTokens(l, refs))
-      .filter(l => l.sourceWidgetId && !String(l.sourceWidgetId).startsWith('@'));
-    widget.config = resolveTokens(widget.config, refs);
-    store.put('widgets', widget);
-  }
+  resolveCreated(created, refs);
   return mod;
+}
+
+/** Build one page-def (widgets + @ref wiring) into an existing module (G page builder). */
+export function instantiatePageInto(mod, pDef) {
+  const refs = new Map(), created = [];
+  const page = store.put('pages', { id: ulid(), moduleId: mod.id, name: pDef.name, icon: pDef.icon || 'circle', widgets: [], themeOverride: null });
+  buildPageWidgets(pDef, page, refs, created);
+  mod.pages.push(page.id);
+  store.put('modules', mod);
+  resolveCreated(created, refs);
+  events.emit('module:changed', { moduleId: mod.id });
+  return page;
 }
 
 /** The preset gallery list. Heavier definitions join as phases land (docs/10). */

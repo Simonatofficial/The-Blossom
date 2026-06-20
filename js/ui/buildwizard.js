@@ -11,7 +11,9 @@ import { assemble, previewPages } from '../presets/blueprints.js';
 
 /**
  * @param {object} blueprint
- * @param {{fullPreset?: object}} opts — fullPreset enables the "plant full preset" escape.
+ * @param {{fullPreset?: object, onPlant?: (def) => void}} opts — fullPreset enables
+ *   the "plant full preset" escape; onPlant overrides the default module-plant
+ *   (used by the page builder to build into the current module instead).
  */
 export function openBuildWizard(blueprint, opts = {}) {
   const d = openPanel({ title: blueprint.title || 'Help me build', iconName: 'wand' });
@@ -20,7 +22,13 @@ export function openBuildWizard(blueprint, opts = {}) {
   const total = blueprint.questions.length;
   let step = 0; // 0..total-1 = questions, total = preview
 
-  const plant = (def) => { const mod = instantiatePreset(def); d.close(); toast(`${def.name || 'Module'} planted`, 'sprout'); router.go(mod.id); };
+  const plant = (def) => {
+    d.close();
+    if (opts.onPlant) { opts.onPlant(def); return; }
+    const mod = instantiatePreset(def);
+    toast(`${def.name || 'Module'} planted`, 'sprout');
+    router.go(mod.id);
+  };
 
   const dots = () => {
     const row = el('<div class="row bw-dots" style="justify-content:center;gap:6px;margin-bottom:14px"></div>');

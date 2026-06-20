@@ -100,6 +100,57 @@ export const STUDY_BLUEPRINT = {
   ]
 };
 
+/* ---- Generic "from scratch" module blueprint ---- */
+export const SCRATCH_BLUEPRINT = {
+  key: 'scratch',
+  title: 'Build a module',
+  intro: 'Tell us what this space is for and pick the tools you want — we’ll plant a tidy starting point.',
+  base: { name: '@p.modName', icon: 'flower' },
+  derive: (a) => ({ modName: (a.name || '').trim() || 'My space' }),
+  questions: [
+    { id: 'name', type: 'text', prompt: 'What should we call this space?', help: 'A name for the module — you can rename it later.', placeholder: 'e.g. Home base' },
+    { id: 'notes', type: 'toggle', default: true, prompt: 'A place for notes?', help: 'A rich Notes widget on the Home page.', blocks: ['notes'] },
+    { id: 'tasks', type: 'toggle', default: true, prompt: 'Track tasks or to-dos?', help: 'A Quest checklist you can tick off.', blocks: ['tasks'] },
+    { id: 'habits', type: 'toggle', default: false, prompt: 'Build a daily habit?', help: 'A Habit widget with a gentle streak.', blocks: ['habits'] },
+    { id: 'tracker', type: 'toggle', default: false, prompt: 'Log something daily?', help: 'A Tracker for water, mood, sleep — anything.', blocks: ['tracker'] },
+    { id: 'journal', type: 'toggle', default: false, prompt: 'Keep a journal?', help: 'A Journal page for daily entries.', blocks: ['journal'] }
+  ],
+  blocks: [
+    { id: 'home', always: true, page: { name: 'Home', icon: 'home', home: true, widgets: [
+      { type: 'time', name: 'Today' },
+      { type: 'notes', name: 'Welcome', objects: [{ kind: 'note', data: { html: '<p>This space is yours. Tap a card to open it, and use the + below to plant more.</p>', lastOpened: null } }] }
+    ] } },
+    { id: 'notes', widgets: [{ type: 'notes', name: 'Notes' }], target: 'home' },
+    { id: 'tasks', widgets: [{ type: 'quest', name: 'To-dos' }], target: 'home' },
+    { id: 'habits', widgets: [{ type: 'habit', name: 'Daily habit', w: 'half' }], target: 'home' },
+    { id: 'tracker', widgets: [{ type: 'tracker', name: 'Daily log', w: 'half' }], target: 'home' },
+    { id: 'journal', page: { name: 'Journal', icon: 'book-open', widgets: [{ type: 'journal', name: 'Journal' }] } }
+  ]
+};
+
+/* ---- Generic page blueprint (builds one wired page into the current module) ---- */
+export const PAGE_BLUEPRINT = {
+  key: 'page',
+  title: 'Build a page',
+  intro: 'What’s this page for? Pick a few tools and we’ll lay them out.',
+  base: { name: '@p.pageName', icon: 'circle' },
+  derive: (a) => ({ pageName: (a.purpose || '').trim() || 'New page' }),
+  questions: [
+    { id: 'purpose', type: 'text', prompt: 'What’s this page for?', help: 'We’ll name the page after it.', placeholder: 'e.g. Workouts' },
+    { id: 'notes', type: 'toggle', default: true, prompt: 'Add notes?', blocks: ['notes'] },
+    { id: 'tasks', type: 'toggle', default: false, prompt: 'Add a task list?', blocks: ['tasks'] },
+    { id: 'tracker', type: 'toggle', default: false, prompt: 'Log something daily?', blocks: ['tracker'] },
+    { id: 'graph', type: 'toggle', default: false, prompt: 'Add a progress graph?', blocks: ['graph'] }
+  ],
+  blocks: [
+    { id: 'page', always: true, page: { name: '@p.pageName', icon: 'circle', widgets: [] } },
+    { id: 'notes', widgets: [{ type: 'notes', name: 'Notes' }], target: 'page' },
+    { id: 'tasks', widgets: [{ type: 'quest', name: 'To-dos' }], target: 'page' },
+    { id: 'tracker', widgets: [{ type: 'tracker', name: 'Daily log' }], target: 'page' },
+    { id: 'graph', widgets: [{ type: 'graph', name: 'Progress' }], target: 'page' }
+  ]
+};
+
 const BLUEPRINTS = { study: STUDY_BLUEPRINT };
 
 /** A blueprint for a preset key, or null if none authored yet (→ one-tap plant). */

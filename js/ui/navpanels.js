@@ -194,8 +194,13 @@ async function deleteModule(m, rerender) {
 function newModuleMenu(anchor, panel) {
   popMenu(anchor, [
     { label: 'From Preset', iconName: 'gift', fn: async () => { const { openPresetGallery } = await import('./presetgallery.js'); panel.close(); openPresetGallery(); } },
-    { label: 'From Code', iconName: 'code', fn: () => { panel.close(); importCode({}); } },
-    { label: 'From Scratch', iconName: 'edit', fn: async () => {
+    { label: 'Help me build', iconName: 'wand', fn: async () => {
+      panel.close();
+      const { openBuildWizard } = await import('./buildwizard.js');
+      const { SCRATCH_BLUEPRINT } = await import('../presets/blueprints.js');
+      openBuildWizard(SCRATCH_BLUEPRINT);
+    } },
+    { label: 'Blank module', iconName: 'edit', fn: async () => {
       const name = await promptText({ title: 'New module', label: 'Module name', placeholder: 'My module', confirmText: 'Create' });
       if (!name) return;
       const page = store.put('pages', { id: ulid(), moduleId: null, name: 'Home', icon: 'home', widgets: [], themeOverride: null });
@@ -203,7 +208,8 @@ function newModuleMenu(anchor, panel) {
       page.moduleId = mod.id; store.put('pages', page);
       panel.close();
       router.go(mod.id);
-    } }
+    } },
+    { label: 'From Code', iconName: 'code', fn: () => { panel.close(); importCode({}); } }
   ]);
 }
 
@@ -249,14 +255,22 @@ export function openPagesPanel() {
     });
   };
 
-  d.body.appendChild(bottomBar('New Page', 'plus', async () => {
-    const name = await promptText({ title: 'Add page', label: 'Page name', placeholder: 'Garden', confirmText: 'Add' });
-    if (!name) return;
-    const page = store.put('pages', { id: ulid(), moduleId: mod.id, name, icon: 'circle', widgets: [], themeOverride: null });
-    mod.pages.push(page.id); store.put('modules', mod);
-    events.emit('module:changed', { moduleId: mod.id });
-    d.close(); router.go(mod.id, page.id);
-  }, () => importCode({})));
+  d.body.appendChild(bottomBar('New Page', 'plus', (e) => popMenu(e.currentTarget, [
+    { label: 'Blank page', iconName: 'plus', fn: async () => {
+      const name = await promptText({ title: 'Add page', label: 'Page name', placeholder: 'Garden', confirmText: 'Add' });
+      if (!name) return;
+      const page = store.put('pages', { id: ulid(), moduleId: mod.id, name, icon: 'circle', widgets: [], themeOverride: null });
+      mod.pages.push(page.id); store.put('modules', mod);
+      events.emit('module:changed', { moduleId: mod.id });
+      d.close(); router.go(mod.id, page.id);
+    } },
+    { label: 'Help me build', iconName: 'wand', fn: async () => {
+      const { openBuildWizard } = await import('./buildwizard.js');
+      const { PAGE_BLUEPRINT } = await import('../presets/blueprints.js');
+      const { instantiatePageInto } = await import('../presets/modules/index.js');
+      openBuildWizard(PAGE_BLUEPRINT, { onPlant: (def) => { const page = instantiatePageInto(mod, def.pages[0]); router.go(mod.id, page.id); } });
+    } }
+  ]), () => importCode({})));
   render();
 }
 
