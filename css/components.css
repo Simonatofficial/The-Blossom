@@ -369,7 +369,7 @@
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgba(0, 0, 0, 0.32);
+  background: rgba(0, 0, 0, 0.38);
   opacity: 0;
   transition: opacity var(--t-slow) var(--ease);
 }
@@ -463,15 +463,19 @@ body.focus-page #chrome-top, body.focus-page #tab-bar { display: none; }
   z-index: 41;
   display: flex;
   flex-direction: column;
+  overflow: hidden;              /* clip content to the softened inner corners */
   background: var(--surface);
   backdrop-filter: blur(16px);
   transition: transform 200ms var(--ease);
 }
 
+/* edge-anchored panels round only the corners that face the app, so they read
+   as a soft sheet rather than a hard slab (F surface redesign; soft geometry) */
 .drawer.place-right {
   top: 0; right: 0; bottom: 0;
   width: min(440px, 85vw);
   border-left: 1px solid var(--border);
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
   transform: translateX(100%);
 }
 .drawer.place-right.open { transform: translateX(0); }
@@ -480,6 +484,7 @@ body.focus-page #chrome-top, body.focus-page #tab-bar { display: none; }
   top: 0; left: 0; bottom: 0;
   width: min(440px, 85vw);
   border-right: 1px solid var(--border);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
   transform: translateX(-100%);
 }
 .drawer.place-left.open { transform: translateX(0); }
@@ -512,7 +517,10 @@ body.focus-page #chrome-top, body.focus-page #tab-bar { display: none; }
   flex: none;
   cursor: grab;
   touch-action: none;
+  transition: background var(--t-fast) var(--ease), width var(--t-fast) var(--ease);
 }
+.sheet-handle:hover { width: 52px; background: var(--text-soft); }
+.sheet-handle:active { cursor: grabbing; background: var(--accent); }
 
 .drawer-head {
   display: flex;
@@ -523,6 +531,8 @@ body.focus-page #chrome-top, body.focus-page #tab-bar { display: none; }
 }
 .drawer-head h2 {
   font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
