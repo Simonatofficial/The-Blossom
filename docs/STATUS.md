@@ -3,25 +3,26 @@
 > The fast resume point. Read this + `CLAUDE.md` to know where we are without re-scanning the tree.
 > Keep it current per `docs/00-claude-framework.md` §4. Newest first.
 
-**Last updated:** 2026-06-20 · **Latest pushed version:** v92
+**Last updated:** 2026-06-20 · **Latest pushed version:** v94
 
 ---
 
 ## Now (in progress)
 
-- **Big "Study + UX" brief** (2026-06-20 user request) — study workstream complete (v86–v92). **D design resolved via grill-me → spec in `docs/13` §3b.** Next per user order: build D, then grill G, then F.
-  ⏸ next step: build **Module-nav overhaul (D)** per `docs/13` §3b (module groups + Favorites + top swipe rail), or grill **G (help-me-build)** next — awaiting user pick.
+- **Big "Study + UX" brief** (2026-06-20 user request) — study workstream (v86–v92) + Module-nav overhaul **D** (v93–v94) complete. Next per user order: grill **G**, then **F**.
+  ⏸ next step: run `grill-me` on **G (Help me build)** — guided module + page builders — to resolve the question tree before code. Awaiting user go.
 
 ## Next (queued, in order)
 
-1. **Module-nav overhaul (D)** — module **groups** the user swaps between + a **Favorites** group; top-of-screen left/right arrows + swipe; active-group concept. New data model → `grill-me` first.
-2. **"Help me build" (G)** — guided module + page builders; default path from presets; per-preset question sets; functional linked pages/widgets. `grill-me` first.
-3. **UI/feel overhaul (F)** — modules/pages/widgets/popups/menus/settings; fold its design language into D & G rather than a separate sweep.
-4. **Nav return-to-origin fix (E)** — exiting settings/widget should return where you were, not dump to the module page.
-5. Older backlog: i18n strings (Phase 8), open CRs in `docs/11`, Tabletop companion features (`docs/14`), V2 items (`docs/13`).
+1. **"Help me build" (G)** — guided module + page builders; default path from presets; per-preset question sets; functional linked pages/widgets. `grill-me` first.
+2. **UI/feel overhaul (F)** — modules/pages/widgets/popups/menus/settings; fold its design language into G rather than a separate sweep.
+3. **Nav return-to-origin fix (E)** — exiting settings/widget should return where you were, not dump to the module page.
+4. Older backlog: i18n strings (Phase 8), open CRs in `docs/11`, Tabletop companion features (`docs/14`), V2 items (`docs/13`).
 
 ## Done (recent, newest first)
 
+- v94 — nav: Manage Groups panel (rename/icon/delete/reorder groups + member modules); completes workstream D.
+- v93 — nav: **module groups + top switcher rail** (groups.js; All + auto Favorites + custom; swipe/arrows/pill; usage tracking; hides in widget views). Spec `docs/13` §3b.
 - v92 — study: bookmark (★) cards while studying/quizzing → dynamic "Bookmarked" study set.
 - v91 — study: mastery tracking + "what to work on" weak-spot focus (smart "Needs work" + per-area sets) + per-part % breakdown at finish.
 - v90 — study: optional **Tip** field on terms/cards/quizzes (notebook "Tip:" line → flashcard model → faces → quiz Q/A).
