@@ -53,7 +53,7 @@ const FRESH_CHARACTER = () => ({
   stampId: null,
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   saveProfs: [], skillProfs: {},
-  ac: 10, speed: 30, initMisc: 0, senses: '',
+  ac: 10, autoAC: true, acMisc: 0, speed: 30, initMisc: 0, senses: '',
   hp: { cur: 10, max: 10, temp: 0 },
   hitDice: { die: 'd8', used: 0 },
   deathSaves: { ok: 0, bad: 0 },
@@ -131,6 +131,52 @@ export function getCharacter(widget) {
     if (obj.data[k] === undefined) obj.data[k] = v; // older saves grow new fields
   }
   return { owner, obj, c: obj.data };
+}
+
+/* ---------- equipment linking (docs/14 §C) ---------- */
+
+/** Parse an SRD armor entry into a compact AC rule stored on an item. */
+export function parseArmorAC(entry) {
+  const ac = String(entry?.ac || '').trim();
+  if (entry?.category === 'Shield' || ac.startsWith('+')) {
+    return { kind: 'shield', bonus: Math.abs(Number(ac.replace(/[^\d-]/g, '')) || 2) };
+  }
+  const base = parseInt(ac, 10) || 10;
+  const hasDex = /dex/i.test(ac);
+  const maxM = ac.match(/max\s*(\d+)/i);
+  return { kind: 'body', base, dexCap: hasDex ? (maxM ? Number(maxM[1]) : 99) : 0 };
+}
+
+/** Compute AC from a character's equipped armor items (CR: armor → AC). */
+export function computeAC(c, items) {
+  const dex = mod(c.abilities.dex);
+  let body = null, shield = 0;
+  for (const it of items) {
+    const a = it.data?.armor;
+    if (!it.data?.equipped || !a) continue;
+    if (a.kind === 'shield') shield += a.bonus || 2;
+    else body = a; // a later-equipped body armor wins
+  }
+  const base = body ? body.base + Math.min(dex, body.dexCap) : 10 + dex; // unarmored
+  return base + shield + (c.acMisc || 0);
+}
+
+/** The character's effective AC — auto from equipped armor, or the manual value. */
+export function effectiveAC(widget) {
+  const { owner, c } = getCharacter(widget);
+  if (c.autoAC === false) return c.ac;
+  return computeAC(c, objectsOf(owner.id, 'item'));
+}
+
+/** Build a tap-to-roll attack {name, toHit, dmg} from an SRD weapon entry. */
+export function weaponToAttack(c, w, name = null) {
+  const isRanged = /ranged/i.test(w.category || '');
+  const isFinesse = /finesse/i.test(w.props || '');
+  const str = mod(c.abilities.str), dex = mod(c.abilities.dex);
+  const abil = isRanged ? dex : isFinesse ? Math.max(str, dex) : str;
+  const toHit = profBonus(c.level) + abil;
+  const dmg = `${w.damage || '1d4'}${abil ? fmtMod(abil) : ''}`;
+  return { name: name || w.name, toHit, dmg };
 }
 
 export function saveCharacter(obj) {

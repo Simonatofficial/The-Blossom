@@ -9,8 +9,8 @@
 import { registry } from './registry.js';
 import { store } from '../core/store.js';
 import { icon } from '../ui/icons.js';
-import { el, popMenu, seg, toast, promptText, confirmDialog } from '../ui/components.js';
-import { ABILITIES, SKILLS, XP_LEVELS, mod, fmtMod, profBonus, skillBonus, saveBonus, getCharacter, saveCharacter, rollD20, listCharacters, setActiveCharacter, createCharacter } from './dnd-shared.js';
+import { el, popMenu, seg, toast, promptText, confirmDialog, openPanel, switchEl } from '../ui/components.js';
+import { ABILITIES, SKILLS, XP_LEVELS, mod, fmtMod, profBonus, skillBonus, saveBonus, getCharacter, saveCharacter, rollD20, listCharacters, setActiveCharacter, createCharacter, effectiveAC } from './dnd-shared.js';
 import { renderCombat } from './dndcombat.js';
 import { renderStory } from './dndstory.js';
 import { getStamp, openStampPicker } from './wb-stamps.js';
@@ -40,7 +40,7 @@ registry.register({
     else port.textContent = (c.name || '?').trim().charAt(0).toUpperCase();
     card.querySelector('[style*="weight:650"]').textContent = c.name;
     card.querySelector('.soft').textContent = [c.cls && `${c.cls} ${c.level}`, c.race].filter(Boolean).join(' · ') || `Level ${c.level}`;
-    card.querySelector('.dnd-ac').textContent = c.ac;
+    card.querySelector('.dnd-ac').textContent = effectiveAC(widget);
     card.querySelector('.hp-bar i').style.width = `${Math.max(0, Math.min(100, (c.hp.cur / Math.max(1, c.hp.max)) * 100))}%`;
     card.querySelector('div.soft[style*="text-align"]').textContent = `${c.hp.cur}/${c.hp.max} HP${c.hp.temp ? ` +${c.hp.temp} temp` : ''}`;
     host.appendChild(card);
@@ -161,11 +161,39 @@ export function renderSheet(host, env) {
     tiles.appendChild(t);
   };
   const init = mod(c.abilities.dex) + (c.initMisc || 0);
-  tile('AC', c.ac, null, 'ac');
+  // AC: auto from equipped armor (Inventory) unless set to manual. Tap in edit to configure.
+  const acT = el(`<button class="dnd-tile${play ? ' static' : ''}"><b></b><span>AC${c.autoAC !== false ? ' · auto' : ''}</span></button>`);
+  acT.querySelector('b').textContent = effectiveAC(widget);
+  if (!play) acT.onclick = () => openAcPanel();
+  tiles.appendChild(acT);
   tile('Initiative', fmtMod(init), () => rollD20(widget, 'Initiative', init));
   tile('Speed', c.speed, null, 'speed');
   tile('Proficiency', fmtMod(profBonus(c.level)));
   host.appendChild(tiles);
+
+  // AC settings: auto from equipped armor (+ bonus) or a manual value
+  function openAcPanel() {
+    const d = openPanel({ title: 'Armor Class', iconName: 'shield' });
+    const draw = () => {
+      d.body.innerHTML = '';
+      const autoRow = el('<div class="row" style="gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px"><span>Auto from equipped armor</span><span class="ac-sw"></span></div>');
+      autoRow.querySelector('.ac-sw').appendChild(switchEl(c.autoAC !== false, (on) => { c.autoAC = on; save(); draw(); rerender(); }));
+      d.body.appendChild(autoRow);
+      if (c.autoAC !== false) {
+        d.body.appendChild(el(`<p class="soft" style="font-size:0.84rem">Computed from the armor and shield you have equipped in the Inventory, plus your Dexterity. Current AC: <b>${effectiveAC(widget)}</b>.</p>`));
+        const row = el('<div class="row" style="gap:8px;align-items:center;margin-top:10px"><span>Bonus to AC</span><input class="input" type="number" style="width:64px"></div>');
+        const i = row.querySelector('input'); i.value = c.acMisc || 0;
+        i.onchange = () => { c.acMisc = Number(i.value) || 0; save(); rerender(); draw(); };
+        d.body.appendChild(row);
+      } else {
+        const row = el('<div class="row" style="gap:8px;align-items:center;margin-top:10px"><span>Armor Class</span><input class="input" type="number" style="width:64px"></div>');
+        const i = row.querySelector('input'); i.value = c.ac;
+        i.onchange = () => { c.ac = Number(i.value) || 10; save(); rerender(); };
+        d.body.appendChild(row);
+      }
+    };
+    draw();
+  }
 
   // inspiration (tap to toggle) + experience points
   const meta = el('<div class="row" style="gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap"></div>');

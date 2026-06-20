@@ -8,7 +8,7 @@ import { store } from '../core/store.js';
 import { icon } from '../ui/icons.js';
 import { el, toast, popMenu, openPanel, input } from '../ui/components.js';
 import { objectsOf, createObject, saveObject } from './base.js';
-import { getCharacter, saveCharacter } from './dnd-shared.js';
+import { getCharacter, saveCharacter, parseArmorAC, weaponToAttack } from './dnd-shared.js';
 import { openCompendiumPicker } from './tabletop-compendium.js';
 
 const COINS = [['pp', 'Platinum'], ['gp', 'Gold'], ['ep', 'Electrum'], ['sp', 'Silver'], ['cp', 'Copper']];
@@ -81,14 +81,17 @@ registry.register({
     srdB.onclick = () => openCompendiumPicker({
       title: 'Add gear from the SRD',
       onPick: (e) => {
-        if (!['weapon', 'armor', 'gear', 'magicitem'].includes(e.kind)) return toast('Pick a weapon, armor, or gear entry.', 'bag');
+        if (!['weapon', 'armor', 'gear', 'magicitem', 'tool'].includes(e.kind)) return toast('Pick a weapon, armor, or gear entry.', 'bag');
         const note = e.kind === 'weapon' ? `${e.damage} ${e.damageType}` : e.kind === 'armor' ? `AC ${e.ac}` : '';
-        createObject(owner.id, 'item', {
+        const data = {
           name: e.name + (note ? ` (${note})` : ''), qty: 1,
           weight: Number(e.weight) || 0, value: costToGp(e.cost),
           equipped: false, attuned: false
-        });
-        toast(`${e.name} added to the pack.`, 'bag');
+        };
+        if (e.kind === 'weapon') data.weapon = { damage: e.damage, damageType: e.damageType, props: e.props, category: e.category };
+        if (e.kind === 'armor') { data.armor = parseArmorAC(e); data.armorCategory = e.category; }
+        createObject(owner.id, 'item', data);
+        toast(`${e.name} added to the pack.${data.armor ? ' Equip it to update AC.' : ''}`, 'bag');
         drawList();
       }
     });
@@ -129,16 +132,24 @@ registry.register({
             drawList();
           } }
         ]);
-        row.querySelector('[title="More"]').onclick = (e) => popMenu(e.currentTarget, [
-          { label: it.data.attuned ? 'End attunement' : 'Attune', iconName: 'sparkles', fn: () => {
+        row.querySelector('[title="More"]').onclick = (e) => {
+          const menu = [];
+          if (it.data.weapon) menu.push({ label: 'Add to attacks', iconName: 'zap', fn: () => {
+            const atk = weaponToAttack(c, it.data.weapon, it.data.name.replace(/\s*\(.*\)\s*$/, ''));
+            c.attacks.push(atk);
+            saveChar();
+            toast(`${atk.name} added to your attacks (${atk.toHit >= 0 ? '+' : ''}${atk.toHit} to hit, ${atk.dmg}).`, 'zap');
+          } });
+          menu.push({ label: it.data.attuned ? 'End attunement' : 'Attune', iconName: 'sparkles', fn: () => {
             if (!it.data.attuned && items().filter(x => x.data.attuned).length >= 3) return toast('All three attunement slots are in use.', 'sparkles');
             it.data.attuned = !it.data.attuned;
             saveObject(it);
             drawList();
-          } },
-          { label: 'Edit', iconName: 'edit', fn: () => editItem(it) },
-          { label: 'Remove', iconName: 'trash', danger: true, fn: () => { store.del('objects', it.id); drawList(); } }
-        ]);
+          } });
+          menu.push({ label: 'Edit', iconName: 'edit', fn: () => editItem(it) });
+          menu.push({ label: 'Remove', iconName: 'trash', danger: true, fn: () => { store.del('objects', it.id); drawList(); } });
+          popMenu(e.currentTarget, menu);
+        };
         list.appendChild(row);
       }
     };
