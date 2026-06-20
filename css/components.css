@@ -427,9 +427,9 @@ body.focus-page #chrome-top, body.focus-page #tab-bar { display: none; }
   border: 1px solid var(--border);
   border-radius: 14px;
   backdrop-filter: blur(14px);
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.25);
   opacity: 0;
-  transform: translateY(-4px);
+  transform: scale(0.96);
+  transform-origin: center top; /* JS overrides per placement side */
   transition: opacity 140ms var(--ease), transform 140ms var(--ease);
 }
 .popover.open { opacity: 1; transform: none; }
@@ -716,7 +716,8 @@ body.focus-page #chrome-top, body.focus-page #tab-bar { display: none; }
 .menu {
   position: fixed;
   z-index: 65;
-  min-width: 180px;
+  min-width: 184px;
+  max-width: 280px;
   overflow-y: auto; /* CR-15: placement may cap height on tiny viewports */
   padding: 6px;
   background: var(--surface);
@@ -725,30 +726,30 @@ body.focus-page #chrome-top, body.focus-page #tab-bar { display: none; }
   backdrop-filter: blur(16px);
   box-shadow: var(--shadow);
   opacity: 0;
-  transform: scale(0.97);
-  transform-origin: top right;
+  transform: scale(0.96);
+  transform-origin: top right; /* JS overrides per placement side */
   transition: opacity var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
 }
 .menu.open { opacity: 1; transform: scale(1); }
 .menu button {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   width: 100%;
-  padding: 9px 11px;
+  padding: 10px 12px;
   border: none;
-  border-radius: 9px;
+  border-radius: 10px;
   background: transparent;
   color: var(--text);
-  font-size: 0.89rem;
+  font-size: 0.9rem;
   cursor: pointer;
   text-align: left;
-  transition: background var(--t-fast) var(--ease);
 }
+.menu button > span { flex: 1; min-width: 0; }
 .menu button:hover { background: var(--accent-soft); }
-.menu button .icon { color: var(--text-soft); }
-.menu button.danger, .menu button.danger .icon { color: var(--warn); }
-.menu hr { border: none; border-top: 1px solid var(--border); margin: 5px 8px; }
+.menu button .icon { color: var(--text-soft); flex: none; }
+.menu button.danger, .menu button.danger .icon { color: var(--danger); }
+.menu hr { border: none; border-top: 1px solid var(--border); margin: 5px 10px; opacity: 0.6; }
 
 /* ---- empty states (warm invitations) ---- */
 .empty-state {
@@ -796,10 +797,13 @@ body.focus-page #chrome-top, body.focus-page #tab-bar { display: none; }
 .list-item:hover { background: var(--surface); box-shadow: var(--shadow-soft); }
 .list-item:active { transform: scale(0.992); }
 
-/* Menu items: icon warms to accent on hover, subtle press feedback. */
+/* Menu items: icon warms to accent on hover, subtle press feedback. Destructive
+   rows warm to danger (not accent), so a Delete reads as a Delete on hover. */
 .menu button { transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
 .menu button:hover .icon { color: var(--accent); }
 .menu button:active { transform: scale(0.98); }
+.menu button.danger:hover { background: var(--danger-soft); }
+.menu button.danger:hover, .menu button.danger:hover .icon { color: var(--danger); }
 
 /* Buttons: a touch of lift on hover; the primary carries a soft themed glow. */
 .btn:hover { box-shadow: var(--shadow-soft); }

@@ -271,6 +271,12 @@ function placeFloating(elm, anchor, { gap = 8, align = 'start', caret = null } =
   y = Math.round(Math.min(Math.max(vp.y + m, y), vp.y + vp.h - ph - m));
   if (elm.style.left !== `${x}px`) elm.style.left = `${x}px`;
   if (elm.style.top !== `${y}px`) elm.style.top = `${y}px`;
+  // grow from the corner/edge nearest the anchor, so the open motion feels
+  // tied to the tap rather than arbitrary (F surface redesign: menus & popovers)
+  const ox = align === 'end' ? 'right' : align === 'center' ? 'center' : 'left';
+  const origin = side === 'below' ? `${ox} top` : side === 'above' ? `${ox} bottom`
+    : side === 'right' ? 'left center' : 'right center';
+  if (elm.style.transformOrigin !== origin) elm.style.transformOrigin = origin;
   if (caret) {
     // the caret keeps pointing at the anchor even when the body is clamped
     caret.dataset.side = side;
