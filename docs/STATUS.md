@@ -3,13 +3,13 @@
 > The fast resume point. Read this + `CLAUDE.md` to know where we are without re-scanning the tree.
 > Keep it current per `docs/00-claude-framework.md` §4. Newest first.
 
-**Last updated:** 2026-06-20 · **Latest pushed version:** v102
+**Last updated:** 2026-06-20 · **Latest pushed version:** v103
 
 ---
 
 ## Now (in progress)
 
-- *(Nothing actively in progress — F complete; E scroll-restoration shipped v102. Pull the next backlog item below into Now when starting.)*
+- *(Nothing actively in progress — Phase 0 (feel-token foundation) shipped v103. Pull the next backlog item below into Now when starting.)*
 
 ## Next (queued, in order)
 
@@ -19,6 +19,7 @@
 
 ## Done (recent, newest first)
 
+- v103 — fx: **Phase 0 — feel-token foundation** — `identity.css` + `fx/identity.js` resolver + engine wiring. Zero visible change (tokens resolve to today's values). Safe substrate for Phase 1–5. Accepted: no console errors, app renders identically, 60fps, offline, 360px, reduced-motion intact.
 - v102 — nav: **E return-to-origin (scroll)** — `engine.js` remembers the module page's scroll across re-renders, so returning from a widget view *or* a same-page rebuild (e.g. toggling an effect in Settings) lands you where you were, not at the top; genuine page switches still top. Render-layer only — router history/push/replace untouched. Verified: same-page re-render preserves scroll, page switch tops.
 - **UI/feel overhaul (F) — COMPLETE** (v97–v101): system pass + four surface redesigns (Settings, menus/popovers, widget cards & page layout, panels & drawers), all *within the current cozy identity* (cozy purple, theming preserved, nothing jarring). See per-version entries below.
 - v101 — ui: F **panels & drawers** — side panels round only their inner (app-facing) corners (`overflow:hidden` + radius-lg) so they read as a soft sheet; panel title weight 600 + tighter tracking; scrim 0.32→0.38; sheet grab-handle widens/warms on hover, accent on grab. CSS-only (`components.css`).
