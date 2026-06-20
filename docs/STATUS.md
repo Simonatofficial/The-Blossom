@@ -9,7 +9,9 @@
 
 ## Now (in progress)
 
-- **Nav return-to-origin fix (E)** — exiting settings/a widget view should return you where you were, not dump you onto the module page. *(Pulled into Now after F completed v101. Next: read router/back behavior in `js/core/router.js` + how panels/widget views close, repro the dump, fix so back restores the prior route.)*
+- **Nav return-to-origin fix (E)** — exiting settings/a widget view should return you where you were, not dump you onto the module page. *(Pulled into Now after F completed v101.)*
+  - **Investigation (2026-06-20, not yet reproduced):** read `js/core/router.js` + `js/modules/engine.js`. From static reading the happy paths look correct: `closeWidget()` uses `history.back()` when `viewPushed` (returns to the exact prior page entry) and `location.replace(.../page)` on deep-link/refresh; Settings is a `drawer` (panel) that closes via `ctl.close()` with **no** route change, so it shouldn't move you. `route:changed` runs `closeStrayPanels` + `renderPage`. **No obvious dump found by reading** → needs a concrete repro before any change.
+  - **⚠ Do not blind-fix:** router has balanced push-vs-`replace`, the `/f` focus flag, `viewPushed`, and deep-link fallback — a speculative change risks regressing back-button/deep-link/focus-page. Requires *interactive* nav testing (hashchange → `history.back()` → re-render), which the **backgrounded preview can't drive** (rAF throttled). Next session: get an exact repro (which surface, what route before/after, hardware-back vs in-app back vs Esc), reproduce in a foreground browser, then fix narrowly. Suspects to probe first: scroll-position reset on `renderPage` (feels like a "dump" even when route is right); module-rail/FAB `router.go(m.id)` with no pageId landing on home instead of last-page-in-module.
 
 ## Done (recent, newest first)
 
