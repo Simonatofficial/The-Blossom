@@ -3,24 +3,25 @@
 > The fast resume point. Read this + `CLAUDE.md` to know where we are without re-scanning the tree.
 > Keep it current per `docs/00-claude-framework.md` §4. Newest first.
 
-**Last updated:** 2026-06-20 · **Latest pushed version:** v94
+**Last updated:** 2026-06-20 · **Latest pushed version:** v96
 
 ---
 
 ## Now (in progress)
 
-- **Big "Study + UX" brief** (2026-06-20 user request) — study workstream (v86–v92) + Module-nav overhaul **D** (v93–v94) complete. Next per user order: grill **G**, then **F**.
-  ⏸ next step: run `grill-me` on **G (Help me build)** — guided module + page builders — to resolve the question tree before code. Awaiting user go.
+- **Big "Study + UX" brief** (2026-06-20 user request) — study (v86–v92), Module-nav **D** (v93–v94), and Help-me-build **G** (v95–v96) complete. Next per user order: **F** (UI/feel overhaul).
+  ⏸ next step: run `grill-me` on **F** to bound the subjective overhaul (which surfaces, what "professional yet cozy" means concretely, token-pass vs per-surface redesign) before code.
 
 ## Next (queued, in order)
 
-1. **"Help me build" (G)** — guided module + page builders; default path from presets; per-preset question sets; functional linked pages/widgets. `grill-me` first.
-2. **UI/feel overhaul (F)** — modules/pages/widgets/popups/menus/settings; fold its design language into G rather than a separate sweep.
-3. **Nav return-to-origin fix (E)** — exiting settings/widget should return where you were, not dump to the module page.
-4. Older backlog: i18n strings (Phase 8), open CRs in `docs/11`, Tabletop companion features (`docs/14`), V2 items (`docs/13`).
+1. **UI/feel overhaul (F)** — modules/pages/widgets/popups/menus/settings/widget-pages feel "vibe-coded"; make them professional + cozy. Also Settings page, Module menu, Page menu. `grill-me` first (subjective — bound scope).
+2. **Nav return-to-origin fix (E)** — exiting settings/widget should return where you were, not dump to the module page.
+3. Older backlog: i18n strings (Phase 8), open CRs in `docs/11`, Tabletop companion features (`docs/14`), V2 items (`docs/13`).
 
 ## Done (recent, newest first)
 
+- v96 — build: guided from-scratch module builder + page builder (instantiatePageInto); completes workstream G.
+- v95 — build: Help-me-build wizard engine + Study blueprint; preset tap → tailored wizard with full-preset escape. Spec `docs/13` §3c.
 - v94 — nav: Manage Groups panel (rename/icon/delete/reorder groups + member modules); completes workstream D.
 - v93 — nav: **module groups + top switcher rail** (groups.js; All + auto Favorites + custom; swipe/arrows/pill; usage tracking; hides in widget views). Spec `docs/13` §3b.
 - v92 — study: bookmark (★) cards while studying/quizzing → dynamic "Bookmarked" study set.
