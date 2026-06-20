@@ -335,73 +335,6 @@ const EFFECTS = {
     }
   },
 
-  /* AURORA — undulating curtains of colour across the upper screen; tap to ripple. */
-  aurora: {
-    init(s) {
-      s.bands = [
-        { y: 0.08, col: [60, 255, 160], ph: 0 },
-        { y: 0.16, col: [80, 180, 255], ph: 1.2 },
-        { y: 0.24, col: [180, 80, 255], ph: 2.5 },
-        { y: 0.13, col: [60, 220, 200], ph: 3.8 }
-      ];
-      s.ripple = null;
-    },
-    tickBg(g, s, dt, now) {
-      const spd = 0.18 + intensity * 0.25;
-      const t = now / 1000 * spd;
-      if (s.ripple) { s.ripple.age += dt; if (s.ripple.age > 2) s.ripple = null; }
-      for (const b of s.bands) {
-        const rip = s.ripple ? Math.sin((s.ripple.age * Math.PI)) * 0.06 * Math.exp(-s.ripple.age) : 0;
-        const amp = H() * (0.04 + intensity * 0.04);
-        g.beginPath(); g.moveTo(0, b.y * H());
-        for (let x = 0; x <= W(); x += 6) {
-          const y = b.y * H() + Math.sin(x / W() * Math.PI * 4 + t + b.ph) * amp
-                  + Math.sin(x / W() * Math.PI * 9 + t * 1.6 + b.ph) * amp * 0.4
-                  + rip * H() * Math.sin(x / W() * Math.PI * 2);
-          g.lineTo(x, y);
-        }
-        const [r, gv, bv] = b.col;
-        const a = 0.12 + intensity * 0.1;
-        g.strokeStyle = `rgba(${r},${gv},${bv},${a + 0.18})`; g.lineWidth = H() * 0.07;
-        g.lineCap = 'round'; g.stroke();
-      }
-    },
-    tickFg() {},
-    pointer(s, x, y) { s.ripple = { x, y, age: 0 }; return true; }
-  },
-
-  /* LIGHTNING — periodic forking bolts from the top; tap anywhere to trigger one. */
-   /* lightning: {
-    init(s) { s.bolts = []; s.flash = 0; s.next = rnd(2, 6) / (0.3 + intensity); s.acc = 0; },
-    tickBg(g, s, dt, now) {
-      s.acc += dt;
-      if (s.acc >= s.next) { s.acc = 0; s.next = rnd(2, 7) / (0.3 + intensity * 1.8); s.flash = 0.5; spawnBolt(s); }
-      if (s.flash > 0) { s.flash -= dt * 4; g.fillStyle = `rgba(220,230,255,${Math.max(0, s.flash) * 0.18})`; g.fillRect(0, 0, W(), H()); }
-      for (const bolt of s.bolts) {
-        bolt.age += dt;
-        if (bolt.age > 0.35) { s.bolts.splice(s.bolts.indexOf(bolt), 1); continue; }
-        const a = Math.max(0, 1 - bolt.age / 0.35);
-        g.strokeStyle = `rgba(210,220,255,${a * 0.9})`; g.lineWidth = 1.5; g.beginPath();
-        drawBranch(g, bolt.pts);
-        g.stroke();
-      }
-      function spawnBolt(s) {
-        const x = rnd(0.15, 0.85) * W();
-        s.bolts.push({ pts: buildPts(x, 0, x + rnd(-30, 30), H() * rnd(0.5, 0.85), 6), age: 0, flash: true });
-        s.flash = 0.6;
-      }
-      function buildPts(x1, y1, x2, y2, depth) {
-        if (depth === 0) return [[x1, y1], [x2, y2]];
-        const mx = (x1 + x2) / 2 + rnd(-1, 1) * Math.abs(y2 - y1) * 0.35;
-        const my = (y1 + y2) / 2;
-        return [...buildPts(x1, y1, mx, my, depth - 1), ...buildPts(mx, my, x2, y2, depth - 1)];
-      }
-      function drawBranch(g, pts) { pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); }
-    },
-    tickFg() {},
-    pointer(s) { s.next = 0.01; return true; }
-  }, */
-
   /* LEAVES — falling autumn leaves that spin; tap to swirl nearby ones upward. */
   leaves: {
     init(s) {
@@ -514,12 +447,10 @@ export const INTERACTIVE_EFFECTS = [
   { key: 'clouds',     name: 'Clouds',     group: 'Weather' },
   { key: 'wind',       name: 'Wind',       group: 'Weather' },
   { key: 'fire',       name: 'Fire',       group: 'Weather' },
-  //{ key: 'lightning',  name: 'Lightning',  group: 'Weather' },
   { key: 'bubbles',    name: 'Bubbles',    group: 'Fun' },
   { key: 'petals',     name: 'Petals',     group: 'Fun' },
   { key: 'leaves',     name: 'Leaves',     group: 'Fun' },
   { key: 'fireflies',  name: 'Fireflies',  group: 'Ambient' },
-  { key: 'aurora',     name: 'Aurora',     group: 'Ambient' },
 ];
 /** @deprecated use INTERACTIVE_EFFECTS */
 export const WEATHER_EFFECTS = INTERACTIVE_EFFECTS;

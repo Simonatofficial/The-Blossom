@@ -312,6 +312,51 @@ const PRESETS = {
     }
   },
 
+  /* Aurora: soft, additive curtains of colour hanging from the top of the sky,
+     rippling and drifting. The half-res canvas keeps them smooth; gradients fade
+     to transparent at top and bottom so they melt into the background. The size
+     slider grows their height, count, and glow. */
+  aurora: {
+    init(state, o) {
+      const size = (o.size ?? 55) / 100;
+      state.curtains = Array.from({ length: 5 + Math.round(size * 5) }, (_, i) => ({
+        x: Math.random() * 1.2 - 0.1,
+        w: 0.16 + Math.random() * 0.24,
+        ph: Math.random() * Math.PI * 2,
+        sp: 0.12 + Math.random() * 0.22,
+        drift: (Math.random() - 0.5) * 0.03,
+        hue: i
+      }));
+      state.palette = [[70, 255, 170], [60, 200, 255], [150, 110, 255], [90, 255, 210], [255, 130, 200]];
+    },
+    tick(state, now, o) {
+      const size = (o.size ?? 55) / 100;
+      const t = now / 1000;
+      const height = H() * (0.30 + size * 0.55); // bigger with intensity
+      const baseA = 0.08 + size * 0.12;
+      const steps = 10;
+      g.globalCompositeOperation = 'lighter';
+      for (const c of state.curtains) {
+        c.x += c.drift * 0.016;
+        if (c.x > 1.25) c.x = -0.25; else if (c.x < -0.25) c.x = 1.25;
+        const cx = c.x * W() + Math.sin(t * c.sp + c.ph) * W() * 0.05;
+        const w = c.w * W();
+        const [r, gr, b] = state.palette[c.hue % state.palette.length];
+        const grad = g.createLinearGradient(0, 0, 0, height);
+        grad.addColorStop(0, `rgba(${r},${gr},${b},0)`);
+        grad.addColorStop(0.28, `rgba(${r},${gr},${b},${baseA})`);
+        grad.addColorStop(0.62, `rgba(${r},${gr},${b},${baseA * 0.55})`);
+        grad.addColorStop(1, `rgba(${r},${gr},${b},0)`);
+        g.fillStyle = grad;
+        g.beginPath();
+        for (let i = 0; i <= steps; i++) { const fy = i / steps, y = fy * height, wob = Math.sin(t * c.sp * 1.3 + c.ph + fy * 4) * w * 0.2; const x = cx - w / 2 + wob; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+        for (let i = steps; i >= 0; i--) { const fy = i / steps, y = fy * height, wob = Math.sin(t * c.sp * 1.3 + c.ph + fy * 4 + 1.6) * w * 0.2; g.lineTo(cx + w / 2 + wob, y); }
+        g.closePath(); g.fill();
+      }
+      g.globalCompositeOperation = 'source-over';
+    }
+  },
+
   /* Clouds: kept as a renderer for back-compat (and the waves option) but no
      longer offered standalone — it moves to the Weather layer (V2 §8). */
   clouds: {
@@ -408,7 +453,8 @@ export const ATMOSPHERE_PRESETS = [
   { key: 'waves', name: 'Waves' },
   { key: 'mountainRange', name: 'Mountain range' },
   { key: 'forest', name: 'Forest' },
-  { key: 'solarSystem', name: 'Solar system' }
+  { key: 'solarSystem', name: 'Solar system' },
+  { key: 'aurora', name: 'Aurora' }
 ];
 
 /** Per-atmosphere slider config (V2 §7): label, option key, range, tooltip. */
@@ -420,5 +466,6 @@ export const ATMOSPHERE_OPTIONS = {
   waves: { key: 'energy', label: 'Wave size & energy', min: 0, max: 100, step: 1, def: 50, unit: '%', tip: 'Swell height, speed, and how many wave layers.' },
   mountainRange: { key: 'terrain', label: 'Terrain variation', min: 0, max: 100, step: 1, def: 50, unit: '%', tip: 'Rolling hills to sharp peaks with waterfalls and forest.' },
   forest: { key: 'density', label: 'Forest density', min: 0, max: 100, step: 1, def: 50, unit: '%', tip: 'Sparse meadow to dense old-growth.' },
-  solarSystem: { key: 'speed', label: 'Orbit speed', min: 0, max: 3, step: 0.1, def: 1, unit: '×', tip: 'How fast the planets orbit the sun.' }
+  solarSystem: { key: 'speed', label: 'Orbit speed', min: 0, max: 3, step: 0.1, def: 1, unit: '×', tip: 'How fast the planets orbit the sun.' },
+  aurora: { key: 'size', label: 'Aurora size & glow', min: 0, max: 100, step: 1, def: 55, unit: '%', tip: 'Higher fills more of the sky with brighter, taller curtains.' }
 };
