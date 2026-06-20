@@ -9,6 +9,7 @@ import { icon } from '../ui/icons.js';
 import { el } from '../ui/components.js';
 import { createObject, saveObject, todayStr, bloomBurst } from './base.js';
 import { gradeQuestion, correctText, givenText } from './quiz-build.js';
+import { recordOutcome } from './study-mastery.js';
 
 const STATUS_COLOR = { correct: 'var(--success)', semi: 'var(--highlight)', incorrect: 'var(--warn)' };
 
@@ -111,6 +112,7 @@ export function runQuiz(env, questions, cfg, resume) {
 
   const finish = () => {
     clearSnapshot();
+    for (const r of record) recordOutcome(r.q.real, r.status === 'semi' ? 'partial' : r.status); // A2: weak-spot tracking
     const score = record.filter(r => r.status === 'correct').length;
     const semi = record.filter(r => r.status === 'semi').length;
     const data = { score, semi, total: record.length, timeMs: Date.now() - startT, cfg, label, questions: record.map(r => ({ ...r.q, given: r.given, status: r.status })) };
@@ -132,6 +134,25 @@ export function review(env, data, justFinished) {
     <p>${Math.round(pct * 100)}% · ${data.total} question${data.total === 1 ? '' : 's'}${data.semi ? ` · ${data.semi} partial` : ''}${data.timeMs ? ` · ${Math.round(data.timeMs / 1000)}s` : ''}</p></div>`);
   host.appendChild(sum);
   if (justFinished && pct >= 0.7) bloomBurst(sum);
+
+  // A6: per-part % by scope (Class › Unit › Topic) — worst first
+  const parts = new Map();
+  for (const q of data.questions) {
+    const label = q.context || 'Questions';
+    if (!parts.has(label)) parts.set(label, { correct: 0, total: 0 });
+    const g = parts.get(label); g.total++; if (q.status === 'correct') g.correct++;
+  }
+  if (parts.size > 1) {
+    const box = el('<div class="panel" style="padding:12px;margin:0 0 12px"></div>');
+    box.appendChild(el('<h3 class="soft" style="font-size:0.72rem;letter-spacing:.05em;margin:0 0 6px">BY PART</h3>'));
+    for (const [label, g] of [...parts].sort((a, b) => (a[1].correct / a[1].total) - (b[1].correct / b[1].total))) {
+      const ppct = Math.round(g.correct / g.total * 100);
+      const row = el(`<div style="margin-bottom:6px"><div class="row-between" style="font-size:0.82rem;gap:8px"><span class="qz-part-lbl" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span><span class="soft" style="white-space:nowrap">${g.correct}/${g.total} · ${ppct}%</span></div><div class="fc-progress" style="margin-top:3px"><span style="width:${ppct}%"></span></div></div>`);
+      row.querySelector('.qz-part-lbl').textContent = label;
+      box.appendChild(row);
+    }
+    host.appendChild(box);
+  }
 
   const cfg = data.cfg || {};
   const actions = el('<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin:6px 0 12px"></div>');

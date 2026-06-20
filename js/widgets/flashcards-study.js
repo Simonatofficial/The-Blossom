@@ -13,6 +13,32 @@ import * as M from './flashcards-model.js';
 
 const ORDER_OPTS = [['inorder', 'In order'], ['random', 'Random'], ['hardest', 'Hardest first'], ['easiest', 'Easiest first']];
 
+/** A6: group a graded queue by its scope path → [label, {got,total}] worst-first.
+    "Got it" = a Good/Easy grade; a Hard grade counts as missed. */
+function partBreakdown(cards) {
+  const groups = new Map();
+  for (const c of cards) {
+    const sc = c.scope || {};
+    const label = [sc.className, sc.unitName, sc.deckName].filter(Boolean).join(' › ') || 'Cards';
+    if (!groups.has(label)) groups.set(label, { got: 0, total: 0 });
+    const g = groups.get(label); g.total++; if (c.result === 'good' || c.result === 'easy') g.got++;
+  }
+  return [...groups.entries()].sort((a, b) => (a[1].got / a[1].total) - (b[1].got / b[1].total));
+}
+
+/** A6: render a "BY PART" panel of label · got/total · % with a soft bar each. */
+function partPanel(rows, valOf) {
+  const box = el('<div class="panel" style="padding:12px;margin-top:10px"></div>');
+  box.appendChild(el('<h3 class="soft" style="font-size:0.72rem;letter-spacing:.05em;margin:0 0 6px">BY PART</h3>'));
+  for (const [label, g] of rows) {
+    const got = valOf(g), pct = Math.round(got / g.total * 100);
+    const row = el(`<div style="margin-bottom:6px"><div class="row-between" style="font-size:0.82rem;gap:8px"><span class="fc-part-lbl" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span><span class="soft" style="white-space:nowrap">${got}/${g.total} · ${pct}%</span></div><div class="fc-progress" style="margin-top:3px"><span style="width:${pct}%"></span></div></div>`);
+    row.querySelector('.fc-part-lbl').textContent = label;
+    box.appendChild(row);
+  }
+  return box;
+}
+
 /** Multi-select chips for the four card fields. */
 function fieldChips(initial) {
   const chosen = new Set(initial);
@@ -110,6 +136,8 @@ function runSession(env, opts) {
     clearSnapshot();
     stage.innerHTML = `<div class="empty-state">${icon('sprout', 32)}<h3 style="margin:8px 0 4px">The garden grew</h3>
       <p>You tended ${queue.length} card${queue.length === 1 ? '' : 's'} — ${tally.hard} hard · ${tally.good} good · ${tally.easy} easy.</p></div>`;
+    const parts = partBreakdown(queue);
+    if (parts.length > 1) stage.appendChild(partPanel(parts, g => g.got));
     const wrap = el('<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin-top:10px"></div>');
     const redo = (label, filter) => {
       const sub = queue.filter(filter);

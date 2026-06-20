@@ -14,6 +14,7 @@ import { store } from '../core/store.js';
 import { ulid } from '../core/ids.js';
 import { objectsOf, createObject, saveObject, dayObject, todayStr, dateAdd } from './base.js';
 import { moduleElements } from './notebook-parse.js';
+import { recordOutcome, gradeToOutcome } from './study-mastery.js';
 
 export const FIELDS = ['term', 'definition', 'details', 'examples', 'tip'];
 export const FIELD_LABEL = { term: 'Term', definition: 'Definition', details: 'Details', examples: 'Examples', tip: 'Tip' };
@@ -110,10 +111,17 @@ export function cardCount(widget, node, _all) {
   return childNodes(all, node.id).reduce((a, c) => a + cardCount(widget, c, all), 0);
 }
 
-/** Collect every study-card under a node (deck → its cards; group → all descendants). */
+/** Collect every study-card under a node (deck → its cards; group → all
+    descendants). Each card is tagged with its `scope` (Class/Unit/Deck names)
+    so sessions can report a per-part breakdown. */
 export function collectCards(widget, node, _all) {
   const all = _all || allNodes(widget);
-  if (node.kind === 'deck') return deckCards(widget, node);
+  if (node.kind === 'deck') {
+    const unit = all.find(n => n.id === node.parentId);
+    const cls = unit && all.find(n => n.id === unit.parentId);
+    const scope = { deckId: node.id, deckName: node.name, unitName: unit?.name || '', className: cls?.name || '' };
+    return deckCards(widget, node).map(c => ({ ...c, scope }));
+  }
   return childNodes(all, node.id).flatMap(c => collectCards(widget, c, all));
 }
 
@@ -134,7 +142,7 @@ export function cardFaces(card, frontFields, backFields) {
 /* ---- SM-2 light + Hard/Good/Easy (only persists for real cards) ---- */
 export function gradeCard(widget, studyCard, grade) {
   const day = dayObject(widget.id, 'studyDay', todayStr(), { reviews: 0 }); day.data.reviews += 1; saveObject(day);
-  if (!studyCard.real) return; // auto cards have no persistent SRS
+  if (!studyCard.real) return; // auto cards have no persistent SRS / mastery
   const card = store.get('objects', studyCard.real); if (!card) return;
   const d = card.data;
   d.ease = d.ease ?? 2.3; d.interval = d.interval ?? 0; d.reps = (d.reps || 0) + 1;
@@ -143,6 +151,7 @@ export function gradeCard(widget, studyCard, grade) {
   else { d.interval = Math.max(2, Math.round((d.interval || 1) * d.ease * 1.3)); d.ease = Math.min(3, d.ease + 0.1); }
   d.bucket = grade; d.due = dateAdd(todayStr(), d.interval);
   saveObject(card);
+  recordOutcome(studyCard.real, gradeToOutcome(grade)); // A2: feed weak-spot tracking
 }
 
 /* ---- node CRUD ---- */

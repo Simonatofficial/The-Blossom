@@ -12,6 +12,7 @@ import { topicsOf } from './notebook.js';
 import { moduleElements } from './notebook-parse.js';
 import * as M from './flashcards-model.js';
 import { startStudy, resumeSession, openStudySetEditor } from './flashcards-study.js';
+import { renderFocus } from './flashcards-focus.js';
 
 function dueCount(widget) { const t = todayStr(); return objectsOf(widget.id, 'flashcard').filter(c => (c.data.due || t) <= t).length; }
 function nbLabel(nb) {
@@ -72,7 +73,7 @@ registry.register({
         if (node?.kind === 'deck') return renderDeck(node);
       }
 
-      if (!parentId) { renderStudySets(); renderResumable(); }
+      if (!parentId) { renderFocus(env, all); renderStudySets(); renderResumable(); }
 
       for (const n of M.childNodes(all, parentId)) {
         const cnt = M.cardCount(widget, n, all), sub = n.kind === 'group' ? `${M.childNodes(all, n.id).length} inside · ${cnt} cards` : `${cnt} card${cnt === 1 ? '' : 's'}`;
