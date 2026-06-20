@@ -1,0 +1,63 @@
+/* ============ The Blossom — identity.css (Phase 0: feel-token foundation) ============
+   Cascading feel-token defaults (structure, material, rhythm, motion). Everything
+   here resolves to today's look — this is the safe substrate. See docs/15. */
+
+/* ----- Feel tokens (root defaults = cozy feel preset) ----- */
+:root {
+  /* corners & frame language */
+  --feel-radius:       var(--radius);        /* 14px by default */
+  --feel-radius-lg:    var(--radius-lg);     /* 16px by default */
+
+  /* density & spacing (scale multiplier; inherited, can override per scope) */
+  --feel-density:      1;
+  --feel-pad:          calc(14px * var(--feel-density));
+  --feel-gap:          calc(14px * var(--feel-density));
+
+  /* card surface & texture */
+  --feel-surface:      var(--surface);
+  --feel-texture:      none;                 /* frosted|paper|linen|parchment|starfield|none */
+  --feel-border:       1px solid var(--border);
+
+  /* depth & elevation */
+  --feel-elevation:    var(--shadow-soft);   /* flat|lifted|floating */
+
+  /* motion personality */
+  --feel-ease:         var(--ease);
+  --feel-dur:          var(--t-med);         /* 200ms by default */
+
+  /* how accent expresses (tab bar, signature rule shapes) */
+  --feel-accent-shape: underline;            /* underline|rail|bloom|halo */
+}
+
+/* ----- Named feel presets (bundled token sets) -----
+   Applied via data-feel attribute on scope wrapper; all tokens inherit through cascade. */
+
+[data-feel="cozy"] {
+  --feel-density:  1;
+  --feel-radius:   14px;
+  --feel-pad:      14px;
+  --feel-gap:      14px;
+  --feel-texture:  linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.02));
+  --feel-ease:     cubic-bezier(0.2, 0.8, 0.4, 1);  /* calm ease-out */
+  --feel-dur:      200ms;
+}
+
+[data-feel="roomy"] {
+  --feel-density:  1.25;
+  --feel-radius:   18px;
+  --feel-pad:      calc(14px * 1.25);
+  --feel-gap:      calc(14px * 1.25);
+  --feel-texture:  repeating-linear-gradient(90deg, rgba(200,200,200,0.01) 0px, transparent 2px, transparent 4px);
+  --feel-ease:     cubic-bezier(0.25, 0.46, 0.45, 0.94);  /* drifting */
+  --feel-dur:      250ms;
+}
+
+[data-feel="compact"] {
+  --feel-density:  0.8;
+  --feel-radius:   10px;
+  --feel-pad:      calc(14px * 0.8);
+  --feel-gap:      calc(14px * 0.8);
+  --feel-texture:  none;
+  --feel-ease:     cubic-bezier(0.34, 1.56, 0.64, 1);  /* springy */
+  --feel-dur:      150ms;
+}

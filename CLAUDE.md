@@ -2,7 +2,17 @@
 
 The Blossom is a cozy, fully customizable, all-in-one life PWA. The user builds their own app out of **Modules → Pages → Widgets → Objects**, themed with atmospheres and particles, gamified through Skills, Quests, Health, and a coin Market, and grounded in the COSMOS habit method.
 
-This file is the entry point. Read the relevant `/docs` file before working on any area — each one is the authoritative spec for its domain.
+This file is the lean entry point. Read the relevant `/docs` file before working on any area — each one is the authoritative spec for its domain.
+
+## Every session — start here
+
+1. **Read `docs/00-claude-framework.md`** (how we work) and **`docs/STATUS.md`** (where we are). Together they let you resume in seconds without re-scanning the tree.
+2. Then follow the five always-on jobs from the framework:
+   - **Overhaul the ask first.** Treat every prompt as a seed: restate it, improve it (cozy · token-efficient · quality · quantity) without drifting from intent, frame a tiny plan (Goal · Approach · Files · Cozy notes · Done-when), then build. (framework §1)
+   - **Spend tokens like coins.** Read only what the task touches, reuse definitions over new code, smallest correct diff, no narration. (§2)
+   - **Build cozy.** Calm, discoverable, progressive disclosure, opt-in intensity — the user explores at their own pace; nothing is force-fed. (§3)
+   - **Track + persist.** Update `docs/STATUS.md` (Now/Next/Done), then **auto-commit + auto-push to `main`** on every completed feature. (§4)
+   - **Finish clean.** Meet the Definition of Done before pushing. (§5)
 
 ## Required setup: install the grill-me skill
 
@@ -22,6 +32,8 @@ Source: https://github.com/mattpocock/skills/blob/main/skills/productivity/grill
 
 | File | Domain |
 |---|---|
+| `docs/00-claude-framework.md` | **How we work** — prompt-overhaul protocol, token efficiency, cozy laws, session continuity, git push, Definition of Done. Read first, every session. |
+| `docs/STATUS.md` | **Where we are** — live Now / Next / Done ledger. The fast resume point; update it as you work. |
 | `docs/01-architecture.md` | PWA shell, file layout, runtime architecture, persistence, save codes |
 | `docs/02-data-model.md` | Objects, schemas, the value system, linking, Blossom codes |
 | `docs/03-design-system.md` | Themes, colors, atmospheres, particle engine, icons/emoji policy, UI feel |
@@ -36,6 +48,7 @@ Source: https://github.com/mattpocock/skills/blob/main/skills/productivity/grill
 | `docs/12-canvas-overhaul.md` | CR-10: full spec for the Infinite Canvas painting overhaul (Kleki parity) |
 | `docs/13-v2-framework.md` | **V2 spec** — Supabase sync, FAB nav, particles/atmosphere/weather overhaul, themes, new widgets (Blossoms game, Canva Board, Tabletop, etc.), and all V2 change requests. Read this before any V2 work. |
 | `docs/14-tabletop-overhaul.md` | **Tabletop (D&D 5e) overhaul** — SRD content counts (have vs. addable), homebrew + custom-book system, character-sheet D&D-Beyond-parity checklist, companion-app features (party/shop/encounter), dice. Read before any Tabletop work. |
+| `docs/15-living-layout.md` | **Living Layout overhaul** — the *feel* framework: a cascading feel-token layer that gives Modules (worlds), Pages (rooms via layout archetypes), and Widgets (characters via materials/silhouettes/signatures) distinct identity as inherited data, plus FAB/control life. Read before any module/page/widget *feel* work. |
 
 ## Tech stack (non-negotiable)
 
@@ -61,5 +74,6 @@ Source: https://github.com/mattpocock/skills/blob/main/skills/productivity/grill
 
 - Keep modules under ~300 lines; split when larger.
 - JSDoc types on all public functions; no TypeScript (no build step).
-- Commit per feature with messages like `feat(widgets): flower graph petal layout`.
+- One commit per feature, conventional message + version tag: `feat(widgets): flower graph petal layout (v##)`. Auto-push to `main` when done — see framework §4.
 - When the user asks for something new and underspecified, use the grill-me skill before coding.
+- Workflow details (prompt overhaul, token rules, cozy laws, STATUS ledger, Definition of Done) live in `docs/00-claude-framework.md` — this file just points there.

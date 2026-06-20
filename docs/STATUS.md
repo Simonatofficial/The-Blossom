@@ -14,7 +14,8 @@
 ## Next (queued, in order)
 
 1. **E — confirm the literal-page case (if any).** v102 fixed the *scroll-position* "dump" (you now return to where you were on the page). If a separate bug still lands you on the **wrong page** (not just wrong scroll), it was NOT reproducible by reading — get an exact repro (which surface; route before/after; in-app back vs hardware back vs Esc) and fix narrowly. ⚠ Don't blind-touch the router's push-vs-`replace`/`viewPushed`/focus-flag/deep-link logic.
-2. Older backlog: i18n strings (Phase 8), open CRs in `docs/11`, Tabletop companion features (`docs/14`), V2 items (`docs/13` — V2-21 Char Sheet multi-system, V2-23 World Map), Blossoms phase 2 (paused).
+2. **15 — Living Layout overhaul (6 phases, ~5 weeks).** Spec complete + grill-me locked. Adds feel-token cascading layer (identity.css + fx/identity.js) so widgets become characters (Phase 1: materials + signatures), pages become rooms (Phase 2: layout archetypes), modules become worlds (Phase 3: masthead + entrance), controls breathe (Phase 4: FAB/grammar/settings), and micro-life settles (Phase 5: Liveliness dial + polish). Start Phase 0 (token foundation, zero visible change) when E confirmed.
+3. Older backlog: i18n strings (Phase 8), open CRs in `docs/11`, Tabletop companion features (`docs/14`), V2 items (`docs/13` — V2-21 Char Sheet multi-system, V2-23 World Map), Blossoms phase 2 (paused).
 
 ## Done (recent, newest first)
 
