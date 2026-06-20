@@ -18,20 +18,78 @@ import { syncStatus, accountInfo, upgradeAccount, kofiHandle } from '../core/syn
 
 export function openSettings() {
   const d = openDrawer({ title: 'Settings', iconName: 'settings' });
+  renderAccountSection(d);             // sync status — only when configured
+  category(d, 'Personalize');
   renderAppearanceSection(d);
-  renderAccountSection(d);
-  renderVisualEffectsSection(d);
   renderThemesSection(d);
-  renderCodesSection(d);
+  renderVisualEffectsSection(d);
+  category(d, 'Your data');
   renderSavesSection(d);
+  renderCodesSection(d);
   renderTrashSection(d);
+  category(d, 'App');
   renderAboutSection(d);
+}
+
+/* A calm collapsible section (cozy §3.2 progressive disclosure): an icon + title
+   + one-line hint behind a chevron. Returns the body element to render into;
+   collapsed bodies are `inert` so they stay out of tab/AT order. */
+function group(d, { title, iconName, hint = '', open = false }) {
+  const g = el(`<section class="set-group${open ? ' open' : ''}">
+    <button class="set-head" type="button" aria-expanded="${open}">
+      <span class="set-ic">${icon(iconName, 18)}</span>
+      <span class="set-meta"><span class="set-title"></span><span class="set-hint"></span></span>
+      <span class="set-chev">${icon('chevron-down', 18)}</span>
+    </button>
+    <div class="set-wrap"><div class="set-body"></div></div>
+  </section>`);
+  g.querySelector('.set-title').textContent = title;
+  const h = g.querySelector('.set-hint');
+  if (hint) h.textContent = hint; else h.remove();
+  const head = g.querySelector('.set-head');
+  const wrap = g.querySelector('.set-wrap');
+  const body = g.querySelector('.set-body');
+
+  // Height eased in JS (measured from scrollHeight) so any content — even tall,
+  // dynamic sections — animates smoothly and settles to `auto` (no clipping).
+  let isOpen = open;
+  const apply = (animate) => {
+    g.classList.toggle('open', isOpen);
+    head.setAttribute('aria-expanded', String(isOpen));
+    body.inert = !isOpen;
+    if (!animate) { wrap.style.height = isOpen ? 'auto' : '0px'; return; }
+    if (isOpen) {
+      wrap.style.height = wrap.scrollHeight + 'px';
+      const done = (e) => {
+        if (e.target !== wrap || e.propertyName !== 'height') return;
+        if (isOpen) wrap.style.height = 'auto';
+        wrap.removeEventListener('transitionend', done);
+      };
+      wrap.addEventListener('transitionend', done);
+    } else {
+      wrap.style.height = wrap.scrollHeight + 'px';
+      void wrap.offsetHeight;            // reflow so the change to 0 transitions
+      wrap.style.height = '0px';
+    }
+  };
+  apply(false);
+  head.onclick = () => { isOpen = !isOpen; apply(true); };
+
+  d.body.appendChild(g);
+  return body;
+}
+
+/** A quiet uppercase divider grouping the collapsibles below it. */
+function category(d, label) {
+  const c = el('<div class="set-cat"></div>');
+  c.textContent = label;
+  d.body.appendChild(c);
 }
 
 /* ---------- trash (docs/01: soft deletes rest 30 days) ---------- */
 
 function renderTrashSection(d) {
-  const sec = el('<div class="dsec"><h3>Trash</h3><div class="tr-bar"></div><div class="tr-list"></div></div>');
+  const sec = el('<div><div class="tr-bar"></div><div class="tr-list"></div></div>');
   const bar = sec.querySelector('.tr-bar');
   const list = sec.querySelector('.tr-list');
   const LABEL = { modules: 'Module', pages: 'Page', widgets: 'Widget', objects: 'Object', themes: 'Theme' };
@@ -128,13 +186,13 @@ function renderTrashSection(d) {
     }
   };
   render();
-  d.body.appendChild(sec);
+  group(d, { title: 'Trash', iconName: 'trash', hint: 'Restore or clear deleted items' }).appendChild(sec);
 }
 
 /* ---------- appearance (CR-1: panel placement) ---------- */
 
 function renderAppearanceSection(d) {
-  const sec = el('<div class="dsec"><h3>Appearance</h3><div class="field"><label>Open panels as</label><div class="a-seg"></div><div class="hint">How settings, pickers, and widget views slide in. Takes effect on the next panel.</div></div></div>');
+  const sec = el('<div><div class="field"><label>Open panels as</label><div class="a-seg"></div><div class="hint">How settings, pickers, and widget views slide in. Takes effect on the next panel.</div></div></div>');
   const settings = store.getMeta('settings', {});
   const current = settings.panelPlacement || (innerWidth >= 600 ? 'right' : 'sheet');
   const segEl = el('<div class="seg" role="radiogroup" aria-label="Open panels as"></div>');
@@ -153,7 +211,7 @@ function renderAppearanceSection(d) {
     segEl.appendChild(b);
   }
   sec.querySelector('.a-seg').appendChild(segEl);
-  d.body.appendChild(sec);
+  group(d, { title: 'Appearance', iconName: 'sliders', hint: 'How panels open' }).appendChild(sec);
 }
 
 /* ---------- account / cloud sync (V2 §1) — only shown when sync is configured ---------- */
@@ -162,7 +220,7 @@ function renderAccountSection(d) {
   const info = accountInfo();
   if (!info.configured) return; // sync not set up → hide entirely (silently disabled)
 
-  const sec = el(`<div class="dsec"><h3>Account</h3>
+  const sec = el(`<div>
     <div class="row" style="margin-bottom:10px"><span class="sync-dot"></span><span class="soft sync-label" style="font-size:0.84rem"></span></div>
     <div class="acct-body"></div></div>`);
   const dot = sec.querySelector('.sync-dot');
@@ -198,13 +256,13 @@ function renderAccountSection(d) {
     }
   };
   render();
-  d.body.appendChild(sec);
+  group(d, { title: 'Account', iconName: 'cloud', open: true }).appendChild(sec);
 }
 
 /* ---------- visual effects master toggles (V2 §5) ---------- */
 
 function renderVisualEffectsSection(d) {
-  const sec = el('<div class="dsec"><h3>Effects</h3><div class="ve-rows"></div></div>');
+  const sec = el('<div><div class="ve-rows"></div></div>');
   const rows = sec.querySelector('.ve-rows');
   const getFx = () => store.getMeta('settings', {})?.fx || {};
   const setFx = (k, v, weather = false) => {
@@ -332,7 +390,7 @@ function renderVisualEffectsSection(d) {
     }
   }
   render();
-  d.body.appendChild(sec);
+  group(d, { title: 'Effects', iconName: 'sparkles', hint: 'Atmosphere, particles & touch flourishes' }).appendChild(sec);
 }
 
 /* The active theme's particle layers (up to MAX_BG_LAYERS): pick · on/off ·
@@ -380,7 +438,7 @@ function renderParticleLayers(wrap, theme, id, reapply) {
 /* ---------- themes ---------- */
 
 function renderThemesSection(d) {
-  const sec = el('<div class="dsec"><h3>Themes</h3><div class="t-list"></div></div>');
+  const sec = el('<div><div class="t-list"></div></div>');
   const list = sec.querySelector('.t-list');
   const render = () => {
     list.innerHTML = '';
@@ -428,7 +486,7 @@ function renderThemesSection(d) {
     list.appendChild(newParticles);
   };
   render();
-  d.body.appendChild(sec);
+  group(d, { title: 'Themes', iconName: 'palette', hint: 'Pick or craft a palette' }).appendChild(sec);
 }
 
 /* ---------- effects on the active theme (CR-5: non-destructive overrides) ---------- */
@@ -446,7 +504,7 @@ function resolveFxDef(spec) {
 /* ---------- Blossom codes library (docs/02) ---------- */
 
 function renderCodesSection(d) {
-  const sec = el('<div class="dsec"><h3>Blossom Codes</h3><div class="c-list"></div></div>');
+  const sec = el('<div><div class="c-list"></div></div>');
   const list = sec.querySelector('.c-list');
   const render = () => {
     list.innerHTML = '';
@@ -480,14 +538,14 @@ function renderCodesSection(d) {
     list.appendChild(paste);
   };
   render();
-  d.body.appendChild(sec);
+  group(d, { title: 'Blossom Codes', iconName: 'code', hint: 'Saved shareable codes' }).appendChild(sec);
   events.on('saves:changed', render);
 }
 
 /* ---------- saves (docs/01: bottom of the drawer) ---------- */
 
 function renderSavesSection(d) {
-  const sec = el('<div class="dsec"><h3>Saves</h3><div class="s-actions col"></div><div class="s-list" style="margin-top:12px"></div></div>');
+  const sec = el('<div><div class="s-actions col"></div><div class="s-list" style="margin-top:12px"></div></div>');
   const actions = sec.querySelector('.s-actions');
 
   const copyBtn = el(`<button class="btn">${icon('copy', 15)} Copy save code</button>`);
@@ -575,7 +633,7 @@ function renderSavesSection(d) {
   reset.onclick = resetAllDataFlow;
   sec.appendChild(reset);
 
-  d.body.appendChild(sec);
+  group(d, { title: 'Backups', iconName: 'save', hint: 'Export, import & autosave' }).appendChild(sec);
 }
 
 /* Full reset (V2 §10): three deliberate steps so a mistap can never wipe data.
@@ -646,7 +704,7 @@ async function checkForUpdates(btn) {
 }
 
 function renderAboutSection(d) {
-  const sec = el(`<div class="dsec"><h3>About</h3>
+  const sec = el(`<div>
     <p class="soft" style="font-size:0.86rem;margin-bottom:10px">My Blossom — your cozy, all-in-one space to grow. Everything lives on your device.</p>
     <button class="btn" data-act="tour" style="width:100%">${icon('flower', 15)} Replay the tour</button>
     <button class="btn" data-act="update" style="width:100%;margin-top:10px">${icon('refresh', 15)} Check for updates</button>
@@ -674,7 +732,7 @@ function renderAboutSection(d) {
     support.href = `https://ko-fi.com/${encodeURIComponent(handle)}`;
     sec.appendChild(support);
   }
-  d.body.appendChild(sec);
+  group(d, { title: 'About', iconName: 'info', hint: 'Version, tour & updates' }).appendChild(sec);
 }
 
 /* ---------- copy a node as a Blossom code (used everywhere) ---------- */

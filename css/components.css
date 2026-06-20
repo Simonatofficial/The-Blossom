@@ -540,6 +540,64 @@ body.focus-page #chrome-top, body.focus-page #tab-bar { display: none; }
   margin-bottom: 10px;
 }
 
+/* Settings: calm collapsible groups (F surface redesign — progressive disclosure).
+   A scannable table of contents; each row opens a tucked-away body. The body
+   height eases via a grid 0fr→1fr trick so any content animates without measuring. */
+.set-cat {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin: 20px 4px 8px;
+}
+.set-cat:first-child { margin-top: 2px; }
+
+.set-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+.set-group.open { box-shadow: var(--shadow-soft); border-color: var(--accent); }
+
+.set-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 14px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease);
+}
+.set-head:hover { background: var(--surface); }
+.set-head:active { transform: scale(0.997); }
+.set-ic { display: flex; flex: none; color: var(--accent); }
+.set-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.set-title { font-size: 0.95rem; font-weight: 600; }
+.set-hint {
+  font-size: 0.78rem;
+  color: var(--text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.set-chev { display: flex; flex: none; color: var(--text-soft); transition: transform var(--t-med) var(--ease); }
+.set-group.open .set-chev { transform: rotate(180deg); }
+
+.set-wrap {
+  height: 0;
+  overflow: hidden;
+  transition: height var(--t-med) var(--ease);
+}
+.set-body { padding: 2px 14px 14px; }
+
 /* THE shared list/menu row (CR-3). Every menu, gallery, and picker uses this
    exact structure — leading icon · stacked text column · trailing affordance.
    Name sits on its own line; the description goes beneath it. Do not write
