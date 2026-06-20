@@ -3,23 +3,25 @@
 > The fast resume point. Read this + `CLAUDE.md` to know where we are without re-scanning the tree.
 > Keep it current per `docs/00-claude-framework.md` §4. Newest first.
 
-**Last updated:** 2026-06-20 · **Latest pushed version:** v96
+**Last updated:** 2026-06-20 · **Latest pushed version:** v97
 
 ---
 
 ## Now (in progress)
 
-- **Big "Study + UX" brief** (2026-06-20 user request) — study (v86–v92), Module-nav **D** (v93–v94), and Help-me-build **G** (v95–v96) complete. Next per user order: **F** (UI/feel overhaul).
-  ⏸ next step: run `grill-me` on **F** to bound the subjective overhaul (which surfaces, what "professional yet cozy" means concretely, token-pass vs per-surface redesign) before code.
+- **UI/feel overhaul (F)** — grilled & bounded (2026-06-20): approach = *system pass first, then surface redesigns*; improve depth + typography/hierarchy + motion/states + spacing/consistency; surfaces to redesign = Settings, menus/popovers, widget cards/page-layout, panels/drawers; boldness = *elevate within current identity* (keep cozy purple, preserve theming, never jarring).
+  - ✅ **System pass shipped (v97)** — deeper layered shadow scale (+`--shadow-pop`), hover-lift/press states on rows/buttons/cards, menu-icon accent on hover, input focus ring, heading/overline letter-spacing. Pure CSS in base/components/widgets.
+  ⏸ next step: **surface redesigns**, in order — (1) **Settings** reorg into calm grouped sections [`ui/settings.js` ~700 lines; holds reset/backup/data-safety — read fully + verify before editing]; (2) **menus & popovers** (module/page ··· menus); (3) **widget cards & page layout**; (4) **panels & drawers**. Each its own commit; keep within identity.
 
 ## Next (queued, in order)
 
-1. **UI/feel overhaul (F)** — modules/pages/widgets/popups/menus/settings/widget-pages feel "vibe-coded"; make them professional + cozy. Also Settings page, Module menu, Page menu. `grill-me` first (subjective — bound scope).
+1. **F surface redesigns** (see Now) — Settings → menus → widget cards → panels.
 2. **Nav return-to-origin fix (E)** — exiting settings/widget should return where you were, not dump to the module page.
 3. Older backlog: i18n strings (Phase 8), open CRs in `docs/11`, Tabletop companion features (`docs/14`), V2 items (`docs/13`).
 
 ## Done (recent, newest first)
 
+- v97 — ui: F **system pass** (depth/elevation, interaction states, motion, type) — lifts every surface at once, within the current identity.
 - v96 — build: guided from-scratch module builder + page builder (instantiatePageInto); completes workstream G.
 - v95 — build: Help-me-build wizard engine + Study blueprint; preset tap → tailored wizard with full-preset escape. Spec `docs/13` §3c.
 - v94 — nav: Manage Groups panel (rename/icon/delete/reorder groups + member modules); completes workstream D.
