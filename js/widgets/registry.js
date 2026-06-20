@@ -48,7 +48,7 @@ const CATEGORIES = {
   snake: 'Games', solitaire: 'Games', blossoms: 'Games',
   statblock: 'Tabletop', loottable: 'Tabletop', sessionlog: 'Tabletop', initiative: 'Tabletop',
   encounter: 'Tabletop', dndinventory: 'Tabletop', dndcombat: 'Tabletop', dndstory: 'Tabletop',
-  dndsheet: 'Tabletop', spellbook: 'Tabletop', pcsheet: 'Tabletop', levelplanner: 'Tabletop',
+  dndsheet: 'Tabletop', spellbook: 'Tabletop', pcsheet: 'Tabletop', charsheet: 'Tabletop', levelplanner: 'Tabletop',
   worldmap: 'World', worldchars: 'World', civprofile: 'World', wtimeline: 'World',
   lorewiki: 'World', relationshipweb: 'World'
 };

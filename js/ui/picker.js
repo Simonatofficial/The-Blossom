@@ -213,8 +213,8 @@ export function openWidgetGallery(opts) {
     const types = registry.all()
       .filter(def => !(opts.parentWidgetId && def.noNest) && matchesType(def))
       .sort((a, b) => a.name.localeCompare(b.name));
-    if (query) results.appendChild(el('<h3 class="soft" style="font-size:0.74rem;margin:2px 0 6px">ADD NEW</h3>'));
-    for (const def of types) {
+
+    const typeRow = (def) => {
       const li = el(`<button class="list-item"><span style="color:var(--accent)">${icon(def.icon, 18)}</span><span class="li-main"><span class="li-title"></span><span class="li-sub"></span></span>${icon('plus', 16)}</button>`);
       li.querySelector('.li-title').textContent = def.name;
       li.querySelector('.li-sub').textContent = def.description || '';
@@ -225,10 +225,33 @@ export function openWidgetGallery(opts) {
         const w = createWidget(def.type, opts);
         opts.onCreated?.(w);
       };
-      results.appendChild(li);
-    }
-    if (!types.length) {
-      results.appendChild(el('<p class="soft" style="font-size:0.85rem;padding:6px 2px">Nothing matches — try “notes” or “graph”.</p>'));
+      return li;
+    };
+
+    if (query) {
+      // searching: flat, ranked list so matches aren't hidden inside folds
+      results.appendChild(el('<h3 class="soft" style="font-size:0.74rem;margin:2px 0 6px">ADD NEW</h3>'));
+      for (const def of types) results.appendChild(typeRow(def));
+      if (!types.length) {
+        results.appendChild(el('<p class="soft" style="font-size:0.85rem;padding:6px 2px">Nothing matches — try “notes” or “graph”.</p>'));
+      }
+    } else {
+      // browsing: collapsible categories, like the Modules & Widgets panels (P-3)
+      const groups = new Map();
+      for (const def of types) {
+        const cat = registry.categoryOf(def.type);
+        if (!groups.has(cat)) groups.set(cat, []);
+        groups.get(cat).push(def);
+      }
+      const single = groups.size <= 1;
+      for (const [cat, defs] of [...groups].sort((a, b) => a[0].localeCompare(b[0]))) {
+        const det = el(`<details class="nav-group"${single ? ' open' : ''}><summary><span class="nav-chev">${icon('chevron-right', 14)}</span><span class="grow"></span><span class="nav-count"></span></summary><div class="nav-group-body"></div></details>`);
+        det.querySelector('summary .grow').textContent = cat;
+        det.querySelector('.nav-count').textContent = defs.length;
+        const body = det.querySelector('.nav-group-body');
+        for (const def of defs) body.appendChild(typeRow(def));
+        results.appendChild(det);
+      }
     }
 
     // group 2: your widgets (existing instances, navigate on tap)
