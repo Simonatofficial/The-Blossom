@@ -93,6 +93,7 @@ const FEEL_VARS = [
 export function clearScopedIdentity(el) {
   if (!el) return;
   el.removeAttribute('data-feel');
+  el.removeAttribute('data-accent-shape');
   for (const v of FEEL_VARS) el.style.removeProperty(v);
 }
 
@@ -131,6 +132,7 @@ export function applyScopedIdentity(el, identity) {
 
   if (ACCENT_SHAPES.has(identity.accentShape)) {
     el.style.setProperty('--feel-accent-shape', identity.accentShape);
+    el.setAttribute('data-accent-shape', identity.accentShape); // CSS hook (tabs)
   }
 
   if (identity.density != null) {
@@ -143,3 +145,24 @@ export function applyScopedIdentity(el, identity) {
   if (identity.radiusLg) el.style.setProperty('--feel-radius-lg', identity.radiusLg);
   if (identity.elevation) el.style.setProperty('--feel-elevation', identity.elevation);
 }
+
+/* ---- Preset world identities (Phase 3, docs/15 §5.3) ----------------------
+   The six showcase modules each ship a distinct world. Baked into a module
+   record at instantiation (presets/modules/index.js) — NOT auto-applied to
+   existing modules, so a module with no identity keeps today's look (guardrail
+   §9). A user's own modules stay neutral until they opt in. Keyed by presetKey. */
+export const PRESET_IDENTITIES = {
+  blossom:        { feel: 'cozy',    accentShape: 'bloom',     texture: 'frosted',   motion: 'calm' },
+  study:          { feel: 'compact', accentShape: 'underline', texture: 'frosted',   motion: 'springy' },
+  infinitecanvas: { feel: 'compact', accentShape: 'rail',      texture: 'none',      motion: 'springy' },
+  worldbuilder:   { feel: 'roomy',   accentShape: 'underline', texture: 'linen',     motion: 'drifting' },
+  dndcharacter:   { feel: 'cozy',    accentShape: 'bloom',     texture: 'parchment', motion: 'calm' },
+  dnddm:          { feel: 'roomy',   accentShape: 'rail',      texture: 'parchment', motion: 'drifting' },
+};
+
+/* The layout archetype each preset's home page opens in (§5.3). Baked onto the
+   home page at instantiation only. */
+export const PRESET_HOME_LAYOUTS = {
+  blossom: 'hearth', infinitecanvas: 'gallery', dnddm: 'split',
+  dndcharacter: 'hearth', worldbuilder: 'stream', study: null,
+};

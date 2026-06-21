@@ -28,10 +28,18 @@ const pageY = () => window.scrollY || document.documentElement.scrollTop || 0;
 // Phase 2 (docs/15 §4): page layout archetypes + entrance.
 const PAGE_LAYOUTS = new Set(['stream', 'hearth', 'gallery', 'split']);
 const prefersReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-/** Merge module + page identity — page overrides module per field (cascade). */
-function mergeIdentity(modId, pageId) {
-  if (!modId && !pageId) return null;
-  return { ...(modId || {}), ...(pageId || {}) };
+/* Module entrance (Phase 3 §5.2): a brief, dismissible name wisp that fades in
+   and out when you switch worlds — non-blocking (pointer-events:none) and only
+   shown when motion is allowed. The atmosphere cross-fade is already handled by
+   applyEffects (fx/themes.js) when the theme changes. */
+function showModuleWisp(mod) {
+  document.querySelector('.module-wisp')?.remove();
+  const w = el('<div class="module-wisp" aria-hidden="true"><span class="mw-name"></span></div>');
+  w.querySelector('.mw-name').textContent = mod.name;
+  document.body.appendChild(w);
+  const done = () => w.remove();
+  w.addEventListener('animationend', done);
+  setTimeout(done, 2400); // safety net if animationend never fires
 }
 
 export function initEngine(hostEl) {
@@ -93,6 +101,13 @@ export function renderPage() {
   cardEls.clear();
   host.innerHTML = '';
   document.body.classList.remove('focus-page');
+  // Phase 3 (docs/15 §5): the module is the world — its identity rides on <body>
+  // so all chrome (tabs, FAB, panels, masthead) inherits it. Absent identity =
+  // today's look. A genuine world switch shows a brief, non-blocking name wisp.
+  applyScopedIdentity(document.body, mod?.identity || null);
+  if (mod && prev.moduleId && prev.moduleId !== route.moduleId && !prefersReduced()) {
+    showModuleWisp(mod);
+  }
   if (!mod || !page) return;
 
   // CR-11: a widget's internal view is a real PAGE — when its route is
@@ -107,8 +122,8 @@ export function renderPage() {
 
   const scope = el('<div class="page-scope"></div>');
   applyScopedTheme(scope, page.themeOverride || mod.themeOverride || null);
-  // Phase 2: page identity overrides module identity per-field (merged cascade)
-  applyScopedIdentity(scope, mergeIdentity(mod.identity, page.identity));
+  // Phase 3: page identity layers over the module's (module lives on <body>)
+  applyScopedIdentity(scope, page.identity || null);
   if (PAGE_LAYOUTS.has(page.layout)) scope.setAttribute('data-layout', page.layout);
   // deepest non-inherit theme drives atmosphere + particles (docs/03)
   applyEffects(getTheme(page.themeOverride || mod.themeOverride) || activeTheme());
@@ -116,6 +131,14 @@ export function renderPage() {
   // home-page star (V2 §11/§15): a quiet filled star in the content corner
   if (mod.homePageId === page.id) {
     scope.appendChild(el(`<span class="page-home-star" title="Home page" aria-hidden="true">${icon('star', 13)}</span>`));
+  }
+
+  // opt-in module masthead (Phase 3 §5.2, decision #6): a thin, quiet header zone
+  // naming the world. Off by default to protect 360px vertical space.
+  if (mod.identity?.masthead) {
+    const mh = el('<div class="module-masthead"><span class="mm-name"></span><span class="mm-rule"></span></div>');
+    mh.querySelector('.mm-name').textContent = mod.name;
+    scope.appendChild(mh);
   }
 
   // optional, quiet page header band (Phase 2 §4.2) — opt-in, off by default so
@@ -222,7 +245,9 @@ function renderWidgetPage(widget, page, mod, focus) {
   rp.querySelector('[aria-label="Widget settings"]').onclick = () => openWidgetSettings(widget);
 
   applyScopedTheme(rp, themeId);
-  applyScopedIdentity(rp, mod?.identity || null);
+  // module identity is inherited from <body> (Phase 3); a page-scoped widget view
+  // may still carry its own page's identity
+  applyScopedIdentity(rp, pageRec?.identity || null);
   applyEffects(getTheme(themeId) || getTheme(pageRec?.themeOverride || mod?.themeOverride) || activeTheme());
   if (focus) document.body.classList.add('focus-page');
 

@@ -6,6 +6,7 @@ import { store } from '../../core/store.js';
 import { events } from '../../core/events.js';
 import { ulid } from '../../core/ids.js';
 import { registry } from '../../widgets/registry.js';
+import { PRESET_IDENTITIES, PRESET_HOME_LAYOUTS } from '../../fx/identity.js';
 import { BLOSSOM_PRESET } from './blossom.js';
 import { STUDY_PRESET } from './study.js';
 import { INFCANVAS_PRESET } from './infcanvas.js';
@@ -114,15 +115,24 @@ export function instantiatePreset(def) {
   const mod = store.put('modules', {
     id: ulid(), name: def.name, icon: def.icon || 'flower',
     pages: [], themeOverride: def.theme || null, presetKey: def.key,
+    // Living Layout §5.3: bake the preset's world identity into the new module
+    // (only here — existing modules stay neutral per the inherit-by-default rule)
+    identity: def.identity || PRESET_IDENTITIES[def.key] || null,
     category: cat.category, subcategory: cat.subcategory, tags: cat.tags || []
   });
 
-  for (const pDef of def.pages) {
-    const page = store.put('pages', { id: ulid(), moduleId: mod.id, name: pDef.name, icon: pDef.icon || 'circle', widgets: [], themeOverride: null });
+  // the module's landing page opens in the preset's archetype (§5.3): the page
+  // marked home, or the first page when none is marked.
+  let homeIdx = def.pages.findIndex(p => p.home);
+  if (homeIdx < 0) homeIdx = 0;
+  const homeLayout = PRESET_HOME_LAYOUTS[def.key] || null;
+  def.pages.forEach((pDef, i) => {
+    const layout = pDef.layout || (i === homeIdx ? homeLayout : null) || null;
+    const page = store.put('pages', { id: ulid(), moduleId: mod.id, name: pDef.name, icon: pDef.icon || 'circle', widgets: [], themeOverride: null, layout });
     buildPageWidgets(pDef, page, refs, created);
     mod.pages.push(page.id);
     if (pDef.home) mod.homePageId = page.id; // V2 §25: a preset can mark its home page
-  }
+  });
   store.put('modules', mod);
   resolveCreated(created, refs);
   return mod;

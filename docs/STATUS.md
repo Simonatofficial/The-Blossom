@@ -3,13 +3,13 @@
 > The fast resume point. Read this + `CLAUDE.md` to know where we are without re-scanning the tree.
 > Keep it current per `docs/00-claude-framework.md` §4. Newest first.
 
-**Last updated:** 2026-06-20 · **Latest pushed version:** v104
+**Last updated:** 2026-06-20 · **Latest pushed version:** v105
 
 ---
 
 ## Now (in progress)
 
-- **Living Layout Phase 2 — pages become rooms** (`docs/15` §4). Goal: stop rendering every page as the same masonry; add `page.layout` archetypes (masonry/stream/hearth/gallery/split) as CSS-grid templates selected by `data-layout` on `.page-scope`, a page header band, and an entrance stagger-fade. Files: `css/identity.css` (archetype grids) + `js/modules/engine.js` (read `page.layout`/`heroWidgetId`, stagger) + maybe a per-page Layout setting. Done-when: a hearth/stream/masonry page feel structurally different when tabbing; reduced-motion lands instantly; 360px collapses to one column.
+- **Living Layout Phase 3 — modules become worlds** (`docs/15` §5). Goal: a module sets ambient identity every page/widget inherits, plus world signatures. Approach: apply module identity at the chrome level (body/shell) so tabs+FAB+masthead inherit it, page identity stays on `.page-scope`; resolve identity non-destructively from `presetKey` so existing preset modules light up without a migration. Deliverables: tab-bar personality (`--feel-accent-shape`: underline/rail/bloom/halo), opt-in masthead, module-switch entrance wisp (reduced-motion instant), + `identity` blocks on the six preset modules (§5.3 table). Done-when: loading two different preset modules differ in density/corners/texture/tab-indicator/motion; switching is calm + reversible.
 
 ## Next (queued, in order)
 
@@ -19,6 +19,7 @@
 
 ## Done (recent, newest first)
 
+- v105 — ui: **Phase 2 — page layout archetypes & entrance (Living Layout)** — pages pick a structural archetype via `data-layout` on `.page-scope`: masonry (default), stream (reading column), hearth (full-width hero + grid; hero self-heals), gallery (equal tiles), split (2fr/1fr). All collapse to one column <600px. Entrance: widgets stagger-rise on genuine page switches only (reuses v102 samePage signal; reduced-motion at rest). Page identity merges over module identity; grid gap follows `--feel-gap`; opt-in page header band. Layout picker in Pages panel menu. Verified live: 4 archetypes resolve, stagger 0→180ms, same-page no re-stagger, menu chain persists, no errors.
 - v104 — ui: **Phase 1 — widget materials & signatures (Living Layout)** — each widget type wears a *material* (paper/glass/slate/card/canvas), applied auto by type + overridable per instance, themed through the cascade. Silhouette (radius/frame per material), signatures (type-chip on every card, paper watermark), header voice (serif paper, upper-case glass micro-label, glass accent-rail). Cards now read structure from `--feel-*` (defaults unchanged) + a texture `::after` layer. Per-widget Material row in settings (decision #10). Verified: glass/card/paper distinct on Blossom home, slate via override applies+reverts, 360px clean, no errors.
 - v103 — fx: **Phase 0 — feel-token foundation (Living Layout)** — `css/identity.css` (feel-token `:root` defaults + `--tex-*` gradient library + cozy/roomy/compact `data-feel` bundles) + `js/fx/identity.js` resolver (`applyScopedIdentity`/`clearScopedIdentity`) wired onto both the grid page-scope and the routed widget-page. Zero visible change — tokens resolve to today's values. Texture subtlety is a feel token (`--feel-texture-opacity`); gradients single-sourced in CSS. Substrate for Phase 1–5. **Verified** (Opus rebuild): resolver proven to emit correct tokens for cozy/overrides and fully reset on clear; `:root` defaults == today; no console errors; SW precache updated + cache bumped v102→v103 (offline-safe). ⚠ Phase 1 (widget materials + signatures) is the first consumer of these tokens.
 - v102 — nav: **E return-to-origin (scroll)** — `engine.js` remembers the module page's scroll across re-renders, so returning from a widget view *or* a same-page rebuild (e.g. toggling an effect in Settings) lands you where you were, not at the top; genuine page switches still top. Render-layer only — router history/push/replace untouched. Verified: same-page re-render preserves scroll, page switch tops.

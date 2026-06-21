@@ -151,6 +151,66 @@
 /* V2 §25d: home page tab is denoted by an accent-tinted icon (no house badge). */
 .tab.home .tab-icon { color: var(--accent); }
 
+/* ============ Phase 3 — tab-bar personality (docs/15 §5.2) ============
+   The active indicator follows the module's accentShape, set as data-accent-shape
+   on <body> by the identity resolver. Default (absent / "underline") keeps the
+   underline-glow above. Each is a quiet variation on the same ::after. */
+
+/* rail — a soft vertical accent bar at the tab's leading edge */
+body[data-accent-shape="rail"] .tab.active::after {
+  top: 22%; bottom: 22%; left: 7px; right: auto;
+  width: 2.5px; height: auto;
+}
+/* bloom — a soft accent glow blooming under the tab (no hard line) */
+body[data-accent-shape="bloom"] .tab.active::after {
+  left: 16%; right: 16%; bottom: 2px; height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, var(--glow), transparent 70%);
+  box-shadow: none;
+}
+/* halo — a gentle rounded glow hugging the whole active tab */
+body[data-accent-shape="halo"] .tab.active::after {
+  inset: 2px 4px; left: 4px; right: 4px; top: 2px; bottom: 2px;
+  height: auto; border-radius: 12px; z-index: -1;
+  background: var(--accent-soft);
+  box-shadow: 0 0 14px var(--glow);
+}
+
+/* ============ Phase 3 — module masthead (opt-in, §5.2) ============
+   A thin, quiet header naming the world; fades to 50% when idle like the chrome. */
+.module-masthead {
+  display: flex; align-items: center; gap: 10px;
+  padding: 2px 4px 8px; margin-bottom: 2px;
+  opacity: 0.5; transition: opacity var(--t-med) var(--ease);
+}
+.module-masthead:hover, .module-masthead:focus-within { opacity: 1; }
+.module-masthead .mm-name {
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-soft); white-space: nowrap;
+}
+.module-masthead .mm-rule {
+  flex: 1; height: 1px;
+  background: linear-gradient(to right, color-mix(in srgb, var(--accent) 55%, transparent), transparent);
+}
+
+/* ============ Phase 3 — module entrance wisp (§5.2) ============
+   "The world arrives": the module name fades in and out on a genuine switch,
+   never blocking interaction. Reduced-motion users never see it (gated in JS). */
+@keyframes module-wisp {
+  0%   { opacity: 0; transform: translate(-50%, -44%) scale(0.98); letter-spacing: 0.18em; }
+  22%  { opacity: 1; }
+  72%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -54%) scale(1.01); letter-spacing: 0.06em; }
+}
+.module-wisp {
+  position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%);
+  z-index: 60; pointer-events: none; text-align: center;
+  color: var(--text); text-shadow: 0 2px 22px var(--glow);
+  animation: module-wisp 1800ms var(--ease) forwards;
+}
+.module-wisp .mw-name { font-size: 1.7rem; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .module-wisp { display: none; } }
+
 /* ---- buttons ---- */
 .btn {
   display: inline-flex;
