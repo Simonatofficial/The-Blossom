@@ -11,7 +11,7 @@ import { el, openDrawer, seg, toast, confirmDialog, promptText } from '../ui/com
 import { createObject, saveObject, bloomBurst } from './base.js';
 import * as M from './flashcards-model.js';
 
-const ORDER_OPTS = [['inorder', 'In order'], ['random', 'Random'], ['hardest', 'Hardest first'], ['easiest', 'Easiest first']];
+const ORDER_OPTS = [['adaptive', 'Smart'], ['inorder', 'In order'], ['random', 'Random'], ['hardest', 'Hardest first'], ['easiest', 'Easiest first']];
 
 /** A6: group a graded queue by its scope path → [label, {got,total}] worst-first.
     "Got it" = a Good/Easy grade; a Hard grade counts as missed. */
@@ -69,8 +69,9 @@ export function startStudy(env, opts) {
   d.body.appendChild(el('<label class="soft" style="font-size:0.8rem;display:block;margin-top:10px">Back of card</label>'));
   const back = fieldChips(opts.back || ['definition']); d.body.appendChild(back.row);
   d.body.appendChild(el('<label class="soft" style="font-size:0.8rem;display:block;margin-top:10px">Card order</label>'));
-  let order = opts.order || 'inorder';
+  let order = opts.order || 'adaptive';
   d.body.appendChild(seg(ORDER_OPTS.map(([value, label]) => ({ value, label })), order, (v) => order = v));
+  d.body.appendChild(el('<p class="soft" style="font-size:0.74rem;margin-top:4px">Smart eases you in on cards you know, weaves in the tricky ones, and ends on a win.</p>'));
   const go = el('<button class="btn btn-primary" style="width:100%;margin-top:14px">Start</button>');
   go.onclick = () => {
     const f = front.get(), b = back.get();

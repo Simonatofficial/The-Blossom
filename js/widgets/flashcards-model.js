@@ -14,7 +14,7 @@ import { store } from '../core/store.js';
 import { ulid } from '../core/ids.js';
 import { objectsOf, createObject, saveObject, dayObject, todayStr, dateAdd } from './base.js';
 import { moduleElements } from './notebook-parse.js';
-import { recordOutcome, gradeToOutcome } from './study-mastery.js';
+import { recordOutcome, gradeToOutcome, adaptiveOrder } from './study-mastery.js';
 
 export const FIELDS = ['term', 'definition', 'details', 'examples', 'tip'];
 export const FIELD_LABEL = { term: 'Term', definition: 'Definition', details: 'Details', examples: 'Examples', tip: 'Tip' };
@@ -194,9 +194,12 @@ export function orderCards(cards, order) {
   if (order === 'random') return shuffle(c);
   if (order === 'hardest') return c.sort((a, b) => rank(b.bucket) - rank(a.bucket));
   if (order === 'easiest') return c.sort((a, b) => rank(a.bucket) - rank(b.bucket));
+  if (order === 'adaptive') return adaptiveOrder(c, bucketScore);   // docs/16 §2 — confidence-first, end on a win
   return c;
 }
 function rank(b) { return b === 'hard' ? 2 : b === 'good' ? 1 : b === 'easy' ? 0 : 1.5; }
+/** Bucket → struggle score for adaptiveOrder (hard = weak, easy = solid, unseen < 0). */
+function bucketScore(card) { const b = card.bucket; return b === 'hard' ? 0.8 : b === 'good' ? 0.3 : b === 'easy' ? 0.1 : -1; }
 
 /* ---- sessions (pause/resume snapshots, kind 'fcSession') ---- */
 export function savedSessions(widget) { return objectsOf(widget.id, 'fcSession'); }

@@ -3,13 +3,13 @@
 > The fast resume point. Read this + `CLAUDE.md` to know where we are without re-scanning the tree.
 > Keep it current per `docs/00-claude-framework.md` §4. Newest first.
 
-**Last updated:** 2026-06-20 · **Latest pushed version:** v108
+**Last updated:** 2026-06-21 · **Latest pushed version:** v111
 
 ---
 
 ## Now (in progress)
 
-- *(Nothing actively in progress — **Living Layout overhaul (docs/15) COMPLETE**: all six phases 0–5 shipped v103–v108. Pull the next backlog item below into Now when starting.)*
+- **Study overhaul (docs/16) — 5a shipped (v111); 5b–5e queued.** Forks locked: study-skill = per-Class auto from mastery; quiz time-graph lives on the Study Progress page; Mixed+Adaptive default ON. ⏸ next: build 5b Study Skills flower (per-Class recall petals, Unit/Topic buds as complex particles) → 5c time-of-day quiz graph (Progress page) → 5d deck-breakdown dropdowns → 5e struggle Study Guide set. **Files:** flowergraph.js+graph-data.js, graph defs on Study Progress page, flashcards-focus.js. Older note-list (counts/tip/mastery/per-part/bookmarks) already shipped v89–v92 — don't rebuild.
 
 ## Next (queued, in order)
 
@@ -20,6 +20,7 @@
 
 ## Done (recent, newest first)
 
+- v111 — study: **5a Adaptive + Mixed sessions (docs/16 §2, anti-burnout)** — new shared `adaptiveOrder(items, scoreOf)` in study-mastery.js (warm up on knowns → weave weak un-clustered → reserve knowns to end on a win). Quiz: `order:'adaptive'` (default) reorders the chosen set; `mixedTypes` (default ON) rotates a shuffled MC/T-F/fill/dropdown cycle so no type runs long — directly fixes "repetitive and basic"; Mixed chip + Smart order + hints in setup; quiz-sets persist `mixedTypes`. Flashcards: `order:'adaptive'` ("Smart", now the sheet default) via `bucketScore`. **Also:** wrote `docs/16-study-overhaul.md` (garden metaphor, 5 anti-burnout laws, BLOOM loop, §5 build specs) + indexed it. Verified: registry 59 intact, adaptive bookends KK…KK, mixed shows all 4 types, single stays mc, no console errors.
 - **Living Layout overhaul (docs/15) — COMPLETE** (v103–v108): feel-token foundation → widget materials → page archetypes → module worlds → FAB grammar → Liveliness dial. Personality is now structural (material/silhouette/density/texture/motion), inherited as data, opt-in and reversible. Per-version entries below.
 - v108 — ui: **Phase 5 — Liveliness dial & earned micro-life (Living Layout)** — one global motion dial in Settings → Appearance (Still / Gentle / Lively), persisted to localStorage + `data-liveliness` on `<body>`. Scales all Phase 1–4 motion: Still ≈ reduced-motion; Gentle adds earned entrances/wisp/tick; Lively adds FAB idle breath. Entrance no longer fires on first load (earned). Earned "tick": a barely-there card pulse on value change (central `refreshCard`, gated). Verified: dial scales all four motions across levels, first load still, tick gated, no new errors.
 - v107 — ui: **Phase 4 — control life, FAB grammar & breath (Living Layout)** — one visual grammar for the three levels (Module=globe/accent, Page=leaf/highlight, Widget=sprout/success) on the FAB items; items fan on a subtle arc; press/open halo; scrim glow near the thumb; idle breath gated to `data-liveliness=lively` (off by default, decision #8). Chrome hover-bloom already met spec. Verified live: grammar discs distinct, 360px keeps items on-screen, breath off by default.

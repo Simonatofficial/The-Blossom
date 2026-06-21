@@ -38,7 +38,7 @@ registry.register({
   description: 'Quizzes built from your Flashcard decks — MC, T/F, fill-blank, dropdown',
   keywords: ['study', 'test', 'practice', 'exam', 'questions'],
   external: true, internal: true,
-  defaultConfig: () => ({ sources: [], quizSets: [], selectedDecks: [], questionFields: ['term'], answerFields: ['definition'], detailN: 1, exampleN: 1, type: 'mc', distractorScope: 'topic', optionCount: 4, count: 0, order: 'shuffled', immediateFeedback: true }),
+  defaultConfig: () => ({ sources: [], quizSets: [], selectedDecks: [], questionFields: ['term'], answerFields: ['definition'], detailN: 1, exampleN: 1, type: 'mc', mixedTypes: true, distractorScope: 'topic', optionCount: 4, count: 0, order: 'adaptive', immediateFeedback: true }),
 
   outputs: (widget) => [{
     key: 'scoreToday', name: 'Best quiz score %', dayKeyed: true,
@@ -86,7 +86,7 @@ registry.register({
         row.querySelector('.set-menu').onclick = (e) => {
           e.stopPropagation();
           popMenu(e.currentTarget, [
-            { label: 'Load into setup', iconName: 'edit', fn: () => { Object.assign(cfg, { selectedDecks: [...s.contents], questionFields: [...s.questionFields], answerFields: [...s.answerFields], detailN: s.detailN, exampleN: s.exampleN, type: s.type, distractorScope: s.distractorScope, optionCount: s.optionCount, count: s.count, order: s.order, immediateFeedback: s.immediateFeedback }); save(); setup(); } },
+            { label: 'Load into setup', iconName: 'edit', fn: () => { Object.assign(cfg, { selectedDecks: [...s.contents], questionFields: [...s.questionFields], answerFields: [...s.answerFields], detailN: s.detailN, exampleN: s.exampleN, type: s.type, mixedTypes: s.mixedTypes !== false, distractorScope: s.distractorScope, optionCount: s.optionCount, count: s.count, order: s.order, immediateFeedback: s.immediateFeedback }); save(); setup(); } },
             { label: 'Delete', iconName: 'trash', danger: true, fn: () => { widget.config.quizSets = sets.filter(x => x.id !== s.id); save(); setup(); } }
           ]);
         };
@@ -152,15 +152,21 @@ registry.register({
       const countSeg = (label, key) => field(label, seg([1, 2, 3, 99].map(n => ({ value: n, label: n === 99 ? 'All' : String(n) })), cfg[key], (v) => { cfg[key] = v; save(); }));
       host.appendChild(countSeg('Details to show', 'detailN'));
       host.appendChild(countSeg('Examples to show', 'exampleN'));
-      host.appendChild(field('Question type', seg(TYPES.map(([v, l]) => ({ value: v, label: l })), cfg.type, (v) => { cfg.type = v; save(); setup(); })));
-      if (cfg.type === 'mc' || cfg.type === 'dropdown') {
+      const mixOn = cfg.mixedTypes !== false;
+      const mix = el(`<button class="chip ${mixOn ? 'accent' : ''}" style="cursor:pointer">${icon('shuffle', 11)} Mixed types</button>`);
+      mix.onclick = () => { cfg.mixedTypes = !mixOn; save(); setup(); };
+      host.appendChild(field('Question style', mix));
+      host.appendChild(el(`<p class="soft" style="font-size:0.74rem;margin:-4px 0 6px">${mixOn ? 'Question style varies each card to keep it fresh.' : 'Every question uses the one type below.'}</p>`));
+      if (!mixOn) host.appendChild(field('Question type', seg(TYPES.map(([v, l]) => ({ value: v, label: l })), cfg.type, (v) => { cfg.type = v; save(); setup(); })));
+      if (mixOn || cfg.type === 'mc' || cfg.type === 'dropdown') {
         host.appendChild(field('Wrong answers from', seg([['topic', 'Topic'], ['unit', 'Unit'], ['class', 'Class'], ['random', 'Random']].map(([v, l]) => ({ value: v, label: l })), cfg.distractorScope, (v) => { cfg.distractorScope = v; save(); })));
-        if (cfg.type === 'mc') host.appendChild(field('Options', seg([2, 3, 4, 5, 6].map(n => ({ value: n, label: String(n) })), cfg.optionCount, (v) => { cfg.optionCount = v; save(); })));
+        if (mixOn || cfg.type === 'mc') host.appendChild(field('Options', seg([2, 3, 4, 5, 6].map(n => ({ value: n, label: String(n) })), cfg.optionCount, (v) => { cfg.optionCount = v; save(); })));
       }
       const countIn = el('<input class="input" type="number" min="0" placeholder="All" style="width:100px">'); countIn.value = cfg.count || '';
       countIn.addEventListener('change', () => { cfg.count = Number(countIn.value) || 0; save(); });
       host.appendChild(field('How many questions (blank = all)', countIn));
-      host.appendChild(field('Order', seg([['shuffled', 'Shuffled'], ['sequential', 'In order']].map(([v, l]) => ({ value: v, label: l })), cfg.order, (v) => { cfg.order = v; save(); })));
+      host.appendChild(field('Order', seg([['adaptive', 'Smart'], ['shuffled', 'Shuffled'], ['sequential', 'In order']].map(([v, l]) => ({ value: v, label: l })), cfg.order, (v) => { cfg.order = v; save(); })));
+      if (cfg.order === 'adaptive') host.appendChild(el('<p class="soft" style="font-size:0.74rem;margin:-4px 0 6px">Eases in on what you know, weaves in weak spots, and ends on a win.</p>'));
       const fb = el(`<button class="chip ${cfg.immediateFeedback ? 'accent' : ''}" style="cursor:pointer">${icon('check', 11)} Immediate feedback</button>`);
       fb.onclick = () => { cfg.immediateFeedback = !cfg.immediateFeedback; fb.classList.toggle('accent'); save(); };
       host.appendChild(field('Feedback', fb));
@@ -172,7 +178,7 @@ registry.register({
       saveSet.onclick = async () => {
         if (!sel.size) { toast('Select decks first.', 'info'); return; }
         const name = await promptText({ title: 'New quiz set', label: 'Name' }); if (!name) return;
-        widget.config.quizSets.push({ id: `qs_${Date.now()}`, name, contents: [...sel], questionFields: [...cfg.questionFields], answerFields: [...cfg.answerFields], detailN: cfg.detailN, exampleN: cfg.exampleN, type: cfg.type, distractorScope: cfg.distractorScope, optionCount: cfg.optionCount, count: cfg.count, order: cfg.order, immediateFeedback: cfg.immediateFeedback });
+        widget.config.quizSets.push({ id: `qs_${Date.now()}`, name, contents: [...sel], questionFields: [...cfg.questionFields], answerFields: [...cfg.answerFields], detailN: cfg.detailN, exampleN: cfg.exampleN, type: cfg.type, mixedTypes: cfg.mixedTypes !== false, distractorScope: cfg.distractorScope, optionCount: cfg.optionCount, count: cfg.count, order: cfg.order, immediateFeedback: cfg.immediateFeedback });
         save(); setup();
       };
       host.appendChild(saveSet);

@@ -5,6 +5,9 @@
 
 import { store } from '../core/store.js';
 import * as M from './flashcards-model.js';
+import { masteryFor, struggle, adaptiveOrder } from './study-mastery.js';
+
+const MIX_TYPES = ['mc', 'truefalse', 'fill', 'dropdown'];
 
 export const FIELDS = ['term', 'definition', 'details', 'examples', 'tip'];
 export const FIELD_LABEL = { term: 'Term', definition: 'Definition', details: 'Details', examples: 'Examples', tip: 'Tip' };
@@ -120,38 +123,52 @@ function distractors(cards, subject, scope, answerFields, limits, want) {
  * @returns {object[]} each { id, type, context, qText, ...typeSpecific }
  */
 export function buildQuestions(cfg, cards) {
-  let pool = cfg.order === 'sequential' ? cards : shuffle(cards);
+  let pool = cfg.order === 'sequential' ? [...cards] : shuffle(cards);
   if (cfg.count) pool = pool.slice(0, cfg.count);
+  // Adaptive (docs/16 §2): reorder the chosen set confidence-first, ending on a win.
+  if (cfg.order === 'adaptive') pool = adaptiveOrder(pool, (c) => struggle(masteryFor(c.real)));
   const limits = { detailN: cfg.detailN || 1, exampleN: cfg.exampleN || 1 };
   const qF = cfg.questionFields?.length ? cfg.questionFields : ['term'];
   const aF = cfg.answerFields?.length ? cfg.answerFields : ['definition'];
+  // Mixed types (docs/16 §2.4, default on): rotate a shuffled cycle so each style
+  // appears evenly and no one type runs long. Off → every question is cfg.type.
+  const mixOn = cfg.mixedTypes !== false;
+  const cycle = mixOn ? shuffle(MIX_TYPES) : null;
   const out = [];
   for (const subj of pool) {
     const qText = joinFields(subj, qF, limits), aText = joinFields(subj, aF, limits);
     if (!qText || !aText) continue;
     const context = [subj.className, subj.unitName, subj.deckName].filter(Boolean).join(' › ');
     const base = { id: subj.key + ':' + out.length, context, qText, real: subj.real || null, fcId: subj.fcId };
-    if (cfg.type === 'truefalse') {
-      const makeTrue = Math.random() < 0.5;
-      let shown = aText;
-      if (!makeTrue) { const d = distractors(cards, subj, cfg.distractorScope || 'topic', aF, limits, 1); if (d.length) shown = d[0]; }
-      out.push({ ...base, type: 'truefalse', statement: `${qText} — ${shown}`, isTrue: makeTrue || shown === aText });
-    } else if (cfg.type === 'fill') {
-      out.push({ ...base, type: 'fill', blanks: aF.map(f => ({ label: FIELD_LABEL[f], answer: fieldVal(subj, f, limits) })).filter(b => b.answer) });
-    } else if (cfg.type === 'dropdown') {
-      const blanks = aF.map(f => {
-        const answer = fieldVal(subj, f, limits);
-        const opts = distractors(cards, subj, cfg.distractorScope || 'topic', [f], limits, Math.max(1, (cfg.optionCount || 4) - 1));
-        return { label: FIELD_LABEL[f], answer, options: shuffle([answer, ...opts]) };
-      }).filter(b => b.answer);
-      out.push({ ...base, type: 'dropdown', blanks });
-    } else { // multiple choice
-      const want = Math.max(2, Math.min(8, cfg.optionCount || 4)) - 1;
-      const options = shuffle([aText, ...distractors(cards, subj, cfg.distractorScope || 'topic', aF, limits, want)]);
-      out.push({ ...base, type: 'mc', options, correct: aText });
-    }
+    const type = cycle ? cycle[out.length % cycle.length] : cfg.type;
+    out.push(buildOne(type, subj, aText, base, cfg, cards, aF, limits));
   }
   return out;
+}
+
+/** Build one question descriptor of a given type. */
+function buildOne(type, subj, aText, base, cfg, cards, aF, limits) {
+  if (type === 'truefalse') {
+    const makeTrue = Math.random() < 0.5;
+    let shown = aText;
+    if (!makeTrue) { const d = distractors(cards, subj, cfg.distractorScope || 'topic', aF, limits, 1); if (d.length) shown = d[0]; }
+    return { ...base, type: 'truefalse', statement: `${base.qText} — ${shown}`, isTrue: makeTrue || shown === aText };
+  }
+  if (type === 'fill') {
+    const blanks = aF.map(f => ({ label: FIELD_LABEL[f], answer: fieldVal(subj, f, limits) })).filter(b => b.answer);
+    if (blanks.length) return { ...base, type: 'fill', blanks };
+  } else if (type === 'dropdown') {
+    const blanks = aF.map(f => {
+      const answer = fieldVal(subj, f, limits);
+      const opts = distractors(cards, subj, cfg.distractorScope || 'topic', [f], limits, Math.max(1, (cfg.optionCount || 4) - 1));
+      return { label: FIELD_LABEL[f], answer, options: shuffle([answer, ...opts]) };
+    }).filter(b => b.answer);
+    if (blanks.length) return { ...base, type: 'dropdown', blanks };
+  }
+  // multiple choice (also the fallback when fill/dropdown had no usable blanks)
+  const want = Math.max(2, Math.min(8, cfg.optionCount || 4)) - 1;
+  const options = shuffle([aText, ...distractors(cards, subj, cfg.distractorScope || 'topic', aF, limits, want)]);
+  return { ...base, type: 'mc', options, correct: aText };
 }
 
 /** Grade one answered question. @returns {'correct'|'semi'|'incorrect'} */

@@ -55,3 +55,25 @@ export function level(m) {
   if (s >= 0.2) return 'shaky';
   return 'solid';
 }
+
+const shuf = (arr) => { const x = [...arr]; for (let i = x.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [x[i], x[j]] = [x[j], x[i]]; } return x; };
+
+/** Confidence-first study order (docs/16 §2): warm up on cards you know, weave
+    the weak ones through the middle so they're never clustered, and reserve a
+    couple of knowns for the finish so a session ends on a win. `scoreOf(item)`
+    returns a struggle value (0 solid … 1 always-missed; <0 = unseen). Small
+    queues (≤4) just shuffle — too few to shape. */
+export function adaptiveOrder(items, scoreOf) {
+  if (items.length <= 4) return shuf(items);
+  const known = [], mid = [], weak = [];
+  for (const it of items) { const s = scoreOf(it); if (s >= 0 && s < 0.2) known.push(it); else if (s >= 0.5) weak.push(it); else mid.push(it); }
+  const K = shuf(known), Mi = shuf(mid);
+  const cushion = K.length ? K : Mi;                                   // cards used to bookend the session
+  const warm = cushion.splice(0, Math.min(2, cushion.length));
+  const finish = cushion.splice(0, Math.min(K.length ? 2 : 1, cushion.length));
+  const easy = shuf([...K, ...Mi]);                                    // leftover knowns/mids spacing out the weak ones
+  const middle = []; let e = 0;
+  for (const w of shuf(weak)) { if (easy[e]) middle.push(easy[e++]); middle.push(w); }
+  while (e < easy.length) middle.push(easy[e++]);
+  return [...warm, ...middle, ...finish];
+}

@@ -9,7 +9,7 @@ This file is the lean entry point. Read the relevant `/docs` file before working
 1. **Read `docs/00-claude-framework.md`** (how we work) and **`docs/STATUS.md`** (where we are). Together they let you resume in seconds without re-scanning the tree.
 2. Then follow the five always-on jobs from the framework:
    - **Overhaul the ask first.** Treat every prompt as a seed: restate it, improve it (cozy · token-efficient · quality · quantity) without drifting from intent, frame a tiny plan (Goal · Approach · Files · Cozy notes · Done-when), then build. (framework §1)
-   - **Spend tokens like coins.** Read only what the task touches, reuse definitions over new code, smallest correct diff, no narration. (§2)
+   - **Spend tokens like coins.** Read only what the task touches, reuse definitions over new code, smallest correct diff, no narration. When a turn burns unusually high usage, end it with one plain line on what drove it. (§2)
    - **Build cozy.** Calm, discoverable, progressive disclosure, opt-in intensity — the user explores at their own pace; nothing is force-fed. (§3)
    - **Track + persist.** Update `docs/STATUS.md` (Now/Next/Done), then **auto-commit + auto-push to `main`** on every completed feature. (§4)
    - **Finish clean.** Meet the Definition of Done before pushing. (§5)
@@ -27,6 +27,18 @@ curl -fsSL https://raw.githubusercontent.com/mattpocock/skills/main/skills/produ
 Source: https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md
 
 **When to use it:** whenever the user proposes a new module, widget, or large feature, invoke grill-me to interview them one question at a time, walking each branch of the design tree and offering a recommended answer for every question, until the design is fully resolved. If a question can be answered by exploring this codebase, explore instead of asking.
+
+## Project skills
+
+The operating framework (`docs/00-claude-framework.md`) is installed as triggerable skills in `.claude/skills/` — the doc stays the single source of truth; the skills just make the right rule fire automatically. They trigger themselves, but you can invoke any by name.
+
+| Skill | Fires when | Framework |
+|---|---|---|
+| `overhaul-the-ask` | any build request / messy idea-dump (merges the old `braindump-to-spec`) | §1 |
+| `cozy-check` | adding or changing anything the user sees or feels | §3 |
+| `ship-it` | a feature is finished and verified — runs Done, updates STATUS, commits, pushes | §4 + §5 |
+| `usage-check` | "why is my usage so high"; also defines the always-on heavy-turn note | §2 |
+| `grill-me` | a new module/widget/large feature needs interviewing out | §1 (deep path) |
 
 ## Documentation index
 
@@ -49,6 +61,7 @@ Source: https://github.com/mattpocock/skills/blob/main/skills/productivity/grill
 | `docs/13-v2-framework.md` | **V2 spec** — Supabase sync, FAB nav, particles/atmosphere/weather overhaul, themes, new widgets (Blossoms game, Canva Board, Tabletop, etc.), and all V2 change requests. Read this before any V2 work. |
 | `docs/14-tabletop-overhaul.md` | **Tabletop (D&D 5e) overhaul** — SRD content counts (have vs. addable), homebrew + custom-book system, character-sheet D&D-Beyond-parity checklist, companion-app features (party/shop/encounter), dice. Read before any Tabletop work. |
 | `docs/15-living-layout.md` | **Living Layout overhaul** — the *feel* framework: a cascading feel-token layer that gives Modules (worlds), Pages (rooms via layout archetypes), and Widgets (characters via materials/silhouettes/signatures) distinct identity as inherited data, plus FAB/control life. Read before any module/page/widget *feel* work. |
+| `docs/16-study-overhaul.md` | **Study overhaul** — the immersive, anti-burnout study *feel + method*: the garden metaphor (topics Seed→Bloom), five anti-burnout laws, earned delight, the BLOOM study loop, and specs for the new builds (adaptive/mixed sessions, Study Skills flower, time-of-day quiz graph, deck-breakdown dropdowns, struggle-based Study Guide). Read before any Study/Flashcard/Quiz work. |
 
 ## Tech stack (non-negotiable)
 
