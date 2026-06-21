@@ -184,6 +184,7 @@ function renderWidgetPage(widget, page, mod, focus) {
   rp.querySelector('[aria-label="Widget settings"]').onclick = () => openWidgetSettings(widget);
 
   applyScopedTheme(rp, themeId);
+  applyScopedIdentity(rp, mod?.identity || null);
   applyEffects(getTheme(themeId) || getTheme(pageRec?.themeOverride || mod?.themeOverride) || activeTheme());
   if (focus) document.body.classList.add('focus-page');
 

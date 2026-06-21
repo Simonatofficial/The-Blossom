@@ -1,63 +1,89 @@
-/* ============ The Blossom — identity.css (Phase 0: feel-token foundation) ============
-   Cascading feel-token defaults (structure, material, rhythm, motion). Everything
-   here resolves to today's look — this is the safe substrate. See docs/15. */
+/* ============ The Blossom — identity.css (Living Layout, Phase 0) ============
+   The "feel-token" foundation: a parallel, optional layer of CSS variables —
+   alongside theme colours — that lets STRUCTURE, DENSITY, TEXTURE, and MOTION
+   vary as inherited data (docs/15 §2). Every token defaults to today's look, so
+   this layer is invisible until a module/page/widget opts in. Feel tokens
+   cascade through the same scope wrappers theme colours use (CR-9), so they
+   cost nothing extra at runtime.
 
-/* ----- Feel tokens (root defaults = cozy feel preset) ----- */
+   A scope receives feel two ways, deepest-non-inherit wins (like theme colours):
+     1. data-feel="cozy|roomy|compact"  → a named bundle (defined below)
+     2. inline --feel-* vars            → explicit overrides (js/fx/identity.js)
+
+   Phase 0 ships the substrate only: nothing paints these yet, so the app looks
+   identical. Phase 1 (materials) is the first consumer. */
+
 :root {
-  /* corners & frame language */
-  --feel-radius:       var(--radius);        /* 14px by default */
-  --feel-radius-lg:    var(--radius-lg);     /* 16px by default */
+  /* — texture gradient library (static paint, offline; referenced by name so
+       both the bundles below and js/fx/identity.js share one source) — */
+  --tex-frosted:   linear-gradient(135deg, rgba(255,255,255,0.5), rgba(0,0,0,0.4));
+  --tex-paper:     repeating-linear-gradient(45deg, rgba(180,160,140,0.5) 0, rgba(180,160,140,0.5) 1px, transparent 1px, transparent 5px);
+  --tex-linen:     repeating-linear-gradient(0deg, rgba(170,150,130,0.5) 0, rgba(170,150,130,0.5) 1px, transparent 1px, transparent 4px);
+  --tex-parchment: radial-gradient(ellipse at 30% 20%, rgba(255,220,150,0.5), transparent 70%);
+  --tex-starfield: radial-gradient(rgba(255,255,255,0.6) 1px, transparent 1.4px);
 
-  /* density & spacing (scale multiplier; inherited, can override per scope) */
-  --feel-density:      1;
-  --feel-pad:          calc(14px * var(--feel-density));
-  --feel-gap:          calc(14px * var(--feel-density));
+  /* — corner & frame language — */
+  --feel-radius:    var(--radius);      /* card / surface corners (14px today) */
+  --feel-radius-lg: var(--radius-lg);   /* larger panels (18px today)          */
 
-  /* card surface & texture */
-  --feel-surface:      var(--surface);
-  --feel-texture:      none;                 /* frosted|paper|linen|parchment|starfield|none */
-  --feel-border:       1px solid var(--border);
+  /* — density & spacing — */
+  --feel-density:   1;                  /* spacing scale multiplier            */
+  --feel-pad:       14px;               /* card inner padding                  */
+  --feel-gap:       14px;               /* widget-grid gap                     */
 
-  /* depth & elevation */
-  --feel-elevation:    var(--shadow-soft);   /* flat|lifted|floating */
+  /* — card surface & texture — */
+  --feel-surface:         var(--surface);     /* card fill                     */
+  --feel-texture:         none;               /* a --tex-* stack, or none       */
+  --feel-texture-opacity: 0;                  /* subtlety knob (themeable)      */
+  --feel-border:          1px solid var(--border);
+  --feel-elevation:       var(--shadow-soft); /* flat | lifted | floating      */
 
-  /* motion personality */
-  --feel-ease:         var(--ease);
-  --feel-dur:          var(--t-med);         /* 200ms by default */
+  /* — motion personality — */
+  --feel-ease: var(--ease);             /* easing curve                        */
+  --feel-dur:  var(--t-med);            /* base transition duration (200ms)    */
 
-  /* how accent expresses (tab bar, signature rule shapes) */
-  --feel-accent-shape: underline;            /* underline|rail|bloom|halo */
+  /* — how the accent expresses (tab indicator, signature rule) — */
+  --feel-accent-shape: underline;       /* underline | rail | bloom | halo     */
 }
 
-/* ----- Named feel presets (bundled token sets) -----
-   Applied via data-feel attribute on scope wrapper; all tokens inherit through cascade. */
+/* Density note: CSS var() substitution resolves a custom property at the element
+   where it's declared, then the resolved value inherits — so --feel-pad/--feel-gap
+   can't auto-derive from a deeper --feel-density via calc(). Every place that sets
+   --feel-density therefore also sets pad/gap (the bundles below and identity.js). */
+
+/* ---- Named feel bundles ----------------------------------------------------
+   cozy ≈ today's Blossom (plus a barely-there frosted wash); roomy breathes
+   like a journal; compact tightens like a cockpit. Opt-in via data-feel. */
 
 [data-feel="cozy"] {
-  --feel-density:  1;
-  --feel-radius:   14px;
-  --feel-pad:      14px;
-  --feel-gap:      14px;
-  --feel-texture:  linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.02));
-  --feel-ease:     cubic-bezier(0.2, 0.8, 0.4, 1);  /* calm ease-out */
-  --feel-dur:      200ms;
+  --feel-density:         1;
+  --feel-radius:          14px;
+  --feel-pad:             14px;
+  --feel-gap:             14px;
+  --feel-texture:         var(--tex-frosted);
+  --feel-texture-opacity: 0.06;          /* barely-there frosted wash          */
+  --feel-ease:            cubic-bezier(0.2, 0.8, 0.4, 1);  /* calm settle       */
+  --feel-dur:             200ms;
 }
 
 [data-feel="roomy"] {
-  --feel-density:  1.25;
-  --feel-radius:   18px;
-  --feel-pad:      calc(14px * 1.25);
-  --feel-gap:      calc(14px * 1.25);
-  --feel-texture:  repeating-linear-gradient(90deg, rgba(200,200,200,0.01) 0px, transparent 2px, transparent 4px);
-  --feel-ease:     cubic-bezier(0.25, 0.46, 0.45, 0.94);  /* drifting */
-  --feel-dur:      250ms;
+  --feel-density:         1.25;
+  --feel-radius:          18px;
+  --feel-pad:             18px;
+  --feel-gap:             18px;
+  --feel-texture:         var(--tex-paper);
+  --feel-texture-opacity: 0.05;          /* soft paper grain                   */
+  --feel-ease:            cubic-bezier(0.25, 0.46, 0.45, 0.94);  /* drifting    */
+  --feel-dur:             250ms;
 }
 
 [data-feel="compact"] {
-  --feel-density:  0.8;
-  --feel-radius:   10px;
-  --feel-pad:      calc(14px * 0.8);
-  --feel-gap:      calc(14px * 0.8);
-  --feel-texture:  none;
-  --feel-ease:     cubic-bezier(0.34, 1.56, 0.64, 1);  /* springy */
-  --feel-dur:      150ms;
+  --feel-density:         0.8;
+  --feel-radius:          10px;
+  --feel-pad:             11px;
+  --feel-gap:             11px;
+  --feel-texture:         none;          /* crisp, no texture                  */
+  --feel-texture-opacity: 0;
+  --feel-ease:            cubic-bezier(0.34, 1.4, 0.64, 1);  /* gentle spring   */
+  --feel-dur:             150ms;
 }
