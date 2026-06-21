@@ -43,23 +43,23 @@
   border-radius: 9px;
 }
 .rail-arrow:disabled { opacity: 0.22; }
-.rail-mods { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* Fixed 3-icon window: every slot is the same square so the bar never resizes
+   and the arrows hold their position as you page through modules. */
+.rail-mods { display: flex; align-items: center; gap: 6px; }
+.rail-slot { flex: none; width: 34px; height: 34px; }
 .rail-mod {
-  flex: none; display: flex; align-items: center; gap: 6px;
-  height: 34px; padding: 0 9px;
+  flex: none; width: 34px; height: 34px; padding: 0;
+  display: grid; place-items: center;
   border: 1px solid transparent; border-radius: 11px;
   background: var(--surface); color: var(--text-soft);
   backdrop-filter: blur(8px);
-  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
 }
 .rail-mod.active {
   background: var(--accent-soft); border-color: var(--accent); color: var(--text);
   box-shadow: 0 0 10px var(--glow);
 }
-.rail-mod-name {
-  font-size: 0.84rem; font-weight: 600;
-  max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
+@media (hover: hover) { .rail-mod:not(.active):hover { color: var(--text); transform: translateY(-1px); } }
 
 /* ---- build wizard (docs/13 §3c) ---- */
 .bw-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: background var(--t-fast) var(--ease); }

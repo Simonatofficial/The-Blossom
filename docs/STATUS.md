@@ -3,7 +3,7 @@
 > The fast resume point. Read this + `CLAUDE.md` to know where we are without re-scanning the tree.
 > Keep it current per `docs/00-claude-framework.md` §4. Newest first.
 
-**Last updated:** 2026-06-21 · **Latest pushed version:** v114
+**Last updated:** 2026-06-21 · **Latest pushed version:** v115
 
 ---
 
@@ -20,6 +20,7 @@
 
 ## Done (recent, newest first)
 
+- v115 — nav: **module rail redesign (docs/13 §3b)** — fixed **3-icon window with the active module always in the centre slot**, so the bar never resizes and the prev/next arrows hold their exact position as you page through (verified: prevX/nextX constant across modules; off-list ends render an empty `.rail-slot` placeholder). Icon-only (name → tooltip/aria-label; dropped `.rail-mod-name`). Swipe now works **anywhere across the top chrome band** (incl. the empty screen edges), scoped to clearly-horizontal gestures starting in the band — guards verified: below-band & vertical swipes ignored, buttons keep their taps (`e.target?.closest?`). `shell.js` renderRail + attachRailSwipe; `.rail-mod`/`.rail-slot` CSS now fixed 34px squares.
 - **Study overhaul (docs/16) — COMPLETE** (v111–v114): adaptive+mixed sessions → Study Skills flower → time-of-day quiz graph + recall-by-deck → struggle Study Guide. Anti-burnout study loop (garden metaphor, BLOOM method). Per-version entries below.
 - v114 — study: **5e struggle Study Guide (docs/16 §5e)** — a prominent "Study Guide" panel atop the Flashcards view (`renderStudyGuide` in flashcards-focus.js), shown once you have ≥3 weak cards: one tap runs an adaptive guided session over just the terms you keep missing, with each card's **Tip on the back** so it guides, not just tests; names the weak areas it covers. The old generic "Needs work" row now only appears for <3 weak cards (the guide supersedes it); per-area drill-downs stay. No new widget (per decision). "Output" (quiz over the struggle set) deferred. Verified: guide shows for 4 weak Spanish verbs, lists areas, tips render on back, no errors.
 - v113 — study: **5c time-of-day Quiz Scores graph + 5d Recall-by-deck dropdowns (docs/16 §5c/§5d)** — 5c: new `source:'quizscores'` dataset (`quizScorePoints()` in graph-data.js) plots one scatter dot per quiz result at its `createdAt` time-of-day (X = 0–24h via `HOUR_TICKS`), Y = score %, dot size = question count; scatter renderer gained optional `xDomain`/`yDomain` + `xTicks` + r-based sizing; second tap → the Quiz widget. Replaced the Progress page's daily line graph with this; "Quiz scores by time of day (auto)" dataset option added. 5d: new `quiz-breakdown.js` `renderRecallByDeck()` builds a collapsible Class › Unit › Topic tree from every result's per-question `context` → right/total + % per level (worst-first, drill-down, colored bars); shown below History in the Quiz internal. Verified: 3 quizzes plot at 9:15a/2:30p/9:00p with correct %, breakdown aggregates (Biology 3/6, Genetics 1/3, Cells 2/3), both render clean, registry 59.

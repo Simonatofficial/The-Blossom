@@ -81,16 +81,17 @@ function renderRail() {
   const mods = rail.querySelector('.rail-mods');
   mods.innerHTML = '';
   const idx = ids.indexOf(moduleId);
-  // a window of up to 5 modules centred on the active one
-  const WIN = 2, span = WIN * 2 + 1, base = idx < 0 ? 0 : idx;
-  let start = Math.max(0, base - WIN);
-  start = Math.max(0, Math.min(start, ids.length - span));
-  const end = Math.min(ids.length, start + span);
-  for (let k = start; k < end; k++) {
-    const m = store.get('modules', ids[k]); if (!m) continue;
-    const active = m.id === moduleId;
-    const b = el(`<button class="rail-mod${active ? ' active' : ''}" role="tab" aria-selected="${active}">${iconOrEmoji(m.icon, 18)}${active ? '<span class="rail-mod-name"></span>' : ''}</button>`);
-    if (active) b.querySelector('.rail-mod-name').textContent = m.name; else b.setAttribute('aria-label', m.name);
+  // A fixed 3-icon window: the active module always sits in the CENTRE slot, so
+  // the bar never resizes and the arrows stay put no matter where you are. Icon
+  // only — the name lives in the tooltip/aria-label. Off-list slots render as an
+  // empty placeholder so the width stays constant at the ends of the group.
+  const centre = idx < 0 ? 0 : idx;
+  for (const k of [centre - 1, centre, centre + 1]) {
+    const m = (idx >= 0 || k >= 0) ? store.get('modules', ids[k]) : null;
+    if (!m) { mods.appendChild(el('<span class="rail-slot" aria-hidden="true"></span>')); continue; }
+    const active = k === idx;
+    const b = el(`<button class="rail-mod${active ? ' active' : ''}" role="tab" aria-selected="${active}">${iconOrEmoji(m.icon, 18)}</button>`);
+    b.title = m.name; b.setAttribute('aria-label', m.name);
     b.onclick = () => router.go(m.id);
     mods.appendChild(b);
   }
@@ -112,15 +113,25 @@ function stepModule(dir) {
   if (i >= 0 && j >= 0 && j < ids.length) router.go(ids[j]);
 }
 
+/** Swipe to switch modules anywhere across the top chrome band — including the
+    empty screen edges, where the old (rail-only) handler never reached. Scoped
+    to the top band and to clearly-horizontal gestures so it never fights page
+    scroll or a button tap. */
 function attachRailSwipe(rail) {
-  const surf = rail.querySelector('.rail-mods');
-  let x0 = null;
-  surf.addEventListener('pointerdown', (e) => { x0 = e.clientX; }, { passive: true });
-  surf.addEventListener('pointercancel', () => { x0 = null; }, { passive: true });
-  surf.addEventListener('pointerup', (e) => {
+  let x0 = null, y0 = null;
+  const bandBottom = () => (rail.getBoundingClientRect().bottom || 52) + 18;
+  document.addEventListener('pointerdown', (e) => {
+    x0 = null;
+    if (rail.classList.contains('hidden')) return;      // module nav not shown (widget/focus view)
+    if (e.clientY > bandBottom()) return;               // gesture must start in the top band
+    if (e.target?.closest?.('button')) return;          // let arrows / icons handle their own taps
+    x0 = e.clientX; y0 = e.clientY;
+  }, { passive: true });
+  document.addEventListener('pointercancel', () => { x0 = null; }, { passive: true });
+  document.addEventListener('pointerup', (e) => {
     if (x0 == null) return;
-    const dx = e.clientX - x0; x0 = null;
-    if (Math.abs(dx) >= 40) stepModule(dx < 0 ? 1 : -1); // swipe left → next
+    const dx = e.clientX - x0, dy = e.clientY - y0; x0 = null;
+    if (Math.abs(dx) >= 45 && Math.abs(dx) > Math.abs(dy) * 1.4) stepModule(dx < 0 ? 1 : -1); // swipe left → next
   }, { passive: true });
 }
 
