@@ -201,6 +201,23 @@ export function openWidgetSettings(widget) {
   };
   body.appendChild(field('Theme', themeSel));
 
+  // material override (docs/15 §3.1, decision #10): Inherit = the auto material
+  // for this widget type; or pick one to give this card a different face.
+  if (widget.type !== 'separator') {
+    const matSel = el('<select class="select"></select>');
+    matSel.appendChild(new Option('Inherit (default)', ''));
+    for (const [v, label] of [['paper', 'Paper'], ['glass', 'Glass'], ['slate', 'Slate'], ['card', 'Card'], ['canvas', 'Canvas']]) {
+      matSel.appendChild(new Option(label, v));
+    }
+    matSel.value = widget.material || '';
+    matSel.onchange = () => {
+      widget.material = matSel.value || null;
+      store.put('widgets', widget);
+      events.emit('widget:changed', { widgetId: widget.id });
+    };
+    body.appendChild(field('Material', matSel, 'The card’s feel — surface, corners, and voice.'));
+  }
+
   // appearance (V2 §5): background opacity with a live preview on the card
   const liveCard = () => document.querySelector(`.widget-card[data-wid="${widget.id}"]`);
   const apSec = el('<div class="dsec"><h3>Appearance</h3></div>');

@@ -10,7 +10,7 @@ import { makeCtx, engineHooks, openWidgetSettings, removeWidget } from '../widge
 import { icon } from '../ui/icons.js';
 import { el, toast, confirmDialog, popMenu, emptyState, closeStrayPanels } from '../ui/components.js';
 import { applyScopedTheme, applyEffects, getTheme, activeTheme } from '../fx/themes.js';
-import { applyScopedIdentity } from '../fx/identity.js';
+import { applyScopedIdentity, materialFor, materialHasWatermark } from '../fx/identity.js';
 import { openWidgetGallery } from '../ui/picker.js';
 
 let host = null;
@@ -215,6 +215,9 @@ export function renderWidgetCard(widget) {
   if (widget.style?.opacity != null) card.style.setProperty('--w-bg-opacity', widget.style.opacity);
   if (widget.collapsed) card.classList.add('collapsed');
   if (widget.themeOverride) applyScopedTheme(card, widget.themeOverride);
+  // Phase 1 (docs/15 §3): the widget wears a material — its card's face.
+  const material = materialFor(widget, def);
+  if (material) card.setAttribute('data-material', material);
   if (!def) {
     card.appendChild(el('<div class="widget-body soft">Unknown widget type.</div>'));
     return card;
@@ -242,6 +245,12 @@ export function renderWidgetCard(widget) {
   head.querySelector('.w-menu').onclick = (e) => widgetMenu(e.currentTarget, widget);
   if (!widget.parentWidgetId) enableDrag(head.querySelector('.w-drag'), widget, card);
   card.appendChild(head);
+
+  // signature corner watermark (paper): a faint maker's-mark of the type glyph,
+  // behind the content (z-index:-1). Opt-in per material (docs/15 §3.3).
+  if (material && materialHasWatermark(material) && def.icon) {
+    card.appendChild(el(`<span class="w-watermark" aria-hidden="true">${icon(def.icon, 96)}</span>`));
+  }
 
   const body = el('<div class="widget-body"></div>');
   card.appendChild(body);
