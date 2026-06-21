@@ -10,7 +10,7 @@ import { makeCtx, engineHooks, openWidgetSettings, removeWidget } from '../widge
 import { icon } from '../ui/icons.js';
 import { el, toast, confirmDialog, popMenu, emptyState, closeStrayPanels } from '../ui/components.js';
 import { applyScopedTheme, applyEffects, getTheme, activeTheme } from '../fx/themes.js';
-import { applyScopedIdentity, materialFor, materialHasWatermark } from '../fx/identity.js';
+import { applyScopedIdentity, materialFor, materialHasWatermark, motionAllowed } from '../fx/identity.js';
 import { openWidgetGallery } from '../ui/picker.js';
 
 let host = null;
@@ -27,7 +27,6 @@ const pageY = () => window.scrollY || document.documentElement.scrollTop || 0;
 
 // Phase 2 (docs/15 §4): page layout archetypes + entrance.
 const PAGE_LAYOUTS = new Set(['stream', 'hearth', 'gallery', 'split']);
-const prefersReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* Module entrance (Phase 3 §5.2): a brief, dismissible name wisp that fades in
    and out when you switch worlds — non-blocking (pointer-events:none) and only
    shown when motion is allowed. The atmosphere cross-fade is already handled by
@@ -105,7 +104,7 @@ export function renderPage() {
   // so all chrome (tabs, FAB, panels, masthead) inherits it. Absent identity =
   // today's look. A genuine world switch shows a brief, non-blocking name wisp.
   applyScopedIdentity(document.body, mod?.identity || null);
-  if (mod && prev.moduleId && prev.moduleId !== route.moduleId && !prefersReduced()) {
+  if (mod && prev.moduleId && prev.moduleId !== route.moduleId && motionAllowed()) {
     showModuleWisp(mod);
   }
   if (!mod || !page) return;
@@ -196,8 +195,10 @@ export function renderPage() {
   // genuine page switch lands at the top.
   const samePage = prev.moduleId === route.moduleId && prev.pageId === route.pageId;
   // entrance (Phase 2): genuine page switches stagger-rise their widgets; a
-  // same-page rebuild does not (no flicker). Reduced-motion shows them at rest.
-  if (!samePage && !prefersReduced()) {
+  // same-page rebuild does not (no flicker). Gated by the Liveliness dial —
+  // Still / reduced-motion show them at rest (Phase 5). `prev.moduleId` guards
+  // the first boot render so nothing moves on first load (earned motion, §7).
+  if (prev.moduleId && !samePage && motionAllowed()) {
     grid.querySelectorAll('.widget-card').forEach((c, i) => {
       c.classList.add('w-enter');
       c.style.animationDelay = `${Math.min(i, 8) * 30}ms`;
@@ -266,6 +267,13 @@ function refreshCard(widgetId, structural = false) {
   if (!structural && old.contains(document.activeElement)) return; // don't yank the caret
   const fresh = renderWidgetCard(widget);
   old.replaceWith(fresh);
+  // earned micro-life (Phase 5 §3.4/§7): a value change settles the card with a
+  // barely-there pulse — the "tick" a Counter/Tracker makes when you act. Gated
+  // by Liveliness (off at Still / reduced-motion); never on first paint.
+  if (!structural && motionAllowed()) {
+    fresh.classList.add('w-pulse');
+    fresh.addEventListener('animationend', () => fresh.classList.remove('w-pulse'), { once: true });
+  }
 }
 
 /* ---------- widget cards ---------- */

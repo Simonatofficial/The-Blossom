@@ -124,8 +124,14 @@
    under reduced-motion. Same-page re-renders don't get the class (no flicker). */
 @keyframes w-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .widget-card.w-enter { animation: w-rise var(--feel-dur) var(--feel-ease) backwards; }
+
+/* earned micro-life "tick" (Phase 5): a barely-there settle when a value changes.
+   Transform-only; the Liveliness dial (JS) decides whether it's added at all. */
+@keyframes w-pulse { 0% { transform: scale(1); } 32% { transform: scale(1.015); } 100% { transform: scale(1); } }
+.widget-card.w-pulse { animation: w-pulse var(--feel-dur) var(--feel-ease); }
+
 @media (prefers-reduced-motion: reduce) {
-  .widget-card.w-enter { animation: none; }
+  .widget-card.w-enter, .widget-card.w-pulse { animation: none; }
 }
 
 /* ---- widget card chrome ---- */

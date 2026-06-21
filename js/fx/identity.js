@@ -166,3 +166,36 @@ export const PRESET_HOME_LAYOUTS = {
   blossom: 'hearth', infinitecanvas: 'gallery', dnddm: 'split',
   dndcharacter: 'hearth', worldbuilder: 'stream', study: null,
 };
+
+/* ---- Liveliness dial (Phase 5, docs/15 §7) --------------------------------
+   One global setting scaling all the opt-in micro-life shipped across Phases
+   1–4: Still (≈ reduced-motion — nothing moves), Gentle (default — earned
+   entrances/wisp, no idle motion), Lively (adds the FAB idle breath). Persisted
+   in localStorage (a tiny pref, allowed) and mirrored as data-liveliness on
+   <body> so CSS (e.g. the FAB breath) and JS guards can both read it. */
+const LIVELINESS = new Set(['still', 'gentle', 'lively']);
+const LIVE_KEY = 'blossom:liveliness';
+
+/** @returns {'still'|'gentle'|'lively'} the current Liveliness (default gentle). */
+export function liveliness() {
+  const v = localStorage.getItem(LIVE_KEY);
+  return LIVELINESS.has(v) ? v : 'gentle';
+}
+
+/** Persist + apply a Liveliness level to <body> (data-liveliness). */
+export function setLiveliness(value) {
+  const v = LIVELINESS.has(value) ? value : 'gentle';
+  localStorage.setItem(LIVE_KEY, v);
+  applyLiveliness();
+}
+
+/** Mirror the stored Liveliness onto <body>. Call at boot + on change. */
+export function applyLiveliness() {
+  document.body.setAttribute('data-liveliness', liveliness());
+}
+
+/** @returns {boolean} whether earned micro-life may play (not Still / reduced). */
+export function motionAllowed() {
+  return liveliness() !== 'still'
+    && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+}

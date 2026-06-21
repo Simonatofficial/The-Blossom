@@ -9,6 +9,7 @@ import { icon } from './icons.js';
 import { el, toast, confirmDialog, openDrawer, popMenu, promptText, emptyState, switchEl, field, input, rangeField } from './components.js';
 import { allThemes, applyGlobalTheme, activeThemeId, getTheme, withOverrides, themeOverrides, setThemeOverride, clearThemeOverrides } from '../fx/themes.js';
 import { ATMOSPHERE_PRESETS, ATMOSPHERE_OPTIONS } from '../fx/atmosphere.js';
+import { liveliness, setLiveliness } from '../fx/identity.js';
 import { INTERACTIVE_EFFECTS } from '../fx/weather.js';
 import { PRESET_POINTER_FX, getParticlePreset, getPointerFxPreset } from '../presets/particles.js';
 import { MAX_BG_LAYERS } from '../fx/particles.js';
@@ -211,6 +212,25 @@ function renderAppearanceSection(d) {
     segEl.appendChild(b);
   }
   sec.querySelector('.a-seg').appendChild(segEl);
+
+  // Liveliness dial (Living Layout Phase 5, docs/15 §7): one global motion level.
+  const liveField = el('<div class="field" style="margin-top:14px"><label>Liveliness</label><div class="l-seg"></div><div class="hint">How much the app moves — entrances, the + button’s breath, little flourishes. Still keeps everything calm.</div></div>');
+  const liveSeg = el('<div class="seg" role="radiogroup" aria-label="Liveliness"></div>');
+  const curLive = liveliness();
+  for (const [value, label] of [['still', 'Still'], ['gentle', 'Gentle'], ['lively', 'Lively']]) {
+    const on = curLive === value;
+    const b = el(`<button type="button" role="radio" aria-checked="${on}" class="${on ? 'active' : ''}">${label}</button>`);
+    b.onclick = () => {
+      liveSeg.querySelectorAll('button').forEach(x => { x.classList.remove('active'); x.setAttribute('aria-checked', 'false'); });
+      b.classList.add('active'); b.setAttribute('aria-checked', 'true');
+      setLiveliness(value);
+      toast(`Liveliness: ${label}`, 'sliders');
+    };
+    liveSeg.appendChild(b);
+  }
+  liveField.querySelector('.l-seg').appendChild(liveSeg);
+  sec.appendChild(liveField);
+
   group(d, { title: 'Appearance', iconName: 'sliders', hint: 'How panels open' }).appendChild(sec);
 }
 

@@ -3,13 +3,13 @@
 > The fast resume point. Read this + `CLAUDE.md` to know where we are without re-scanning the tree.
 > Keep it current per `docs/00-claude-framework.md` §4. Newest first.
 
-**Last updated:** 2026-06-20 · **Latest pushed version:** v106
+**Last updated:** 2026-06-20 · **Latest pushed version:** v107
 
 ---
 
 ## Now (in progress)
 
-- **Living Layout Phase 4 — control life** (`docs/15` §6). Goal: the FAB breathes and the Module/Page/Widget creation paths read at a glance. Deliverables: (6.1) one visual grammar — fixed icon + role colour for Module (accent, "world"), Page (highlight, "room"), Widget (success-tint, "plant"), used in the FAB items + nav panels; (6.2) FAB items fan on a subtle arc with grammar icon + one-word label + role tint, a press halo, a scrim glow near the thumb, and an idle breath gated to Liveliness=Lively (off by default; the dial itself is Phase 5); (6.3) settings/chrome hover bloom + shared idle/awake rhythm. Done-when: the three creation paths are instantly legible; FAB feels alive without demanding; reduced-motion is still + usable.
+- **Living Layout Phase 5 — living micro-states & polish** (`docs/15` §7). Goal: one global Liveliness dial (Still / Gentle / Lively) that scales all the motion shipped in Phases 1–4, plus a polish sweep. Deliverables: Liveliness setting in Settings → Appearance persisted in localStorage + `data-liveliness` on `<body>` at boot/change; wire the existing motions to it (card entrance stagger, FAB idle breath already gated to `lively`, module wisp) — Still ≈ reduced-motion; earned micro-life (Counter tick / Tracker bloom) via a reusable gated utility; empty states use the grammar icons; AA/60fps/360px/offline verification. Done-when: the dial visibly scales motion, Still is calm, nothing moves on first load/idle, no console errors.
 
 ## Next (queued, in order)
 
@@ -19,6 +19,7 @@
 
 ## Done (recent, newest first)
 
+- v107 — ui: **Phase 4 — control life, FAB grammar & breath (Living Layout)** — one visual grammar for the three levels (Module=globe/accent, Page=leaf/highlight, Widget=sprout/success) on the FAB items; items fan on a subtle arc; press/open halo; scrim glow near the thumb; idle breath gated to `data-liveliness=lively` (off by default, decision #8). Chrome hover-bloom already met spec. Verified live: grammar discs distinct, 360px keeps items on-screen, breath off by default.
 - v106 — ui: **Phase 3 — module identity, modules become worlds (Living Layout)** — module identity rides on `<body>` (chrome inherits world feel); page identity layers on `.page-scope`. Tab-bar personality via `data-accent-shape` (underline/rail/bloom/halo); module entrance wisp on genuine switch (non-blocking, reduced-motion off); opt-in masthead (off by default). Six preset worlds baked at instantiation (`PRESET_IDENTITIES`/`PRESET_HOME_LAYOUTS`); landing page opens in its archetype. Existing modules stay neutral (guardrail §9). Verified live: D&D DM bakes roomy/rail/parchment/drifting + split landing + wisp; cleanup left user data intact.
 - v105 — ui: **Phase 2 — page layout archetypes & entrance (Living Layout)** — pages pick a structural archetype via `data-layout` on `.page-scope`: masonry (default), stream (reading column), hearth (full-width hero + grid; hero self-heals), gallery (equal tiles), split (2fr/1fr). All collapse to one column <600px. Entrance: widgets stagger-rise on genuine page switches only (reuses v102 samePage signal; reduced-motion at rest). Page identity merges over module identity; grid gap follows `--feel-gap`; opt-in page header band. Layout picker in Pages panel menu. Verified live: 4 archetypes resolve, stagger 0→180ms, same-page no re-stagger, menu chain persists, no errors.
 - v104 — ui: **Phase 1 — widget materials & signatures (Living Layout)** — each widget type wears a *material* (paper/glass/slate/card/canvas), applied auto by type + overridable per instance, themed through the cascade. Silhouette (radius/frame per material), signatures (type-chip on every card, paper watermark), header voice (serif paper, upper-case glass micro-label, glass accent-rail). Cards now read structure from `--feel-*` (defaults unchanged) + a texture `::after` layer. Per-widget Material row in settings (decision #10). Verified: glass/card/paper distinct on Blossom home, slate via override applies+reverts, 360px clean, no errors.

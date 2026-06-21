@@ -9,6 +9,7 @@ import { registry } from './widgets/registry.js';
 import './widgets/all.js';
 import { makeCtx } from './widgets/base.js';
 import { applyGlobalTheme, activeThemeId, activeTheme, applyEffects } from './fx/themes.js';
+import { applyLiveliness } from './fx/identity.js';
 import { initParticles } from './fx/particles.js';
 import { initAtmosphere } from './fx/atmosphere.js';
 import { initWeather } from './fx/weather.js';
@@ -63,6 +64,7 @@ async function boot() {
   }
 
   applyGlobalTheme(activeThemeId());
+  applyLiveliness(); // Phase 5: mirror the Liveliness pref onto <body> before first render
 
   // Widget day-rollover hooks run before anything re-renders or autosaves
   // (registration order matters: this listener is first).
