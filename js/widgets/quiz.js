@@ -11,6 +11,7 @@ import { el, field, seg, popMenu, promptText, confirmDialog, emptyState, toast }
 import { objectsOf, todayStr, fmtDate } from './base.js';
 import { FIELDS, FIELD_LABEL, sourceFcIds, quizCards, scopeForest, buildQuestions } from './quiz-build.js';
 import { runQuiz, resumeQuiz, review } from './quiz-run.js';
+import { renderRecallByDeck } from './quiz-breakdown.js';
 
 const TYPES = [['mc', 'Multiple choice'], ['truefalse', 'True / False'], ['fill', 'Fill the blank'], ['dropdown', 'Dropdown']];
 
@@ -198,6 +199,7 @@ registry.register({
           row.onclick = () => review({ ...env, canRetry: true }, r.data, false);
           host.appendChild(row);
         }
+        renderRecallByDeck(host, widget); // §5d — drill-down recall by Class › Unit › Topic
       }
     };
 

@@ -55,12 +55,13 @@ export const STUDY_PRESET = {
           legend: true, valueLabels: true, gridlines: true,
           datasets: [{ id: 'd_rev', name: 'Cards reviewed', source: 'link', link: { sourceWidgetId: '@fc', output: 'reviewsToday', transform: { scale: 1 } }, points: [] }]
         }] } },
-        { type: 'graph', name: 'Quiz scores', config: { graphs: [{
-          id: 'g_qz', kind: 'line', range: '30d',
-          xAxis: { type: 'time', grain: null, period: 0, label: '' },
+        { type: 'graph', name: 'Quiz scores by time of day', config: { graphs: [{
+          id: 'g_qz', kind: 'scatter', range: '30d',
+          xDomain: [0, 24], yDomain: [0, 100], xTicks: [{ at: 0, label: '12a' }, { at: 6, label: '6a' }, { at: 12, label: '12p' }, { at: 18, label: '6p' }, { at: 24, label: '12a' }],
+          xAxis: { type: 'value', grain: null, period: 0, label: 'Time of day' },
           yAxis: { dim: 'score', label: 'Score', unit: '%' },
-          legend: true, valueLabels: true, gridlines: true, smooth: true,
-          datasets: [{ id: 'd_qz', name: 'Best quiz score', source: 'link', link: { sourceWidgetId: '@qz', output: 'scoreToday', transform: { scale: 1 } }, points: [] }]
+          legend: false, valueLabels: false, gridlines: true,
+          datasets: [{ id: 'd_qz', name: 'Quiz scores', source: 'quizscores', link: { sourceWidgetId: '@qz' }, points: [] }]
         }] } },
         { type: 'questboard', name: 'Study goals' }
       ]

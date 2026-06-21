@@ -225,13 +225,24 @@ function scatter(g, p, hits, prog) {
   const box = plotBox(p);
   const all = datasets.flatMap(d => d.points);
   const xs = all.map(pt => Number(pt.x) || 0), ys = all.map(pt => pt.y);
-  const xMax = Math.max(1, ...xs), yMax = Math.max(1, ...ys);
+  // Optional fixed domains (e.g. time-of-day 0–24h on X, score 0–100% on Y).
+  const xDom = gdef.xDomain, yDom = gdef.yDomain;
+  const xMin = xDom ? xDom[0] : 0, xMax = xDom ? xDom[1] : Math.max(1, ...xs);
+  const yMax = yDom ? yDom[1] : Math.max(1, ...ys);
+  const xSpan = (xMax - xMin) || 1;
   const rMax = Math.max(1, ...all.map(pt => pt.r || 0));
   gridAndAxes(g, p, box, yMax);
+  // optional X ticks (e.g. hour-of-day labels) + faint guide lines
+  if (gdef.xTicks) for (const tk of gdef.xTicks) {
+    const tx = box.l + ((tk.at - xMin) / xSpan) * box.w;
+    g.strokeStyle = theme.border; g.globalAlpha = 0.25; g.beginPath(); g.moveTo(tx, box.t); g.lineTo(tx, box.t + box.h); g.stroke(); g.globalAlpha = 1;
+    g.fillStyle = theme.textSoft; g.font = '9px system-ui'; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(tk.label, tx, box.t + box.h + 3);
+  }
   datasets.forEach((d, i) => d.points.forEach((pt, j) => {
-    const x = box.l + ((Number(pt.x) || 0) / xMax) * box.w;
+    const x = box.l + (((Number(pt.x) || 0) - xMin) / xSpan) * box.w;
     const y = box.t + box.h - (pt.y / yMax) * box.h;
-    const r = gdef.kind === 'bubble' && pt.r != null ? 3 + (pt.r / rMax) * 20 * prog : 4;
+    const r = gdef.kind === 'bubble' && pt.r != null ? 3 + (pt.r / rMax) * 20 * prog
+      : pt.r != null ? 3 + (pt.r / rMax) * 9 * prog : 4; // size by point's r (e.g. # questions)
     g.beginPath(); g.arc(x, y, r, 0, TAU); g.fillStyle = hexA(d.color, 0.6); g.fill();
     g.strokeStyle = d.color; g.lineWidth = 1; g.stroke();
     hits.push({ i, j, kind: 'pt', test: (px, py) => Math.hypot(px - x, py - y) < r + 4 });

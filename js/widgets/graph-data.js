@@ -6,7 +6,7 @@
 
 import { store } from '../core/store.js';
 import { ulid } from '../core/ids.js';
-import { todayStr, dateAdd } from './base.js';
+import { todayStr, dateAdd, objectsOf } from './base.js';
 import * as values from '../core/values.js';
 import * as M from './flashcards-model.js';
 import { masteryFor, struggle } from './study-mastery.js';
@@ -177,6 +177,48 @@ export function studySkillPoints(widget) {
   return points.sort((a, b) => b.y - a.y); // strongest subjects lead
 }
 
+/* ---- Quiz scores source (docs/16 §5c): one point per test, X = time of day ---- */
+
+/** Quiz widgets feeding a quiz-scores graph: the explicitly linked one if set,
+    else the graph's module, else every Quiz widget. */
+function quizWidgetsFor(widget, ds) {
+  const linked = ds?.link?.sourceWidgetId ? store.get('widgets', ds.link.sourceWidgetId) : null;
+  if (linked && linked.type === 'quiz') return [linked];
+  const all = store.all('widgets').filter(w => w.type === 'quiz');
+  if (!widget) return all;
+  const page = store.all('pages').find(p => p.widgets?.includes(widget.id));
+  const mod = page && store.all('modules').find(m => m.pages?.includes(page.id));
+  if (mod) { const inMod = all.filter(w => mod.pages.some(pid => store.get('pages', pid)?.widgets?.includes(w.id))); if (inMod.length) return inMod; }
+  return all;
+}
+
+/**
+ * One scatter point per quiz result: x = time of day (hours, 0–24), y = score %,
+ * r = question count, label = date + time, kept in `from`..`today`.
+ * @returns {{x:number,y:number,r:number,label:string,date:string}[]}
+ */
+export function quizScorePoints(widget, ds, from, today) {
+  const out = [];
+  for (const qw of quizWidgetsFor(widget, ds)) {
+    for (const res of objectsOf(qw.id, 'quizResult')) {
+      if (res.date > today || (from && res.date < from)) continue;
+      const total = res.data.total || 0; if (!total) continue;
+      const dt = new Date(res.createdAt || (res.date + 'T12:00:00'));
+      if (isNaN(dt)) continue;
+      const x = dt.getHours() + dt.getMinutes() / 60;
+      out.push({
+        x: Math.round(x * 100) / 100, y: Math.round((res.data.score / total) * 100), r: total,
+        label: `${dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${dt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
+        date: res.date
+      });
+    }
+  }
+  return out.sort((a, b) => a.x - b.x);
+}
+
+/** Hour-of-day axis ticks for the quiz-scores scatter. */
+export const HOUR_TICKS = [0, 6, 12, 18, 24].map(h => ({ at: h, label: h === 0 ? '12a' : h === 12 ? '12p' : h === 24 ? '12a' : h < 12 ? `${h}a` : `${h - 12}p` }));
+
 /** Earliest object date across the workspace (for range 'all'). */
 function earliestDate() {
   let min = todayStr();
@@ -203,6 +245,11 @@ export function resolveGraph(gdef, theme, widget) {
       points = studySkillPoints(widget).map(p => ({ x: p.x, label: p.label, y: p.y, particles: p.particles }));
       now = points[0]?.y || 0;
       return { id: ds.id, name: ds.name || 'Study skills', color, points, now };
+    }
+    if (ds.source === 'quizscores') {
+      points = quizScorePoints(widget, ds, from, today);
+      now = points.at(-1)?.y || 0;
+      return { id: ds.id, name: ds.name || 'Quiz scores', color, points, now };
     }
     if (ds.source === 'link' && ds.link) {
       const series = values.getSeries(ds.link, from, today);

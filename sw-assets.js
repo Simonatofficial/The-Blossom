@@ -138,6 +138,7 @@ self.SW_ASSETS = [
   './js/widgets/questboard.js',
   './js/widgets/questops.js',
   './js/widgets/quiz.js',
+  './js/widgets/quiz-breakdown.js',
   './js/widgets/quiz-build.js',
   './js/widgets/quiz-run.js',
   './js/widgets/registry.js',

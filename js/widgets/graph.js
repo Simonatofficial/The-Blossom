@@ -10,7 +10,7 @@ import { loop } from '../fx/loop.js';
 import { icon } from '../ui/icons.js';
 import { el, field, seg, input, openDrawer, popMenu, toast } from '../ui/components.js';
 import { openLinkPicker } from '../ui/picker.js';
-import { CHART_TYPES, RANGES, X_DIMENSIONS, GRAINS, Y_DIMENSIONS, periodLabelFor, chartType, newGraph, newDataset, datasetColor, resolveGraph, parseCSV, normalizeGraph } from './graph-data.js';
+import { CHART_TYPES, RANGES, X_DIMENSIONS, GRAINS, Y_DIMENSIONS, periodLabelFor, chartType, newGraph, newDataset, datasetColor, resolveGraph, parseCSV, normalizeGraph, HOUR_TICKS } from './graph-data.js';
 import { drawChart } from './graph-engine.js';
 
 /** A labeled dropdown column (§W-6: clearly-labeled controls, not icon buttons). */
@@ -61,7 +61,7 @@ function renderGraph(holder, widget, gdef, ctx, big) {
   const sourceFor = (hit) => {
     const ds = resolved.datasets.length > 1 ? resolved.datasets[hit.i] : resolved.datasets[0];
     const cfg = (widget.config.graphs.find(x => x.id === gdef.id)?.datasets || [])[resolved.datasets.length > 1 ? hit.i : 0];
-    return cfg?.source === 'link' ? cfg.link?.sourceWidgetId : null;
+    return (cfg?.source === 'link' || cfg?.source === 'quizscores') ? cfg.link?.sourceWidgetId : null;
   };
   canvas.addEventListener('click', (e) => {
     const r = canvas.getBoundingClientRect();
@@ -169,10 +169,10 @@ function datasetManager(host, widget, gdef, save, rerender) {
     const nameIn = row.querySelector('.ds-name');
     nameIn.value = ds.name || src?.name || '';
     nameIn.addEventListener('change', () => { ds.name = nameIn.value; save(); });
-    row.querySelector('.ds-src').textContent = ds.source === 'link' ? `↪ ${src?.name || '?'} · ${ds.link?.output || ''}` : ds.source === 'study' ? 'auto · per class' : `${ds.points?.length || 0} pts`;
+    row.querySelector('.ds-src').textContent = ds.source === 'link' ? `↪ ${src?.name || '?'} · ${ds.link?.output || ''}` : ds.source === 'study' ? 'auto · per class' : ds.source === 'quizscores' ? 'auto · per test' : `${ds.points?.length || 0} pts`;
     const edit = row.querySelector('.ds-edit');
     edit.innerHTML = icon('edit', 14);
-    edit.style.visibility = ds.source === 'link' || ds.source === 'study' ? 'hidden' : 'visible';
+    edit.style.visibility = ds.source === 'link' || ds.source === 'study' || ds.source === 'quizscores' ? 'hidden' : 'visible';
     edit.onclick = () => manualDataEditor(widget, gdef, ds, save, rerender);
     row.querySelector('.ds-del').onclick = () => { gdef.datasets.splice(i, 1); save(); rerender(); };
     wrap.appendChild(row);
@@ -183,6 +183,7 @@ function datasetManager(host, widget, gdef, save, rerender) {
   addBtn.onclick = (e) => popMenu(e.currentTarget, [
     { label: 'Link a widget value', iconName: 'link', fn: () => openLinkPicker({ consumerWidget: widget, onPick: (link) => { gdef.datasets.push(newDataset(null, link)); if (!gdef.xAxis) gdef.xAxis = {}; save(); rerender(); } }) },
     { label: 'Study skills (auto)', iconName: 'flower', fn: () => { const ds = newDataset('Study skills'); ds.source = 'study'; gdef.datasets.push(ds); gdef.kind = 'flower'; gdef.absoluteScale = true; gdef.scaleMax = 100; gdef.xAxis = { ...(gdef.xAxis || {}), type: 'category', grain: null }; save(); rerender(); } },
+    { label: 'Quiz scores by time of day (auto)', iconName: 'clock', fn: () => { const qz = store.all('widgets').filter(w => w.type === 'quiz')[0]; const ds = newDataset('Quiz scores'); ds.source = 'quizscores'; if (qz) ds.link = { sourceWidgetId: qz.id }; gdef.datasets.push(ds); gdef.kind = 'scatter'; gdef.xDomain = [0, 24]; gdef.yDomain = [0, 100]; gdef.xTicks = HOUR_TICKS; gdef.xAxis = { ...(gdef.xAxis || {}), type: 'value', grain: null, label: 'Time of day' }; gdef.yAxis = { ...(gdef.yAxis || {}), label: 'Score', unit: '%' }; save(); rerender(); } },
     { label: 'Manual data', iconName: 'edit', fn: () => { const ds = newDataset('Data ' + (gdef.datasets.length + 1)); gdef.datasets.push(ds); save(); manualDataEditor(widget, gdef, ds, save, rerender); } },
     { label: 'Import CSV', iconName: 'upload', fn: () => csvImport(widget, gdef, save, rerender) }
   ]);
