@@ -25,6 +25,15 @@ let prevRoute = { moduleId: null, pageId: null, widgetId: null };
 let pageScroll = 0; // last module-page scroll position
 const pageY = () => window.scrollY || document.documentElement.scrollTop || 0;
 
+// Phase 2 (docs/15 §4): page layout archetypes + entrance.
+const PAGE_LAYOUTS = new Set(['stream', 'hearth', 'gallery', 'split']);
+const prefersReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** Merge module + page identity — page overrides module per field (cascade). */
+function mergeIdentity(modId, pageId) {
+  if (!modId && !pageId) return null;
+  return { ...(modId || {}), ...(pageId || {}) };
+}
+
 export function initEngine(hostEl) {
   host = hostEl;
   engineHooks.renderWidgetCard = renderWidgetCard;
@@ -98,7 +107,9 @@ export function renderPage() {
 
   const scope = el('<div class="page-scope"></div>');
   applyScopedTheme(scope, page.themeOverride || mod.themeOverride || null);
-  applyScopedIdentity(scope, mod.identity || null);
+  // Phase 2: page identity overrides module identity per-field (merged cascade)
+  applyScopedIdentity(scope, mergeIdentity(mod.identity, page.identity));
+  if (PAGE_LAYOUTS.has(page.layout)) scope.setAttribute('data-layout', page.layout);
   // deepest non-inherit theme drives atmosphere + particles (docs/03)
   applyEffects(getTheme(page.themeOverride || mod.themeOverride) || activeTheme());
 
@@ -107,8 +118,26 @@ export function renderPage() {
     scope.appendChild(el(`<span class="page-home-star" title="Home page" aria-hidden="true">${icon('star', 13)}</span>`));
   }
 
+  // optional, quiet page header band (Phase 2 §4.2) — opt-in, off by default so
+  // it never costs 360px vertical space unless a page asks for it.
+  if (page.subtitle || page.showHeader) {
+    const band = el(`<div class="page-band"><h2></h2>${page.subtitle ? '<div class="pb-sub"></div>' : ''}<div class="pb-rule"></div></div>`);
+    band.querySelector('h2').textContent = page.name;
+    if (page.subtitle) band.querySelector('.pb-sub').textContent = page.subtitle;
+    scope.appendChild(band);
+  }
+
   const grid = el('<div class="widget-grid"></div>');
   const widgets = page.widgets.map(id => store.get('widgets', id)).filter(Boolean);
+
+  // hearth hero: self-heals to the first non-separator widget if unset/invalid
+  // (mirrors the homePageId self-heal in core/router.js).
+  let heroId = null;
+  if (page.layout === 'hearth') {
+    const ids = widgets.map(w => w.id);
+    heroId = ids.includes(page.heroWidgetId) ? page.heroWidgetId
+      : (widgets.find(w => w.type !== 'separator')?.id || null);
+  }
 
   // Category Dividers (V2 §18): a divider folds and indents the group beneath it
   let hiddenBySeparator = false;
@@ -123,6 +152,7 @@ export function renderPage() {
     if (hiddenBySeparator) continue;
     const card = renderWidgetCard(w);
     if (inGroup) card.classList.add('w-in-group');
+    if (w.id === heroId) card.setAttribute('data-hero', '');
     grid.appendChild(card);
   }
 
@@ -142,6 +172,14 @@ export function renderPage() {
   // widget view, or a same-page re-render), restore the scroll; otherwise a
   // genuine page switch lands at the top.
   const samePage = prev.moduleId === route.moduleId && prev.pageId === route.pageId;
+  // entrance (Phase 2): genuine page switches stagger-rise their widgets; a
+  // same-page rebuild does not (no flicker). Reduced-motion shows them at rest.
+  if (!samePage && !prefersReduced()) {
+    grid.querySelectorAll('.widget-card').forEach((c, i) => {
+      c.classList.add('w-enter');
+      c.style.animationDelay = `${Math.min(i, 8) * 30}ms`;
+    });
+  }
   window.scrollTo(0, samePage ? pageScroll : 0);
 }
 

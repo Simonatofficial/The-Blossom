@@ -242,9 +242,18 @@ export function openPagesPanel() {
       });
       row.querySelector('.nav-menu').addEventListener('click', (e) => {
         e.stopPropagation();
-        popMenu(e.currentTarget, [
+        const anchor = e.currentTarget;
+        popMenu(anchor, [
           { label: 'Rename', iconName: 'edit', fn: async () => { const n = await promptText({ title: 'Rename page', value: page.name }); if (n) { page.name = n; store.put('pages', page); events.emit('module:changed', {}); render(); } } },
           { label: mod.homePageId === page.id ? 'Remove as home' : 'Set as home', iconName: 'home', fn: () => { mod.homePageId = mod.homePageId === page.id ? null : page.id; store.put('modules', mod); events.emit('module:changed', {}); render(); } },
+          // Phase 2 (docs/15 §4): pick a page's layout archetype — its room shape
+          { label: 'Layout', iconName: 'grid', fn: () => {
+            const cur = page.layout || 'masonry';
+            popMenu(anchor, [['masonry', 'Board'], ['stream', 'Reading'], ['hearth', 'Hearth'], ['gallery', 'Gallery'], ['split', 'Split']].map(([v, label]) => ({
+              label: cur === v ? `${label}  ✓` : label,
+              fn: () => { page.layout = v === 'masonry' ? null : v; store.put('pages', page); events.emit('page:changed', {}); render(); }
+            })));
+          } },
           { label: 'Copy Code', iconName: 'code', fn: () => copyCode('pg', page.id, page.name) },
           'sep',
           { label: 'Delete', iconName: 'trash', danger: true, fn: () => deletePage(mod, page, render) }

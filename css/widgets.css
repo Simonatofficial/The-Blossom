@@ -64,7 +64,7 @@
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   grid-auto-flow: dense;
-  gap: 14px;
+  gap: var(--feel-gap);          /* Phase 2: gap follows page density */
 }
 .widget-card { grid-column: span 6; }
 @media (min-width: 600px) {
@@ -73,6 +73,59 @@
 }
 @media (min-width: 1100px) {
   .widget-card[data-w='third'] { grid-column: span 2; }
+}
+
+/* ============ Phase 2 — page layout archetypes (docs/15 §4) ============
+   A page picks a structural archetype via data-layout on .page-scope. Absent
+   or "masonry" = today's dense board. Each reads as a different room, and all
+   collapse to one calm column ≤600px (responsive rule). Defined here, after the
+   masonry rules, so they override without !important. */
+
+/* hearth — a home with a focal point: the hero spans full, the rest sit calmer
+   beneath in the usual masonry. */
+.page-scope[data-layout="hearth"] .widget-card[data-hero] { grid-column: 1 / -1; }
+
+@media (min-width: 600px) {
+  /* stream — a page you read: one centered column, generous vertical rhythm */
+  .page-scope[data-layout="stream"] .widget-grid {
+    grid-template-columns: min(660px, 100%);
+    justify-content: center;
+    grid-auto-flow: row;
+    row-gap: calc(var(--feel-gap) * 1.5);
+  }
+  .page-scope[data-layout="stream"] .widget-card { grid-column: 1 / -1; }
+
+  /* gallery — a collection: equal, gently-sized tiles */
+  .page-scope[data-layout="gallery"] .widget-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-auto-flow: row;
+  }
+  .page-scope[data-layout="gallery"] .widget-card { grid-column: auto; }
+
+  /* split — a desk: work + margin, two zones (2fr / 1fr) each its own rhythm */
+  .page-scope[data-layout="split"] .widget-grid {
+    grid-template-columns: 2fr 1fr;
+    grid-auto-flow: row;
+  }
+  .page-scope[data-layout="split"] .widget-card { grid-column: auto; }
+}
+
+/* page header band (opt-in, quiet): page name + subtitle + a thin accent rule */
+.page-band { margin: 2px 2px 4px; }
+.page-band h2 { font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; }
+.page-band .pb-sub { color: var(--text-soft); font-size: 0.9rem; margin-top: 1px; }
+.page-band .pb-rule {
+  height: 2px; width: 44px; margin-top: 8px; border-radius: 2px;
+  background: var(--accent); opacity: 0.7;
+}
+
+/* entrance choreography (Phase 2): widgets stagger-rise on a genuine page
+   switch — transform/opacity only, per-card delay set inline, fully skipped
+   under reduced-motion. Same-page re-renders don't get the class (no flicker). */
+@keyframes w-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.widget-card.w-enter { animation: w-rise var(--feel-dur) var(--feel-ease) backwards; }
+@media (prefers-reduced-motion: reduce) {
+  .widget-card.w-enter { animation: none; }
 }
 
 /* ---- widget card chrome ---- */
