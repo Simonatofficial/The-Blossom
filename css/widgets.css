@@ -156,18 +156,6 @@
   opacity: var(--w-bg-opacity, 0.85); /* slightly see-through by default so the background shows through */
   transition: opacity var(--t-med) var(--ease);
 }
-/* texture layer (Phase 0/1): a static gradient wash painted over the fill at a
-   themable opacity — none by default, so existing cards are unchanged. */
-.widget-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  border-radius: inherit;
-  background: var(--feel-texture);
-  opacity: var(--feel-texture-opacity);
-}
 .widget-card.dragging { opacity: 0.55; transform: scale(0.98); }
 .widget-card.drop-before { box-shadow: -3px 0 0 var(--accent), var(--shadow-soft); }
 /* hold-to-move (V2 §12): the glow grows over the 600ms hold before drag arms */
@@ -229,82 +217,11 @@
 /* page content stops stretching edge-to-edge on wide screens */
 .page-scope { max-width: 1180px; margin-inline: auto; }
 
-/* ============ Phase 1 — widget materials (docs/15 §3) ============
-   Each material gives a kind of widget its own face: silhouette (radius +
-   frame), surface, signature, and header voice. All themable through the
-   cascade — color comes from the active theme, so Forest-paper and Space-paper
-   differ correctly. Applied via data-material on the card. */
-
-/* — signature type-chip: the widget's icon in a soft accent chip (all faces),
-     replacing the bare grey glyph so a card reads as an object at a glance. */
-.widget-head .w-type-icon {
-  width: 26px; height: 26px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  transition: background var(--t-fast) var(--ease);
-}
-
-/* — corner watermark: a faint maker's-mark of the type glyph behind content. */
-.w-watermark {
-  position: absolute; right: -8px; bottom: -12px; z-index: -1;
-  color: var(--accent); opacity: 0.05; pointer-events: none;
-  display: grid; place-items: center;
-}
-
-/* paper — Notes/Journal/Docs/Lore: warm matte, faint grain, serif voice */
-.widget-card[data-material="paper"] {
-  --feel-radius: 12px;
-  --feel-border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
-  --feel-texture: var(--tex-paper);
-  --feel-texture-opacity: 0.05;
-}
-.widget-card[data-material="paper"] .w-name {
-  font-family: var(--font-serif); font-size: 1rem;
-}
-
-/* glass — Tracker/Stats/Graph/Health: cool frosted, accent rail, micro-label */
-.widget-card[data-material="glass"] {
-  --feel-radius: 14px;
-  --feel-border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  --feel-texture: var(--tex-frosted);
-  --feel-texture-opacity: 0.05;
-}
-.widget-card[data-material="glass"]::before { opacity: calc(var(--w-bg-opacity, 0.85) * 0.9); }
-.widget-card[data-material="glass"] .widget-head {
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
-}
-.widget-card[data-material="glass"] .w-name {
-  text-transform: uppercase; letter-spacing: 0.05em;
-  font-size: 0.82rem; font-weight: 700; color: var(--text-soft);
-}
-
-/* slate — Dice/Combat/games: deep, low-texture, inked frame, tight corners */
-.widget-card[data-material="slate"] {
-  --feel-radius: 10px;
-  --feel-border: 1.5px solid color-mix(in srgb, var(--text) 20%, var(--border));
-  --feel-texture: none; --feel-texture-opacity: 0;
-}
-.widget-card[data-material="slate"]::before {
-  background: color-mix(in srgb, var(--feel-surface) 88%, #000);
-}
-
-/* card — Counter/Calculator/Skill/Goal: clean, lifted, soft header shelf */
-.widget-card[data-material="card"] {
-  --feel-radius: 16px;
-  --feel-border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  --feel-elevation: var(--shadow);
-}
-.widget-card[data-material="card"] .widget-head {
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
-}
-
-/* canvas — Canvas/Board/Map: edge-to-edge, thin frame, content bleeds */
-.widget-card[data-material="canvas"] {
-  --feel-radius: 14px;
-  --feel-border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
-  --feel-texture: none; --feel-texture-opacity: 0;
-}
-.widget-card[data-material="canvas"] .widget-body { padding: 3px; }
+/* ---- bespoke widget designs (replacing the generic "materials" pass) ----
+   Each widget type earns its own look — shape, surface, rhythm, accents — under
+   its .<type>-card class, rather than a one-size texture/border/font treatment.
+   See the section near the end of this file. The base .widget-card stays a clean,
+   uniform sheet; bespoke rules layer on top. */
 
 /* ---- celebration bloom (docs/07) ---- */
 @keyframes bloom-petal {
@@ -651,9 +568,29 @@
 .goal-widget .g-seed { position: absolute; color: var(--accent); }
 .goal-widget .g-pct { font-size: 1.6rem; font-weight: 600; }
 
-/* ---- Market widget ---- */
+/* ---- Market widget — bespoke: a clean little market stall ----
+   A striped canopy under the header (the awning) and the coins resting on a
+   soft counter shelf. Recognisable, warm, never gaudy. */
+.widget-card.market-card { text-align: center; }
+.widget-card.market-card > .widget-head {
+  border-bottom: 3px solid transparent;
+  border-image: repeating-linear-gradient(90deg,
+      color-mix(in srgb, var(--accent) 48%, transparent) 0 9px,
+      color-mix(in srgb, var(--highlight) 40%, transparent) 9px 18px) 3;
+}
+.widget-card.market-card .widget-body { padding-top: 12px; }
+.market-card .m-coins {
+  display: inline-flex;
+  gap: 16px;
+  padding: 9px 16px;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--surface-alt) 65%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent),
+              0 1px 3px color-mix(in srgb, #000 18%, transparent);
+}
+
 .m-coins { display: flex; gap: 14px; justify-content: center; }
-.m-coin { display: inline-flex; align-items: center; gap: 4px; font-size: 0.9rem; }
+.m-coin { display: inline-flex; align-items: center; gap: 4px; font-size: 1rem; }
 .m-coin b { font-variant-numeric: tabular-nums; }
 
 /* ---- Graph widget ---- */

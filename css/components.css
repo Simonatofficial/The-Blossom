@@ -194,21 +194,25 @@ body[data-accent-shape="halo"] .tab.active::after {
 }
 
 /* ============ Phase 3 — module entrance wisp (§5.2) ============
-   "The world arrives": the module name fades in and out on a genuine switch,
-   never blocking interaction. Reduced-motion users never see it (gated in JS). */
+   "The world arrives": a quiet name that fades in near the top on a genuine
+   switch, never blocking interaction. Sits below the chrome, small and calm —
+   not a centre-screen takeover. Reduced-motion users never see it (gated in JS). */
 @keyframes module-wisp {
-  0%   { opacity: 0; transform: translate(-50%, -44%) scale(0.98); letter-spacing: 0.18em; }
-  22%  { opacity: 1; }
-  72%  { opacity: 1; }
-  100% { opacity: 0; transform: translate(-50%, -54%) scale(1.01); letter-spacing: 0.06em; }
+  0%   { opacity: 0; transform: translate(-50%, -6px); }
+  22%  { opacity: 0.92; }
+  70%  { opacity: 0.92; }
+  100% { opacity: 0; transform: translate(-50%, -2px); }
 }
 .module-wisp {
-  position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%);
-  z-index: 60; pointer-events: none; text-align: center;
-  color: var(--text); text-shadow: 0 2px 22px var(--glow);
-  animation: module-wisp 1800ms var(--ease) forwards;
+  position: fixed; left: 50%; top: calc(86px + env(safe-area-inset-top));
+  transform: translate(-50%, 0);
+  z-index: 25; pointer-events: none; text-align: center;
+  color: var(--text-soft); text-shadow: 0 1px 10px var(--glow);
+  animation: module-wisp 1500ms var(--ease) forwards;
 }
-.module-wisp .mw-name { font-size: 1.7rem; font-weight: 600; }
+.module-wisp .mw-name {
+  font-size: 1.05rem; font-weight: 600; letter-spacing: 0.05em;
+}
 @media (prefers-reduced-motion: reduce) { .module-wisp { display: none; } }
 
 /* ---- buttons ---- */

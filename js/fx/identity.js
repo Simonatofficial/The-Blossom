@@ -22,48 +22,6 @@
 const FEELS = new Set(['cozy', 'roomy', 'compact']);
 const ACCENT_SHAPES = new Set(['underline', 'rail', 'bloom', 'halo']);
 
-/* ---- Materials (Phase 1, docs/15 §3) -------------------------------------
-   A material is the *character* a kind of widget wears: silhouette, surface,
-   signature, voice. Applied automatically by widget type (decision 0.1 #1) so
-   even existing/default modules gain faces the moment Phase 1 ships; density,
-   texture, and motion still inherit from the module/page feel. A widget's
-   registry `def.material` or a per-instance `widget.material` overrides the map;
-   unmapped types fall back to the clean 'card'. */
-const MATERIAL_BY_TYPE = {
-  // paper — warm matte, faint grain, serif voice, a maker's-mark watermark
-  notes: 'paper', journal: 'paper', docshelf: 'paper', lorewiki: 'paper', notebook: 'paper',
-  sessionlog: 'paper', sessionplan: 'paper', compendium: 'paper', spellbook: 'paper',
-  elements: 'paper', charsheet: 'paper', pcsheet: 'paper', homebrew: 'paper', dndstory: 'paper',
-  // glass — cool frosted, data & tracking, an upper-case micro-label voice
-  tracker: 'glass', graph: 'glass', flowergraph: 'glass', health: 'glass', overview: 'glass',
-  calendar: 'glass', levelplanner: 'glass', relationshipweb: 'glass', wtimeline: 'glass',
-  civprofile: 'glass', time: 'glass', music: 'glass', notifications: 'glass', reminder: 'glass', alarm: 'glass',
-  // slate — deep, low-texture, inked frame, tight corners, tactile (dice/combat/games)
-  dice: 'slate', dndcombat: 'slate', encounter: 'slate', initiative: 'slate', statblock: 'slate',
-  snake: 'slate', solitaire: 'slate', blossoms: 'slate', loottable: 'slate',
-  // canvas — edge-to-edge, frame not box, content bleeds
-  canvas: 'canvas', canvaboard: 'canvas', infcanvas: 'canvas', worldmap: 'canvas', gallery: 'canvas',
-  // everything else → card (clean, lifted)
-};
-const WATERMARK_MATERIALS = new Set(['paper']);
-
-/**
- * Resolve a widget's material: per-instance override → registry def → type map
- * → 'card'. Returns null for the structural separator (no card face).
- * @param {object} widget
- * @param {object} [def] the registry definition
- * @returns {string|null}
- */
-export function materialFor(widget, def) {
-  if (!widget || widget.type === 'separator') return null;
-  return widget.material || def?.material || MATERIAL_BY_TYPE[widget.type] || 'card';
-}
-
-/** @returns {boolean} whether a material carries a corner watermark. */
-export function materialHasWatermark(material) {
-  return WATERMARK_MATERIALS.has(material);
-}
-
 /* Texture names → the CSS gradient library in identity.css (single source). */
 const TEXTURE_VAR = {
   frosted: 'var(--tex-frosted)', paper: 'var(--tex-paper)', linen: 'var(--tex-linen)',
