@@ -8,6 +8,8 @@ import { store } from '../core/store.js';
 import { ulid } from '../core/ids.js';
 import { todayStr, dateAdd } from './base.js';
 import * as values from '../core/values.js';
+import * as M from './flashcards-model.js';
+import { masteryFor, struggle } from './study-mastery.js';
 
 /** Every chart type, grouped for the picker. `mode` tells the engine how a
     graph's datasets are consumed. */
@@ -125,6 +127,56 @@ const PALETTE = (theme) => [theme.accent, theme.highlight, theme.success, theme.
   '#7cc4ff', '#f6a5c0', '#9be3b4', '#e0b3ff', '#ffd28a', '#8fd0c7'];
 export function datasetColor(i, theme, override) { return override || PALETTE(theme)[i % PALETTE(theme).length]; }
 
+/* ---- Study skills source (docs/16 §5b) ---- */
+
+/** Flashcard widgets that feed a study graph: same module as the graph if any
+    live there, else every Flashcard widget in the workspace. */
+function studyFlashcards(widget) {
+  const all = store.all('widgets').filter(w => w.type === 'flashcards');
+  if (!widget) return all;
+  const page = store.all('pages').find(p => p.widgets?.includes(widget.id));
+  const mod = page && store.all('modules').find(m => m.pages?.includes(page.id));
+  if (mod) {
+    const inMod = all.filter(w => mod.pages.some(pid => store.get('pages', pid)?.widgets?.includes(w.id)));
+    if (inMod.length) return inMod;
+  }
+  return all;
+}
+
+/**
+ * Per-Class study-skill points from card mastery: one point per Class (subject),
+ * y = recall % (0–100), with per-Unit recall as complex-particle sub-values (the
+ * buds on each petal). Recall = average (1 − struggle) over *seen* real cards;
+ * unseen cards are ignored, a never-studied class shows recall 0 (a Seed bud).
+ * @returns {{x:string,label:string,y:number,particles:{value01:number}[],seen:number}[]}
+ */
+export function studySkillPoints(widget) {
+  const classes = new Map(); // key → { name, sum, seen, units:Map }
+  for (const fc of studyFlashcards(widget)) {
+    M.ensureModel(fc);
+    const all = M.allNodes(fc);
+    for (const deck of all.filter(n => n.kind === 'deck' && !n.auto)) {
+      const unit = all.find(n => n.id === deck.parentId);
+      const cls = unit && all.find(n => n.id === unit.parentId);
+      const cKey = cls?.id || unit?.id || deck.id, cName = cls?.name || unit?.name || deck.name;
+      let C = classes.get(cKey); if (!C) classes.set(cKey, C = { name: cName, sum: 0, seen: 0, units: new Map() });
+      const uKey = unit?.id || deck.id, uName = unit?.name || deck.name;
+      let U = C.units.get(uKey); if (!U) C.units.set(uKey, U = { name: uName, sum: 0, seen: 0 });
+      for (const c of M.deckCards(fc, deck)) {
+        const s = struggle(masteryFor(c.real));
+        if (s < 0) continue; // unseen
+        const recall = 1 - s; C.sum += recall; C.seen++; U.sum += recall; U.seen++;
+      }
+    }
+  }
+  const points = [...classes.values()].map(C => ({
+    x: C.name, label: C.name, seen: C.seen,
+    y: Math.round((C.seen ? C.sum / C.seen : 0) * 100),
+    particles: [...C.units.values()].filter(u => u.seen).map(u => ({ value01: u.sum / u.seen }))
+  }));
+  return points.sort((a, b) => b.y - a.y); // strongest subjects lead
+}
+
 /** Earliest object date across the workspace (for range 'all'). */
 function earliestDate() {
   let min = todayStr();
@@ -136,7 +188,7 @@ function earliestDate() {
  * Resolve a graph's datasets into plottable points.
  * @returns {{datasets:{id,name,color,points:{x,y,r,label,date}[],now:number}[], segments:{label,value,color,id}[]}}
  */
-export function resolveGraph(gdef, theme) {
+export function resolveGraph(gdef, theme, widget) {
   normalizeGraph(gdef);
   const days = rangeDays(gdef.range);
   const today = todayStr();
@@ -147,6 +199,11 @@ export function resolveGraph(gdef, theme) {
     const src = ds.source === 'link' && ds.link ? store.get('widgets', ds.link.sourceWidgetId) : null;
     const name = ds.name || src?.name || `Data ${i + 1}`;
     let points = [], now = 0;
+    if (ds.source === 'study') {
+      points = studySkillPoints(widget).map(p => ({ x: p.x, label: p.label, y: p.y, particles: p.particles }));
+      now = points[0]?.y || 0;
+      return { id: ds.id, name: ds.name || 'Study skills', color, points, now };
+    }
     if (ds.source === 'link' && ds.link) {
       const series = values.getSeries(ds.link, from, today);
       points = series.map(p => ({ x: p.date, date: p.date, y: p.value ?? 0, label: p.date.slice(5) }));
@@ -166,11 +223,13 @@ export function resolveGraph(gdef, theme) {
     for (const d of datasets) d.points = d.points.map((p, j) => ({ ...p, x: j + 1, label: String(j + 1) }));
   }
 
-  // Part-to-whole segments: one dataset with multiple points → its points;
-  // otherwise each dataset contributes a single segment (its `now`).
+  // Part-to-whole segments: one dataset with multiple points (or any point that
+  // carries complex particles, e.g. study skills) → its points; otherwise each
+  // dataset contributes a single segment (its `now`).
   let segments;
-  if (datasets.length === 1 && datasets[0].points.length > 1) {
-    segments = datasets[0].points.map((p, j) => ({ id: `${datasets[0].id}:${j}`, label: p.label || `#${j + 1}`, value: Math.max(0, p.y), color: datasetColor(j, theme) }));
+  const solo = datasets.length === 1 ? datasets[0] : null;
+  if (solo && (solo.points.length > 1 || solo.points.some(p => p.particles))) {
+    segments = solo.points.map((p, j) => ({ id: `${solo.id}:${j}`, label: p.label || `#${j + 1}`, value: Math.max(0, p.y), color: datasetColor(j, theme), particles: p.particles }));
   } else {
     segments = datasets.map(d => ({ id: d.id, label: d.name, value: Math.max(0, d.now), color: d.color }));
   }

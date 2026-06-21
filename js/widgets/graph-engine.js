@@ -438,10 +438,12 @@ function mekko(g, p, hits, prog) {
 function flower(g, p, hits, t) {
   const { segments, theme, gdef, W, H, big, reduced, selected } = p;
   const cx = W / 2, cy = H / 2 + 6, radius = Math.min(W, H) / 2 - (big ? 40 : 26);
-  const maxV = Math.max(1, ...segments.map(s => s.value));
+  // Absolute scale (study skills): petal length = recall % of a fixed max, so an
+  // 80% subject reads as 80% — not relative to the strongest petal.
+  const maxV = gdef.absoluteScale ? (gdef.scaleMax || 100) : Math.max(1, ...segments.map(s => s.value));
   const res = drawFlower(g, {
     cx, cy, radius,
-    petals: segments.map((s, i) => ({ label: s.label, value01: s.value / maxV, color: s.color, lifted: selected?.i === i })),
+    petals: segments.map((s, i) => ({ label: s.label, value01: s.value / maxV, color: s.color, lifted: selected?.i === i, particles: s.particles })),
     t, rotation: (gdef.rotationDeg || 0) * Math.PI / 180, theme, showLabels: W >= 480 || big, reducedMotion: reduced
   });
   res.petalHits.forEach((h, i) => hits.push({ i, kind: 'seg', test: (x, y) => { const dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy); if (r > h.maxR + 4 || r < 6) return false; let da = Math.atan2(dy, dx) - h.angle; while (da > Math.PI) da -= TAU; while (da < -Math.PI) da += TAU; return Math.abs(da) < h.halfWidth; } }));

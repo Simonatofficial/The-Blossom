@@ -41,6 +41,13 @@ export const STUDY_PRESET = {
     {
       name: 'Progress', icon: 'bar-chart',
       widgets: [
+        { type: 'graph', name: 'Study skills', config: { graphs: [{
+          id: 'g_skills', kind: 'flower', range: 'all', absoluteScale: true, scaleMax: 100,
+          xAxis: { type: 'category', grain: null, period: 0, label: '' },
+          yAxis: { dim: 'score', label: 'Recall', unit: '%' },
+          legend: false, valueLabels: false, gridlines: false, rotationDeg: 0,
+          datasets: [{ id: 'd_skills', name: 'Study skills', source: 'study', points: [] }]
+        }] } },
         { type: 'graph', name: 'Cards reviewed', config: { graphs: [{
           id: 'g_rev', kind: 'bar', range: '30d',
           xAxis: { type: 'time', grain: 'week', period: 0, label: '' },
