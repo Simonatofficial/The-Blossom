@@ -3,13 +3,13 @@
 > The fast resume point. Read this + `CLAUDE.md` to know where we are without re-scanning the tree.
 > Keep it current per `docs/00-claude-framework.md` §4. Newest first.
 
-**Last updated:** 2026-06-20 · **Latest pushed version:** v105
+**Last updated:** 2026-06-20 · **Latest pushed version:** v106
 
 ---
 
 ## Now (in progress)
 
-- **Living Layout Phase 3 — modules become worlds** (`docs/15` §5). Goal: a module sets ambient identity every page/widget inherits, plus world signatures. Approach: apply module identity at the chrome level (body/shell) so tabs+FAB+masthead inherit it, page identity stays on `.page-scope`; resolve identity non-destructively from `presetKey` so existing preset modules light up without a migration. Deliverables: tab-bar personality (`--feel-accent-shape`: underline/rail/bloom/halo), opt-in masthead, module-switch entrance wisp (reduced-motion instant), + `identity` blocks on the six preset modules (§5.3 table). Done-when: loading two different preset modules differ in density/corners/texture/tab-indicator/motion; switching is calm + reversible.
+- **Living Layout Phase 4 — control life** (`docs/15` §6). Goal: the FAB breathes and the Module/Page/Widget creation paths read at a glance. Deliverables: (6.1) one visual grammar — fixed icon + role colour for Module (accent, "world"), Page (highlight, "room"), Widget (success-tint, "plant"), used in the FAB items + nav panels; (6.2) FAB items fan on a subtle arc with grammar icon + one-word label + role tint, a press halo, a scrim glow near the thumb, and an idle breath gated to Liveliness=Lively (off by default; the dial itself is Phase 5); (6.3) settings/chrome hover bloom + shared idle/awake rhythm. Done-when: the three creation paths are instantly legible; FAB feels alive without demanding; reduced-motion is still + usable.
 
 ## Next (queued, in order)
 
@@ -19,6 +19,7 @@
 
 ## Done (recent, newest first)
 
+- v106 — ui: **Phase 3 — module identity, modules become worlds (Living Layout)** — module identity rides on `<body>` (chrome inherits world feel); page identity layers on `.page-scope`. Tab-bar personality via `data-accent-shape` (underline/rail/bloom/halo); module entrance wisp on genuine switch (non-blocking, reduced-motion off); opt-in masthead (off by default). Six preset worlds baked at instantiation (`PRESET_IDENTITIES`/`PRESET_HOME_LAYOUTS`); landing page opens in its archetype. Existing modules stay neutral (guardrail §9). Verified live: D&D DM bakes roomy/rail/parchment/drifting + split landing + wisp; cleanup left user data intact.
 - v105 — ui: **Phase 2 — page layout archetypes & entrance (Living Layout)** — pages pick a structural archetype via `data-layout` on `.page-scope`: masonry (default), stream (reading column), hearth (full-width hero + grid; hero self-heals), gallery (equal tiles), split (2fr/1fr). All collapse to one column <600px. Entrance: widgets stagger-rise on genuine page switches only (reuses v102 samePage signal; reduced-motion at rest). Page identity merges over module identity; grid gap follows `--feel-gap`; opt-in page header band. Layout picker in Pages panel menu. Verified live: 4 archetypes resolve, stagger 0→180ms, same-page no re-stagger, menu chain persists, no errors.
 - v104 — ui: **Phase 1 — widget materials & signatures (Living Layout)** — each widget type wears a *material* (paper/glass/slate/card/canvas), applied auto by type + overridable per instance, themed through the cascade. Silhouette (radius/frame per material), signatures (type-chip on every card, paper watermark), header voice (serif paper, upper-case glass micro-label, glass accent-rail). Cards now read structure from `--feel-*` (defaults unchanged) + a texture `::after` layer. Per-widget Material row in settings (decision #10). Verified: glass/card/paper distinct on Blossom home, slate via override applies+reverts, 360px clean, no errors.
 - v103 — fx: **Phase 0 — feel-token foundation (Living Layout)** — `css/identity.css` (feel-token `:root` defaults + `--tex-*` gradient library + cozy/roomy/compact `data-feel` bundles) + `js/fx/identity.js` resolver (`applyScopedIdentity`/`clearScopedIdentity`) wired onto both the grid page-scope and the routed widget-page. Zero visible change — tokens resolve to today's values. Texture subtlety is a feel token (`--feel-texture-opacity`); gradients single-sourced in CSS. Substrate for Phase 1–5. **Verified** (Opus rebuild): resolver proven to emit correct tokens for cozy/overrides and fully reset on clear; `:root` defaults == today; no console errors; SW precache updated + cache bumped v102→v103 (offline-safe). ⚠ Phase 1 (widget materials + signatures) is the first consumer of these tokens.

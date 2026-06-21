@@ -6,10 +6,13 @@ import { icon } from './icons.js';
 import { el } from './components.js';
 import { openModulesPanel, openPagesPanel, openWidgetsPanel } from './navpanels.js';
 
+// One visual grammar for the three levels (docs/15 §6.1): a fixed glyph + role
+// colour so each creation path reads at a glance — Module = world (accent),
+// Page = room/leaf (highlight), Widget = seed/spark (success).
 const ITEMS = [
-  { key: 'modules', label: 'Modules', iconName: 'grid', open: openModulesPanel },
-  { key: 'pages', label: 'Pages', iconName: 'note', open: openPagesPanel },
-  { key: 'widgets', label: 'Widgets', iconName: 'layers', open: openWidgetsPanel }
+  { key: 'modules', label: 'Modules', iconName: 'globe', role: 'module', open: openModulesPanel },
+  { key: 'pages', label: 'Pages', iconName: 'leaf', role: 'page', open: openPagesPanel },
+  { key: 'widgets', label: 'Widgets', iconName: 'sprout', role: 'widget', open: openWidgetsPanel }
 ];
 
 let open = false;
@@ -20,7 +23,7 @@ export function initFab() {
   const scrim = el('<div class="fab-scrim" aria-hidden="true"></div>');
   const menu = el('<div class="fab-menu" role="menu" aria-label="Navigate"></div>');
   for (const item of ITEMS) {
-    const b = el(`<button class="fab-item" role="menuitem"><span class="fab-item-label"></span><span class="fab-item-ic">${icon(item.iconName, 20)}</span></button>`);
+    const b = el(`<button class="fab-item" role="menuitem" data-role="${item.role}"><span class="fab-item-label"></span><span class="fab-item-ic">${icon(item.iconName, 20)}</span></button>`);
     b.querySelector('.fab-item-label').textContent = item.label;
     b.onclick = () => { setOpen(false); item.open(); };
     menu.appendChild(b);

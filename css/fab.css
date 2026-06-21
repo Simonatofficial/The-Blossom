@@ -13,6 +13,12 @@
   transition: opacity var(--t-med) var(--ease), visibility var(--t-med) var(--ease);
 }
 #fab-root.open .fab-scrim { opacity: 1; visibility: visible; pointer-events: auto; }
+/* Phase 4: when open, the scrim warms with a soft accent glow near the thumb,
+   so opening reads as inviting rather than a flat dark slab (§6.2). */
+#fab-root.open .fab-scrim {
+  background: radial-gradient(circle at calc(100% - 46px) calc(100% - 100px),
+    color-mix(in srgb, var(--accent) 20%, transparent), rgba(0, 0, 0, 0.22) 240px);
+}
 
 #fab {
   position: absolute;
@@ -31,10 +37,32 @@
   box-shadow: 0 4px 16px var(--shadow), 0 0 0 1px var(--accent-soft);
   transition: transform var(--t-med) var(--ease), filter var(--t-fast) var(--ease);
 }
+/* press halo (Phase 4 §6.2): an accent bloom on press and while open — alive,
+   not busy. transform/opacity only; reduced-motion keeps it (it's not looping). */
+#fab::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow), transparent 70%);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity var(--t-med) var(--ease), transform var(--t-med) var(--ease);
+  pointer-events: none;
+}
+#fab:active::after, #fab-root.open #fab::after { opacity: 0.85; transform: scale(1.5); }
 #fab .icon { transition: transform var(--t-med) var(--ease); }
 #fab:hover { filter: brightness(1.06); }
 #fab:active { transform: scale(0.94); }
 #fab-root.open #fab .icon { transform: rotate(45deg); }   /* + morphs to × */
+
+/* idle breath (Phase 4 §6.2, decision #8): a ≤2% pulse, but only at the
+   Liveliness 'Lively' setting (Phase 5 sets data-liveliness). Off by default
+   and under reduced-motion — no unprompted motion. */
+@keyframes fab-breath { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+body[data-liveliness="lively"] #fab-root:not(.open) #fab { animation: fab-breath 6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { #fab { animation: none !important; } }
 
 .fab-menu {
   position: absolute;
@@ -58,10 +86,13 @@
   transform: translateY(14px) scale(0.92);
   transition: opacity var(--t-med) var(--ease), transform var(--t-med) var(--ease);
 }
-#fab-root.open .fab-item { opacity: 1; transform: none; pointer-events: auto; }
-#fab-root.open .fab-item:nth-child(3) { transition-delay: 0ms; }   /* nearest the thumb appears first */
-#fab-root.open .fab-item:nth-child(2) { transition-delay: 45ms; }
-#fab-root.open .fab-item:nth-child(1) { transition-delay: 90ms; }
+/* the three items fan out on a subtle arc (Phase 4 §6.2): the middle bulges
+   slightly so the set reads as a gentle curve, not a straight stack. The nearest
+   the thumb appears first. */
+#fab-root.open .fab-item { opacity: 1; pointer-events: auto; }
+#fab-root.open .fab-item:nth-child(3) { transition-delay: 0ms;  transform: translateX(-2px); }
+#fab-root.open .fab-item:nth-child(2) { transition-delay: 45ms; transform: translateX(-9px); }
+#fab-root.open .fab-item:nth-child(1) { transition-delay: 90ms; transform: translateX(-4px); }
 .fab-item-label {
   font-size: 0.82rem;
   color: var(--text);
@@ -87,6 +118,14 @@
   transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
 }
 .fab-item:hover .fab-item-ic { border-color: var(--accent); box-shadow: 0 0 12px var(--glow); }
+
+/* role colours (Phase 4 §6.1): each level's disc carries its role tint, so the
+   grammar — Module/Page/Widget — is legible by colour as well as glyph. */
+.fab-item[data-role="module"] .fab-item-ic { color: var(--accent);    background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.fab-item[data-role="page"]   .fab-item-ic { color: var(--highlight); background: color-mix(in srgb, var(--highlight) 12%, var(--surface)); }
+.fab-item[data-role="widget"] .fab-item-ic { color: var(--success);   background: color-mix(in srgb, var(--success) 14%, var(--surface)); }
+.fab-item[data-role="page"]:hover   .fab-item-ic { border-color: var(--highlight); }
+.fab-item[data-role="widget"]:hover .fab-item-ic { border-color: var(--success); }
 
 /* ---- nav panels (Modules / Pages / Widgets) ---- */
 .nav-list { display: flex; flex-direction: column; gap: 3px; }
