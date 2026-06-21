@@ -3,13 +3,13 @@
 > The fast resume point. Read this + `CLAUDE.md` to know where we are without re-scanning the tree.
 > Keep it current per `docs/00-claude-framework.md` §4. Newest first.
 
-**Last updated:** 2026-06-21 · **Latest pushed version:** v113
+**Last updated:** 2026-06-21 · **Latest pushed version:** v114
 
 ---
 
 ## Now (in progress)
 
-- **Study overhaul (docs/16) — 5a–5d shipped (v111–v113); 5e queued.** Forks locked: study-skill = per-Class auto from mastery; quiz time-graph on Progress page; Mixed+Adaptive default ON. ⏸ next: **5e struggle Study Guide** — an enhanced "Trouble Terms" smart set (Learn→Output→Master over `needsWorkCards` from flashcards-focus.js, each card with its Tip), surfaced clearly in the Flashcards view; NOT a new widget (prior decision). Older note-list (counts/tip/mastery/per-part/bookmarks) already shipped v89–v92 — don't rebuild.
+- *(Nothing actively in progress — **Study overhaul (docs/16) COMPLETE**: 5a–5e shipped v111–v114. Optional future: §5e "Output" = a quiz over the arbitrary struggle set (deferred, needs quiz-over-card-set). Pull the next backlog item below into Now when starting.)*
 
 ## Next (queued, in order)
 
@@ -20,6 +20,8 @@
 
 ## Done (recent, newest first)
 
+- **Study overhaul (docs/16) — COMPLETE** (v111–v114): adaptive+mixed sessions → Study Skills flower → time-of-day quiz graph + recall-by-deck → struggle Study Guide. Anti-burnout study loop (garden metaphor, BLOOM method). Per-version entries below.
+- v114 — study: **5e struggle Study Guide (docs/16 §5e)** — a prominent "Study Guide" panel atop the Flashcards view (`renderStudyGuide` in flashcards-focus.js), shown once you have ≥3 weak cards: one tap runs an adaptive guided session over just the terms you keep missing, with each card's **Tip on the back** so it guides, not just tests; names the weak areas it covers. The old generic "Needs work" row now only appears for <3 weak cards (the guide supersedes it); per-area drill-downs stay. No new widget (per decision). "Output" (quiz over the struggle set) deferred. Verified: guide shows for 4 weak Spanish verbs, lists areas, tips render on back, no errors.
 - v113 — study: **5c time-of-day Quiz Scores graph + 5d Recall-by-deck dropdowns (docs/16 §5c/§5d)** — 5c: new `source:'quizscores'` dataset (`quizScorePoints()` in graph-data.js) plots one scatter dot per quiz result at its `createdAt` time-of-day (X = 0–24h via `HOUR_TICKS`), Y = score %, dot size = question count; scatter renderer gained optional `xDomain`/`yDomain` + `xTicks` + r-based sizing; second tap → the Quiz widget. Replaced the Progress page's daily line graph with this; "Quiz scores by time of day (auto)" dataset option added. 5d: new `quiz-breakdown.js` `renderRecallByDeck()` builds a collapsible Class › Unit › Topic tree from every result's per-question `context` → right/total + % per level (worst-first, drill-down, colored bars); shown below History in the Quiz internal. Verified: 3 quizzes plot at 9:15a/2:30p/9:00p with correct %, breakdown aggregates (Biology 3/6, Genetics 1/3, Cells 2/3), both render clean, registry 59.
 - v112 — study: **5b Study Skills flower (docs/16 §5b)** — a Flower graph whose petals are your subjects: new `source:'study'` dataset in graph-data.js (`studySkillPoints(widget)` aggregates card mastery per Class → recall %, with per-Unit recall as complex-particle *buds*; scopes to the graph's module, else workspace). Threaded complex particles through `resolveGraph` → segments → flower petals (renderer already supported them); flower gained `absoluteScale`/`scaleMax` so an 80% subject reads as 80% (not relative to the strongest). "Study skills (auto)" dataset option in graph settings; baked onto the Study preset's Progress page. Verified: per-Class recall + Unit buds correct (Biology 60%, Cells 92% / Genetics 13%), single & multi class both keep buds, render path no errors, registry 59 intact.
 - v111 — study: **5a Adaptive + Mixed sessions (docs/16 §2, anti-burnout)** — new shared `adaptiveOrder(items, scoreOf)` in study-mastery.js (warm up on knowns → weave weak un-clustered → reserve knowns to end on a win). Quiz: `order:'adaptive'` (default) reorders the chosen set; `mixedTypes` (default ON) rotates a shuffled MC/T-F/fill/dropdown cycle so no type runs long — directly fixes "repetitive and basic"; Mixed chip + Smart order + hints in setup; quiz-sets persist `mixedTypes`. Flashcards: `order:'adaptive'` ("Smart", now the sheet default) via `bucketScore`. **Also:** wrote `docs/16-study-overhaul.md` (garden metaphor, 5 anti-burnout laws, BLOOM loop, §5 build specs) + indexed it. Verified: registry 59 intact, adaptive bookends KK…KK, mixed shows all 4 types, single stays mc, no console errors.

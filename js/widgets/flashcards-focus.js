@@ -48,6 +48,29 @@ function weakAreas(widget, all) {
     .sort((x, y) => x.accuracy - y.accuracy);
 }
 
+/** 5e (docs/16): the struggle-based **Study Guide** — a prominent, one-tap
+    guided session over just the terms you keep missing, with each card's Tip
+    shown on the back so it actually *guides*, not just tests. Adaptive order
+    (eases in, ends on a win). Quiet until you've studied enough to have weak
+    spots. Shown above the quieter per-area Focus rows. */
+export function renderStudyGuide(env, all) {
+  const { widget, host } = env;
+  const cards = realCards(widget, all);
+  const needs = needsWorkCards(cards);
+  if (needs.length < 3) return; // not enough struggle to be worth a guide yet
+  const areas = weakAreas(widget, all).slice(0, 3).map(a => a.node.name);
+
+  const panel = el('<div class="panel" style="padding:14px;margin-bottom:12px;border:1px solid var(--accent-soft,transparent)"></div>');
+  panel.appendChild(el(`<div class="row" style="gap:8px;align-items:center;margin-bottom:4px"><span style="color:var(--accent)">${icon('sprout', 18)}</span><strong style="font-size:0.98rem">Study Guide</strong></div>`));
+  const sub = el('<p class="soft" style="font-size:0.82rem;margin:0 0 10px"></p>');
+  sub.textContent = `${needs.length} term${needs.length === 1 ? '' : 's'} to nurture${areas.length ? ` · ${areas.join(' · ')}` : ''}`;
+  panel.appendChild(sub);
+  const go = el(`<button class="btn btn-primary" style="width:100%">${icon('play', 15)} Learn these — with tips</button>`);
+  go.onclick = () => startStudy(env, { label: 'Study Guide', cards: needs.map(c => ({ ...c, result: undefined })), front: ['term'], back: ['definition', 'tip'], order: 'adaptive', startNow: true });
+  panel.appendChild(go);
+  host.appendChild(panel);
+}
+
 /** A5: a dynamic "Bookmarked" study set, shown whenever any card is starred. */
 export function renderBookmarks(env, all) {
   const { widget, host } = env;
@@ -68,7 +91,10 @@ export function renderFocus(env, all) {
 
   const needs = needsWorkCards(cards);
   const areas = weakAreas(widget, all).slice(0, 4);
-  if (!needs.length && !areas.length) return;
+  // ≥3 weak cards are handled by the prominent Study Guide panel (renderStudyGuide);
+  // only surface the small "Needs work" row here when there are too few for a guide.
+  const showNeedsRow = needs.length > 0 && needs.length < 3;
+  if (!showNeedsRow && !areas.length) return;
 
   host.appendChild(el('<h3 class="soft" style="font-size:0.74rem;letter-spacing:.05em;margin:2px 0 6px">FOCUS — WHAT TO WORK ON</h3>'));
 
@@ -83,7 +109,7 @@ export function renderFocus(env, all) {
     host.appendChild(row);
   };
 
-  if (needs.length) {
+  if (showNeedsRow) {
     studyRow('target', 'var(--accent)', 'Needs work', `${needs.length} card${needs.length === 1 ? '' : 's'} you've missed lately`, '', () => needs);
   }
   for (const a of areas) {

@@ -103,6 +103,13 @@ order per §2 (confidence-first, weakness-woven, win-ending).
 
 ## 5. Concrete builds (in recommended order)
 
+> **Status: §5a–§5e all shipped (v111–v114).** Locked decisions: study-skill =
+> each Class/subject auto from mastery; the quiz scores graph lives on the Study
+> Progress page; Mixed + Adaptive default ON; the Study Guide is an enhanced
+> smart set, not a new widget. *Future:* §5e "Output" (a quiz over the arbitrary
+> struggle set) is deferred — it needs quiz-over-card-set + result hosting, a
+> separate feature.
+
 Each is small, reuses existing engines, and is independently shippable.
 
 ### 5a. Mixed / adaptive session mode  *(biggest anti-burnout win)*
