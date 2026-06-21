@@ -217,11 +217,8 @@
 /* page content stops stretching edge-to-edge on wide screens */
 .page-scope { max-width: 1180px; margin-inline: auto; }
 
-/* ---- bespoke widget designs (replacing the generic "materials" pass) ----
-   Each widget type earns its own look — shape, surface, rhythm, accents — under
-   its .<type>-card class, rather than a one-size texture/border/font treatment.
-   See the section near the end of this file. The base .widget-card stays a clean,
-   uniform sheet; bespoke rules layer on top. */
+/* Widget cards are a clean, uniform sheet — per-widget body styles live in each
+   widget's own .<type>-card section below; no global texture/border/font layer. */
 
 /* ---- celebration bloom (docs/07) ---- */
 @keyframes bloom-petal {
@@ -568,29 +565,9 @@
 .goal-widget .g-seed { position: absolute; color: var(--accent); }
 .goal-widget .g-pct { font-size: 1.6rem; font-weight: 600; }
 
-/* ---- Market widget — bespoke: a clean little market stall ----
-   A striped canopy under the header (the awning) and the coins resting on a
-   soft counter shelf. Recognisable, warm, never gaudy. */
-.widget-card.market-card { text-align: center; }
-.widget-card.market-card > .widget-head {
-  border-bottom: 3px solid transparent;
-  border-image: repeating-linear-gradient(90deg,
-      color-mix(in srgb, var(--accent) 48%, transparent) 0 9px,
-      color-mix(in srgb, var(--highlight) 40%, transparent) 9px 18px) 3;
-}
-.widget-card.market-card .widget-body { padding-top: 12px; }
-.market-card .m-coins {
-  display: inline-flex;
-  gap: 16px;
-  padding: 9px 16px;
-  border-radius: 13px;
-  background: color-mix(in srgb, var(--surface-alt) 65%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent),
-              0 1px 3px color-mix(in srgb, #000 18%, transparent);
-}
-
+/* ---- Market widget ---- */
 .m-coins { display: flex; gap: 14px; justify-content: center; }
-.m-coin { display: inline-flex; align-items: center; gap: 4px; font-size: 1rem; }
+.m-coin { display: inline-flex; align-items: center; gap: 4px; font-size: 0.9rem; }
 .m-coin b { font-variant-numeric: tabular-nums; }
 
 /* ---- Graph widget ---- */
