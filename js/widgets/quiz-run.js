@@ -12,6 +12,7 @@ import { gradeQuestion, correctText, givenText } from './quiz-build.js';
 import { recordOutcome } from './study-mastery.js';
 import { isBookmarked, toggleBookmark } from './flashcards-model.js';
 import { breakReason, showBreakNudge } from './study-break.js';
+import { makeCombo } from './study-combo.js';
 
 const STATUS_COLOR = { correct: 'var(--success)', semi: 'var(--highlight)', incorrect: 'var(--warn)' };
 
@@ -39,12 +40,13 @@ export function runQuiz(env, questions, cfg, resume) {
 
   const wrap = el('<div class="qz-run"></div>');
   host.innerHTML = ''; host.appendChild(wrap);
+  const combo = makeCombo(wrap);
 
   const head = () => {
     const q = questions[i];
     return `
     <div class="row-between" style="margin-bottom:8px">
-      <span class="soft" style="font-size:0.78rem">${label} · ${i + 1} / ${questions.length}</span>
+      <span class="row" style="gap:8px;align-items:center"><span class="soft" style="font-size:0.78rem">${label} · ${i + 1} / ${questions.length}</span>${combo.count() >= 2 ? `<span class="study-combo-chip">${icon('sprout', 12)} ${combo.count()}</span>` : ''}</span>
       <span class="row" style="gap:4px">${q && q.real ? `<button class="btn-icon qz-bm" title="Bookmark" style="${isBookmarked(q.real) ? 'color:var(--highlight)' : ''}">${icon('star', 15)}</button>` : ''}<button class="btn-icon qz-pause" title="Pause">${icon('pause', 15)}</button><button class="btn-icon qz-quit" title="Close">${icon('x', 15)}</button></span>
     </div>
     <div class="fc-progress"><span style="width:${Math.round(i / questions.length * 100)}%"></span></div>`;
@@ -64,6 +66,7 @@ export function runQuiz(env, questions, cfg, resume) {
     const commit = (given) => {
       const status = gradeQuestion(q, given);
       record.push({ q, given, status });
+      combo.hit(status === 'correct'); // earned glow on a run of correct answers
       const advance = () => {
         i++; snapshot();
         if (i >= questions.length) return finish();
@@ -126,7 +129,7 @@ export function runQuiz(env, questions, cfg, resume) {
   };
 
   const finish = () => {
-    clearSnapshot();
+    clearSnapshot(); combo.clear();
     for (const r of record) recordOutcome(r.q.real, r.status === 'semi' ? 'partial' : r.status); // A2: weak-spot tracking
     const score = record.filter(r => r.status === 'correct').length;
     const semi = record.filter(r => r.status === 'semi').length;

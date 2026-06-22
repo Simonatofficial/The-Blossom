@@ -3,7 +3,7 @@
 > The fast resume point. Read this + `CLAUDE.md` to know where we are without re-scanning the tree.
 > Keep it current per `docs/00-claude-framework.md` §4. Newest first.
 
-**Last updated:** 2026-06-21 · **Latest pushed version:** v116
+**Last updated:** 2026-06-21 · **Latest pushed version:** v117
 
 ---
 
@@ -20,6 +20,7 @@
 
 ## Done (recent, newest first)
 
+- v117 — study: **Combo glow (docs/16 §3, earned delight)** — new `study-combo.js` (`makeCombo(container)`: `hit(correct)` grows a capped glow level on a run of correct/known answers, a miss fades it to nothing; `--combo` CSS var drives a soft `--glow` box-shadow that eases over 320ms). Applied to the stable session container (`.fc-stage`/`.qz-run`) in both runtimes + a quiet "🌱 N" streak chip at ≥2 in the header. Scales with the Liveliness dial (Still/reduced-motion = off, Lively = ×1.3); cleared at results/finish. Verified: glow accumulates 0.34→0.68→1.02, resets on miss, lively brighter (1.33), Still off, registry 59, no errors.
 - v116 — study: **Quick 5 + break nudge (docs/16 §2, anti-burnout laws #1 & #5)** — new `study-break.js` (`breakReason(count, recentMisses)` → 'rough' at ≥4-of-last-5 missed, else 'long' at ≥12; `showBreakNudge()` gentle dismissible "rest your petals?" card). Wired into both runtimes: flashcards (`runSession` tracks `recent`/`breakOffered`, offers once after a grade) + quiz (`runQuiz` `advance` uses `record.slice(-5)`); Take a break = snapshot + return (resumable), Keep going = continue. **Quick 5:** one-tap tiny session — Flashcards `renderQuick5` (weak cards first via `needsWorkCards`, topped to 5, adaptive, startNow) + Quiz "Quick 5" button (selected decks or all, `count:5`). Verified: breakReason logic, nudge renders, Quick 5 row present, quiz Quick 5 builds 5, registry 59, no console errors.
 - v115 — nav: **module rail redesign (docs/13 §3b)** — fixed **3-icon window with the active module always in the centre slot**, so the bar never resizes and the prev/next arrows hold their exact position as you page through (verified: prevX/nextX constant across modules; off-list ends render an empty `.rail-slot` placeholder). Icon-only (name → tooltip/aria-label; dropped `.rail-mod-name`). Swipe now works **anywhere across the top chrome band** (incl. the empty screen edges), scoped to clearly-horizontal gestures starting in the band — guards verified: below-band & vertical swipes ignored, buttons keep their taps (`e.target?.closest?`). `shell.js` renderRail + attachRailSwipe; `.rail-mod`/`.rail-slot` CSS now fixed 34px squares.
 - **Study overhaul (docs/16) — COMPLETE** (v111–v114): adaptive+mixed sessions → Study Skills flower → time-of-day quiz graph + recall-by-deck → struggle Study Guide. Anti-burnout study loop (garden metaphor, BLOOM method). Per-version entries below.

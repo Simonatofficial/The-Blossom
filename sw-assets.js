@@ -154,6 +154,7 @@ self.SW_ASSETS = [
   './js/widgets/spellbook.js',
   './js/widgets/statblock.js',
   './js/widgets/study-break.js',
+  './js/widgets/study-combo.js',
   './js/widgets/study-mastery.js',
   './js/widgets/study-notes.js',
   './js/widgets/tabletop-build.js',

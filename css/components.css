@@ -61,6 +61,12 @@
 }
 @media (hover: hover) { .rail-mod:not(.active):hover { color: var(--text); transform: translateY(-1px); } }
 
+/* ---- study combo glow (docs/16 §3 — earned delight) ---- */
+.study-combo { border-radius: 16px; transition: box-shadow 320ms var(--ease); }
+.study-combo.glow { box-shadow: 0 0 calc(10px + var(--combo, 0) * 26px) var(--glow); }
+.study-combo-chip { color: var(--accent); display: inline-flex; align-items: center; gap: 3px; font-size: 0.78rem; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .study-combo { transition: none; } .study-combo.glow { box-shadow: none; } }
+
 /* ---- build wizard (docs/13 §3c) ---- */
 .bw-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: background var(--t-fast) var(--ease); }
 .bw-dot.done { background: var(--accent-soft); }

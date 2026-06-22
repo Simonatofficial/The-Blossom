@@ -11,6 +11,7 @@ import { el, openDrawer, seg, toast, confirmDialog, promptText } from '../ui/com
 import { createObject, saveObject, bloomBurst } from './base.js';
 import * as M from './flashcards-model.js';
 import { breakReason, showBreakNudge } from './study-break.js';
+import { makeCombo } from './study-combo.js';
 
 const ORDER_OPTS = [['adaptive', 'Smart'], ['inorder', 'In order'], ['random', 'Random'], ['hardest', 'Hardest first'], ['easiest', 'Easiest first']];
 
@@ -106,13 +107,14 @@ function runSession(env, opts) {
 
   const stage = el('<div class="fc-stage"></div>');
   host.innerHTML = ''; host.appendChild(stage);
+  const combo = makeCombo(stage);
 
   const face = () => {
     const card = queue[i];
     const f = M.cardFaces(card, opts.front, opts.back);
     stage.innerHTML = `
       <div class="row-between" style="margin-bottom:8px">
-        <span class="soft" style="font-size:0.78rem">${opts.label || 'Study'} · ${i + 1} / ${queue.length}</span>
+        <span class="row" style="gap:8px;align-items:center"><span class="soft" style="font-size:0.78rem">${opts.label || 'Study'} · ${i + 1} / ${queue.length}</span>${combo.count() >= 2 ? `<span class="study-combo-chip">${icon('sprout', 12)} ${combo.count()}</span>` : ''}</span>
         <span class="row" style="gap:4px">${card.real ? `<button class="btn-icon fc-bm" title="Bookmark" style="${M.isBookmarked(card.real) ? 'color:var(--highlight)' : ''}">${icon('star', 15)}</button>` : ''}<button class="btn-icon fc-pause" title="Pause">${icon('pause', 15)}</button><button class="btn-icon fc-close" title="Close">${icon('x', 15)}</button></span>
       </div>
       <div class="fc-progress"><span style="width:${Math.round(i / queue.length * 100)}%"></span></div>
@@ -132,6 +134,7 @@ function runSession(env, opts) {
       const g = b.dataset.g;
       M.gradeCard(widget, card, g); card.result = g; tally[g]++;
       recent.push(g); if (recent.length > 5) recent.shift();
+      combo.hit(g === 'good' || g === 'easy'); // earned glow on a run of knowns
       flipped = false; i++;
       if (i >= queue.length) { snapshot(); return results(); }
       snapshot();
@@ -143,7 +146,7 @@ function runSession(env, opts) {
   };
 
   const results = () => {
-    clearSnapshot();
+    clearSnapshot(); combo.clear();
     stage.innerHTML = `<div class="empty-state">${icon('sprout', 32)}<h3 style="margin:8px 0 4px">The garden grew</h3>
       <p>You tended ${queue.length} card${queue.length === 1 ? '' : 's'} — ${tally.hard} hard · ${tally.good} good · ${tally.easy} easy.</p></div>`;
     const parts = partBreakdown(queue);
