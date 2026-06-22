@@ -12,6 +12,8 @@ import { objectsOf, todayStr, fmtDate } from './base.js';
 import { FIELDS, FIELD_LABEL, sourceFcIds, quizCards, scopeForest, buildQuestions } from './quiz-build.js';
 import { runQuiz, resumeQuiz, review } from './quiz-run.js';
 import { renderRecallByDeck } from './quiz-breakdown.js';
+import { isBookmarked } from './flashcards-model.js';
+import { masteryFor, level } from './study-mastery.js';
 
 const TYPES = [['mc', 'Multiple choice'], ['truefalse', 'True / False'], ['fill', 'Fill the blank'], ['dropdown', 'Dropdown']];
 
@@ -59,10 +61,12 @@ registry.register({
     const env = { widget, ctx, host, render: () => setup(), canRetry: true };
 
     const cardsForDecks = (deckIds) => { const set = new Set(deckIds); return quizCards(widget).filter(c => set.has(c.deckId)); };
-    const begin = (deckIds, conf, label) => {
-      const cards = cardsForDecks(deckIds);
-      if (!cards.length) { toast('No cards in the selected decks.', 'info'); return; }
-      const qs = buildQuestions(conf, cards);
+    const begin = (deckIds, conf, label) => beginCards(cardsForDecks(deckIds), conf, label, 'No cards in the selected decks.');
+    // Quiz a card set directly (weak terms, bookmarks) — distractors still draw
+    // from the full pool so options stay plausible.
+    const beginCards = (cardSet, conf, label, emptyMsg) => {
+      if (!cardSet.length) { toast(emptyMsg || 'No cards here yet.', 'info'); return; }
+      const qs = buildQuestions(conf, cardSet, quizCards(widget)); // distractors draw from the full pool
       if (!qs.length) { toast('Could not build questions — try different fields.', 'info'); return; }
       runQuiz(env, qs, { ...conf, label: label || 'Quiz' });
     };
@@ -106,6 +110,22 @@ registry.register({
           host.appendChild(row);
         }
       }
+
+      // smart launchers: quiz your weak terms (BLOOM Output) + bookmarked questions
+      const focusRow = (iconName, color, title, sub, cardSet, label) => {
+        const row = el(`<button class="list-item fc-set"><span style="color:${color}">${icon(iconName, 16)}</span><span class="li-main"><span class="li-title"></span><span class="li-sub"></span></span><span class="btn-icon set-go" title="Start">${icon('play', 15)}</span></button>`);
+        row.querySelector('.li-title').textContent = title;
+        row.querySelector('.li-sub').textContent = sub;
+        const go = () => beginCards(cardSet, cfg, label);
+        row.querySelector('.set-go').onclick = (e) => { e.stopPropagation(); go(); };
+        row.onclick = (e) => { if (e.target.closest('.btn-icon')) return; go(); };
+        host.appendChild(row);
+      };
+      const weakCards = cards.filter(c => c.real && ['weak', 'shaky'].includes(level(masteryFor(c.real))));
+      const markedCards = cards.filter(c => c.real && isBookmarked(c.real));
+      if (weakCards.length >= 3 || markedCards.length) host.appendChild(el('<h3 class="soft" style="font-size:0.74rem;letter-spacing:.05em;margin:10px 0 6px">FOCUS</h3>'));
+      if (weakCards.length >= 3) focusRow('target', 'var(--accent)', 'Quiz your weak terms', `${weakCards.length} terms you've been missing`, weakCards, 'Weak terms');
+      if (markedCards.length) focusRow('star', 'var(--highlight)', 'Bookmarked', `${markedCards.length} starred question${markedCards.length === 1 ? '' : 's'}`, markedCards, 'Bookmarked');
 
       // scope picker — the full Class → Section → Unit → … → deck hierarchy, with
       // the Class as the top folder and collapsible groups at every level.

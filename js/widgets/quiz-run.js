@@ -13,6 +13,7 @@ import { recordOutcome } from './study-mastery.js';
 import { isBookmarked, toggleBookmark } from './flashcards-model.js';
 import { breakReason, showBreakNudge } from './study-break.js';
 import { makeCombo } from './study-combo.js';
+import { renderContextBreakdown } from './quiz-breakdown.js';
 
 const STATUS_COLOR = { correct: 'var(--success)', semi: 'var(--highlight)', incorrect: 'var(--warn)' };
 
@@ -153,24 +154,9 @@ export function review(env, data, justFinished) {
   host.appendChild(sum);
   if (justFinished && pct >= 0.7) bloomBurst(sum);
 
-  // A6: per-part % by scope (Class › Unit › Topic) — worst first
-  const parts = new Map();
-  for (const q of data.questions) {
-    const label = q.context || 'Questions';
-    if (!parts.has(label)) parts.set(label, { correct: 0, total: 0 });
-    const g = parts.get(label); g.total++; if (q.status === 'correct') g.correct++;
-  }
-  if (parts.size > 1) {
-    const box = el('<div class="panel" style="padding:12px;margin:0 0 12px"></div>');
-    box.appendChild(el('<h3 class="soft" style="font-size:0.72rem;letter-spacing:.05em;margin:0 0 6px">BY PART</h3>'));
-    for (const [label, g] of [...parts].sort((a, b) => (a[1].correct / a[1].total) - (b[1].correct / b[1].total))) {
-      const ppct = Math.round(g.correct / g.total * 100);
-      const row = el(`<div style="margin-bottom:6px"><div class="row-between" style="font-size:0.82rem;gap:8px"><span class="qz-part-lbl" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span><span class="soft" style="white-space:nowrap">${g.correct}/${g.total} · ${ppct}%</span></div><div class="fc-progress" style="margin-top:3px"><span style="width:${ppct}%"></span></div></div>`);
-      row.querySelector('.qz-part-lbl').textContent = label;
-      box.appendChild(row);
-    }
-    host.appendChild(box);
-  }
+  // §5d: drill-down breakdown — Class › Section › Unit › Topic, % at every level
+  const box = el('<div class="panel" style="padding:12px;margin:0 0 12px"></div>');
+  if (renderContextBreakdown(box, data.questions, { title: 'BREAKDOWN BY PART' })) host.appendChild(box);
 
   const cfg = data.cfg || {};
   const actions = el('<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin:6px 0 12px"></div>');

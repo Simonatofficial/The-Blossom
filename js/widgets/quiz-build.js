@@ -27,13 +27,24 @@ export function quizCards(widget) {
     const fc = store.get('widgets', fcId); if (!fc) continue;
     M.ensureModel(fc);
     const all = M.allNodes(fc);
+    const byId = new Map(all.map(n => [n.id, n]));
+    // Full ancestor name chain (root → deck) for the results breakdown, e.g.
+    // Class › Section › Unit › Topic. The auto Notebook wrapper root is dropped
+    // so Classes lead (mirrors scopeForest).
+    const pathOf = (deck) => {
+      const chain = []; let n = deck;
+      while (n) { chain.unshift(n); n = n.parentId ? byId.get(n.parentId) : null; }
+      if (chain[0]?.auto && !chain[0].parentId && chain.length > 1) chain.shift();
+      return chain.map(x => x.name);
+    };
     for (const deck of all.filter(n => n.kind === 'deck')) {
       const unit = all.find(n => n.id === deck.parentId);
       const cls = unit && all.find(n => n.id === unit.parentId);
+      const path = pathOf(deck);
       for (const c of M.deckCards(fc, deck)) {
         out.push({
           key: `${fcId}:${c.id}`, fcId, real: c.real || null, deckId: deck.id, unitId: unit?.id || null, classId: cls?.id || null,
-          deckName: deck.name, unitName: unit?.name || '', className: cls?.name || '',
+          deckName: deck.name, unitName: unit?.name || '', className: cls?.name || '', path,
           term: c.term, definition: c.definition, details: c.details || [], examples: c.examples || [], tip: c.tip || '', front: c.front, back: c.back
         });
       }
@@ -122,7 +133,8 @@ function distractors(cards, subject, scope, answerFields, limits, want) {
  * Build serializable question descriptors for the selected cards.
  * @returns {object[]} each { id, type, context, qText, ...typeSpecific }
  */
-export function buildQuestions(cfg, cards) {
+export function buildQuestions(cfg, cards, distractorPool) {
+  const dpool = (distractorPool && distractorPool.length) ? distractorPool : cards; // wrong answers can draw from a wider pool than the subjects
   let pool = cfg.order === 'sequential' ? [...cards] : shuffle(cards);
   if (cfg.count) pool = pool.slice(0, cfg.count);
   // Adaptive (docs/16 §2): reorder the chosen set confidence-first, ending on a win.
@@ -138,10 +150,10 @@ export function buildQuestions(cfg, cards) {
   for (const subj of pool) {
     const qText = joinFields(subj, qF, limits), aText = joinFields(subj, aF, limits);
     if (!qText || !aText) continue;
-    const context = [subj.className, subj.unitName, subj.deckName].filter(Boolean).join(' › ');
+    const context = (subj.path && subj.path.length ? subj.path : [subj.className, subj.unitName, subj.deckName]).filter(Boolean).join(' › ');
     const base = { id: subj.key + ':' + out.length, context, qText, real: subj.real || null, fcId: subj.fcId };
     const type = cycle ? cycle[out.length % cycle.length] : cfg.type;
-    out.push(buildOne(type, subj, aText, base, cfg, cards, aF, limits));
+    out.push(buildOne(type, subj, aText, base, cfg, dpool, aF, limits));
   }
   return out;
 }

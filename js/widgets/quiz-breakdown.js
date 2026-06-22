@@ -1,28 +1,27 @@
-/* Quiz breakdown (docs/16 §5d): "Recall by deck" — a collapsible
-   Class › Unit › Topic tree built from every quiz result's per-question
-   `context`, showing right/total + % at each level so you can drill from a
-   whole subject down to the exact topic you're missing. Read-only; worst areas
-   sort first. Lives in the Quiz internal view, below History. */
+/* Quiz breakdown (docs/16 §5d): a collapsible Class › Section › Unit › Topic
+   tree built from quiz questions' `context`, showing right/total + % at each
+   level so you can drill from a whole subject down to the exact topic. Used both
+   on the post-quiz results screen (the questions just answered) and in the Quiz
+   internal view (all results). Read-only; worst areas sort first. */
 
 import { objectsOf } from './base.js';
 import { el } from '../ui/components.js';
 import { icon } from '../ui/icons.js';
 
-/** Build the nested recall tree from quiz results. Each node: {name, correct,
-    total, children:Map}. Every question bumps every ancestor on its context path. */
-function buildTree(results) {
+/** Build the nested recall tree from a flat list of answered questions. Each
+    node: {name, correct, total, children:Map}. Every question bumps each ancestor
+    on its context path. */
+function treeFromQuestions(questions) {
   const root = { name: '', correct: 0, total: 0, children: new Map() };
-  for (const res of results) {
-    for (const q of res.data.questions || []) {
-      const path = (q.context || 'Questions').split(' › ').map(s => s.trim()).filter(Boolean);
-      const right = q.status === 'correct';
-      let node = root; node.total++; if (right) node.correct++;
-      for (const name of path) {
-        let ch = node.children.get(name);
-        if (!ch) node.children.set(name, ch = { name, correct: 0, total: 0, children: new Map() });
-        ch.total++; if (right) ch.correct++;
-        node = ch;
-      }
+  for (const q of questions || []) {
+    const path = (q.context || 'Questions').split(' › ').map(s => s.trim()).filter(Boolean);
+    const right = q.status === 'correct';
+    let node = root; node.total++; if (right) node.correct++;
+    for (const name of path) {
+      let ch = node.children.get(name);
+      if (!ch) node.children.set(name, ch = { name, correct: 0, total: 0, children: new Map() });
+      ch.total++; if (right) ch.correct++;
+      node = ch;
     }
   }
   return root;
@@ -30,17 +29,21 @@ function buildTree(results) {
 
 const barColor = (pct) => pct >= 70 ? 'var(--success)' : pct >= 40 ? 'var(--highlight)' : 'var(--warn)';
 
-/** Append the "Recall by deck" section to host (nothing if no results yet). */
-export function renderRecallByDeck(host, widget) {
-  const results = objectsOf(widget.id, 'quizResult');
-  if (!results.length) return;
-  const root = buildTree(results);
-  if (!root.children.size) return;
+/**
+ * Render a collapsible breakdown of `questions` into `host`.
+ * @returns {boolean} whether anything was rendered.
+ */
+export function renderContextBreakdown(host, questions, opts = {}) {
+  const root = treeFromQuestions(questions);
+  if (!root.children.size) return false;
+  const title = opts.title || 'BREAKDOWN';
 
-  const sec = el('<div class="qz-breakdown" style="margin-top:16px"></div>');
-  const head = el(`<button class="row-between" style="width:100%;background:none;border:none;padding:0;cursor:pointer;color:inherit"><h3 class="soft" style="font-size:0.74rem;letter-spacing:.05em;margin:0">RECALL BY DECK</h3><span class="btn-icon qz-bd-caret">${icon('chevron-down', 14)}</span></button>`);
+  const sec = el('<div class="qz-breakdown" style="margin:10px 0 12px"></div>');
+  const head = el(`<button class="row-between" style="width:100%;background:none;border:none;padding:0;cursor:pointer;color:inherit"><h3 class="soft" style="font-size:0.74rem;letter-spacing:.05em;margin:0">${title}</h3><span class="btn-icon qz-bd-caret">${icon('chevron-down', 14)}</span></button>`);
   const body = el('<div style="margin-top:6px"></div>');
-  let open = true;
+  let open = opts.open !== false;
+  body.style.display = open ? '' : 'none';
+  head.querySelector('.qz-bd-caret').innerHTML = icon(open ? 'chevron-down' : 'chevron-right', 14);
   head.onclick = () => { open = !open; body.style.display = open ? '' : 'none'; head.querySelector('.qz-bd-caret').innerHTML = icon(open ? 'chevron-down' : 'chevron-right', 14); };
 
   const renderNode = (node, depth, container) => {
@@ -73,4 +76,12 @@ export function renderRecallByDeck(host, widget) {
   renderNode(root, 0, body);
   sec.append(head, body);
   host.appendChild(sec);
+  return true;
+}
+
+/** "Recall by deck" across every quiz result for a widget (Quiz internal view). */
+export function renderRecallByDeck(host, widget) {
+  const results = objectsOf(widget.id, 'quizResult');
+  if (!results.length) return;
+  renderContextBreakdown(host, results.flatMap(r => r.data.questions || []), { title: 'RECALL BY DECK' });
 }
