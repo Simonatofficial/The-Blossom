@@ -11,6 +11,7 @@ import { createObject, saveObject, todayStr, bloomBurst } from './base.js';
 import { gradeQuestion, correctText, givenText } from './quiz-build.js';
 import { recordOutcome } from './study-mastery.js';
 import { isBookmarked, toggleBookmark } from './flashcards-model.js';
+import { breakReason, showBreakNudge } from './study-break.js';
 
 const STATUS_COLOR = { correct: 'var(--success)', semi: 'var(--highlight)', incorrect: 'var(--warn)' };
 
@@ -27,6 +28,7 @@ export function runQuiz(env, questions, cfg, resume) {
   const startT = Date.now() - (resume?.elapsed || 0);
   let sessionId = resume?.sessionId || null;
   const label = resume?.label || cfg.label || 'Quiz';
+  let breakOffered = false; // anti-burnout breather (study-break.js)
 
   const snapshot = () => {
     const data = { label, questions, cfg, index: i, record, ts: Date.now() };
@@ -62,7 +64,14 @@ export function runQuiz(env, questions, cfg, resume) {
     const commit = (given) => {
       const status = gradeQuestion(q, given);
       record.push({ q, given, status });
-      const advance = () => { i++; snapshot(); i < questions.length ? ask() : finish(); };
+      const advance = () => {
+        i++; snapshot();
+        if (i >= questions.length) return finish();
+        const misses = record.slice(-5).filter(r => r.status === 'incorrect' || r.status === 'semi').length;
+        const reason = breakOffered ? null : breakReason(i, misses);
+        if (reason) { breakOffered = true; return showBreakNudge(wrap, { reason, count: i, onBreak: () => env.render(), onContinue: () => ask() }); }
+        ask();
+      };
       if (!cfg.immediateFeedback) return advance();
       showFeedback(panel, q, given, status);
       const nx = el(`<button class="btn btn-primary" style="width:100%;margin-top:12px">${i + 1 < questions.length ? 'Next' : 'Finish'}</button>`);

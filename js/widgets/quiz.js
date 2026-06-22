@@ -172,6 +172,11 @@ registry.register({
       fb.onclick = () => { cfg.immediateFeedback = !cfg.immediateFeedback; fb.classList.toggle('accent'); save(); };
       host.appendChild(field('Feedback', fb));
 
+      // Quick 5 (docs/16 §2): a tiny low-pressure quiz — selected decks, or all if none.
+      const quick5 = el(`<button class="btn-soft-wide" style="margin-bottom:6px">${icon('zap', 15)} Quick 5</button>`);
+      quick5.onclick = () => { const decks = sel.size ? [...sel] : [...new Set(cards.map(c => c.deckId))]; if (!decks.length) { toast('No cards to quiz yet.', 'info'); return; } begin(decks, { ...cfg, count: 5 }, 'Quick 5'); };
+      host.appendChild(quick5);
+
       const start = el(`<button class="btn btn-primary" style="width:100%">${icon('play', 15)} Begin quiz</button>`);
       start.onclick = () => { if (!sel.size) { toast('Select at least one deck.', 'info'); return; } begin([...sel], cfg, 'Quiz'); };
       host.appendChild(start);

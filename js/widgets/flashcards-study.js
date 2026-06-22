@@ -10,6 +10,7 @@ import { icon } from '../ui/icons.js';
 import { el, openDrawer, seg, toast, confirmDialog, promptText } from '../ui/components.js';
 import { createObject, saveObject, bloomBurst } from './base.js';
 import * as M from './flashcards-model.js';
+import { breakReason, showBreakNudge } from './study-break.js';
 
 const ORDER_OPTS = [['adaptive', 'Smart'], ['inorder', 'In order'], ['random', 'Random'], ['hardest', 'Hardest first'], ['easiest', 'Easiest first']];
 
@@ -94,6 +95,7 @@ function runSession(env, opts) {
   let i = opts.startIndex || 0, flipped = false;
   const tally = opts.tally || { hard: 0, good: 0, easy: 0 };
   let sessionId = opts.sessionId || null;
+  const recent = []; let breakOffered = false; // anti-burnout breather (study-break.js)
 
   const snapshot = () => {
     const data = { label: opts.label, cards: queue, front: opts.front, back: opts.back, index: i, tally, ts: Date.now() };
@@ -129,9 +131,14 @@ function runSession(env, opts) {
     for (const b of stage.querySelectorAll('[data-g]')) b.onclick = () => {
       const g = b.dataset.g;
       M.gradeCard(widget, card, g); card.result = g; tally[g]++;
+      recent.push(g); if (recent.length > 5) recent.shift();
       flipped = false; i++;
       if (i >= queue.length) { snapshot(); return results(); }
-      snapshot(); face();
+      snapshot();
+      // offer a breather once if it's run long or hit a rough patch
+      const reason = breakOffered ? null : breakReason(i, recent.filter(x => x === 'hard').length);
+      if (reason) { breakOffered = true; return showBreakNudge(stage, { reason, count: i, onBreak: () => env.render(), onContinue: () => face() }); }
+      face();
     };
   };
 

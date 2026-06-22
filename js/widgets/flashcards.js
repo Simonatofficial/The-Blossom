@@ -12,7 +12,7 @@ import { topicsOf } from './notebook.js';
 import { moduleElements } from './notebook-parse.js';
 import * as M from './flashcards-model.js';
 import { startStudy, resumeSession, openStudySetEditor } from './flashcards-study.js';
-import { renderStudyGuide, renderFocus, renderBookmarks } from './flashcards-focus.js';
+import { renderStudyGuide, renderFocus, renderBookmarks, needsWorkCards } from './flashcards-focus.js';
 
 function dueCount(widget) { const t = todayStr(); return objectsOf(widget.id, 'flashcard').filter(c => (c.data.due || t) <= t).length; }
 function nbLabel(nb) {
@@ -59,6 +59,22 @@ registry.register({
       return out;
     };
 
+    // Quick 5 (docs/16 §2, anti-burnout law #1): a tiny, low-pressure session —
+    // weak cards first, then topped up to five, adaptive order, one tap to start.
+    const renderQuick5 = (all) => {
+      const everything = [], seen = new Set();
+      for (const n of M.childNodes(all, null)) for (const c of M.collectCards(widget, n, all)) if (!seen.has(c.id)) { seen.add(c.id); everything.push(c); }
+      if (everything.length < 2) return;
+      const pick = needsWorkCards(everything).slice(0, 5);
+      const have = new Set(pick.map(c => c.id));
+      for (const c of M.shuffle([...everything])) { if (pick.length >= 5) break; if (!have.has(c.id)) { have.add(c.id); pick.push(c); } }
+      const row = el(`<button class="list-item fc-set" style="margin-bottom:10px"><span style="color:var(--highlight)">${icon('zap', 16)}</span><span class="li-main"><span class="li-title">Quick 5</span><span class="li-sub">A short, low-pressure session</span></span><span class="btn-icon set-go" title="Start">${icon('play', 15)}</span></button>`);
+      const go = () => startStudy(env, { label: 'Quick 5', cards: pick.map(c => ({ ...c, result: undefined })), front: ['term'], back: ['definition'], order: 'adaptive', startNow: true });
+      row.querySelector('.set-go').onclick = (e) => { e.stopPropagation(); go(); };
+      row.onclick = (e) => { if (e.target.closest('.btn-icon')) return; go(); };
+      host.appendChild(row);
+    };
+
     const render = () => {
       host.innerHTML = '';
       const all = M.allNodes(widget);
@@ -73,7 +89,7 @@ registry.register({
         if (node?.kind === 'deck') return renderDeck(node);
       }
 
-      if (!parentId) { renderStudyGuide(env, all); renderFocus(env, all); renderBookmarks(env, all); renderStudySets(); renderResumable(); }
+      if (!parentId) { renderQuick5(all); renderStudyGuide(env, all); renderFocus(env, all); renderBookmarks(env, all); renderStudySets(); renderResumable(); }
 
       for (const n of M.childNodes(all, parentId)) {
         const cnt = M.cardCount(widget, n, all), sub = n.kind === 'group' ? `${M.childNodes(all, n.id).length} inside · ${cnt} cards` : `${cnt} card${cnt === 1 ? '' : 's'}`;
