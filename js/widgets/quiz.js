@@ -14,6 +14,7 @@ import { runQuiz, resumeQuiz, review } from './quiz-run.js';
 import { renderRecallByDeck } from './quiz-breakdown.js';
 import { isBookmarked } from './flashcards-model.js';
 import { masteryFor, level } from './study-mastery.js';
+import { studyStreak } from './study-streak.js';
 
 const TYPES = [['mc', 'Multiple choice'], ['truefalse', 'True / False'], ['fill', 'Fill the blank'], ['dropdown', 'Dropdown']];
 
@@ -52,7 +53,9 @@ registry.register({
     host.innerHTML = '';
     const last = objectsOf(widget.id, 'quizResult').sort((a, b) => b.createdAt - a.createdAt)[0];
     const lastTxt = last ? `Last: ${last.data.score}✓ · ${(last.data.total - last.data.score - (last.data.semi || 0))}✗ · ${fmtDate(last.date)}` : 'No quizzes yet';
-    host.appendChild(el(`<div class="row-between"><span class="soft" style="font-size:0.88rem">${lastTxt}</span><span class="chip accent">${icon('play', 11)} quiz me</span></div>`));
+    const streak = studyStreak();
+    const leaf = streak.current > 0 ? `<span class="chip study-streak" title="${streak.todayDone ? 'Tended today' : 'Keep your streak alive'}" style="${streak.todayDone ? 'color:var(--success)' : 'color:var(--text-soft)'}">${icon('leaf', 12)} ${streak.current}</span>` : '';
+    host.appendChild(el(`<div class="row-between"><span class="soft" style="font-size:0.88rem">${lastTxt}</span><span class="row" style="gap:6px">${leaf}<span class="chip accent">${icon('play', 11)} quiz me</span></span></div>`));
   },
 
   renderFull(host, widget, ctx) {

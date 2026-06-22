@@ -14,6 +14,7 @@ import { isBookmarked, toggleBookmark } from './flashcards-model.js';
 import { breakReason, showBreakNudge } from './study-break.js';
 import { makeCombo } from './study-combo.js';
 import { renderContextBreakdown } from './quiz-breakdown.js';
+import { studyStreak, isStreakMilestone } from './study-streak.js';
 
 const STATUS_COLOR = { correct: 'var(--success)', semi: 'var(--highlight)', incorrect: 'var(--warn)' };
 
@@ -43,6 +44,28 @@ export function runQuiz(env, questions, cfg, resume) {
   host.innerHTML = ''; host.appendChild(wrap);
   const combo = makeCombo(wrap);
 
+  // Keyboard shortcuts (desktop): 1–9 pick an MC option, t/f or 1/2 for True/False,
+  // Enter submits a typed answer or advances after feedback.
+  const onKey = (e) => {
+    if (!wrap.isConnected) return document.removeEventListener('keydown', onKey);
+    if (e.key === 'Enter') {
+      const nx = wrap.querySelector('.qz-next'); if (nx) { e.preventDefault(); return nx.click(); }
+      const sub = wrap.querySelector('.qz-submit'); if (sub && !sub.disabled) { e.preventDefault(); return sub.click(); }
+    }
+    if (e.target.matches?.('input, textarea, select') || e.target.isContentEditable) return; // typing — don't hijack
+    const q = questions[i]; if (!q) return;
+    if (q.type === 'mc') {
+      const n = parseInt(e.key, 10), opts = wrap.querySelectorAll('.qz-opt');
+      if (n >= 1 && n <= opts.length && !opts[n - 1].disabled) { e.preventDefault(); opts[n - 1].click(); }
+    } else if (q.type === 'truefalse') {
+      const tf = wrap.querySelectorAll('.qz-tf'), k = e.key.toLowerCase();
+      if ((e.key === '1' || k === 't') && tf[0] && !tf[0].disabled) { e.preventDefault(); tf[0].click(); }
+      else if ((e.key === '2' || k === 'f') && tf[1] && !tf[1].disabled) { e.preventDefault(); tf[1].click(); }
+    }
+  };
+  document.addEventListener('keydown', onKey);
+  const cleanupKeys = () => document.removeEventListener('keydown', onKey);
+
   const head = () => {
     const q = questions[i];
     return `
@@ -56,8 +79,8 @@ export function runQuiz(env, questions, cfg, resume) {
   const ask = () => {
     const q = questions[i];
     wrap.innerHTML = head();
-    wrap.querySelector('.qz-pause').onclick = () => { snapshot(); env.render(); };
-    wrap.querySelector('.qz-quit').onclick = () => { snapshot(); env.render(); };
+    wrap.querySelector('.qz-pause').onclick = () => { snapshot(); cleanupKeys(); env.render(); };
+    wrap.querySelector('.qz-quit').onclick = () => { snapshot(); cleanupKeys(); env.render(); };
     const bm = wrap.querySelector('.qz-bm');
     if (bm) bm.onclick = () => { const on = toggleBookmark(q.real); bm.style.color = on ? 'var(--highlight)' : ''; toast(on ? 'Bookmarked' : 'Removed bookmark', 'star'); };
     const panel = el('<div class="panel" style="padding:16px"></div>');
@@ -73,12 +96,12 @@ export function runQuiz(env, questions, cfg, resume) {
         if (i >= questions.length) return finish();
         const misses = record.slice(-5).filter(r => r.status === 'incorrect' || r.status === 'semi').length;
         const reason = breakOffered ? null : breakReason(i, misses);
-        if (reason) { breakOffered = true; return showBreakNudge(wrap, { reason, count: i, onBreak: () => env.render(), onContinue: () => ask() }); }
+        if (reason) { breakOffered = true; return showBreakNudge(wrap, { reason, count: i, onBreak: () => { cleanupKeys(); env.render(); }, onContinue: () => ask() }); }
         ask();
       };
       if (!cfg.immediateFeedback) return advance();
       showFeedback(panel, q, given, status);
-      const nx = el(`<button class="btn btn-primary" style="width:100%;margin-top:12px">${i + 1 < questions.length ? 'Next' : 'Finish'}</button>`);
+      const nx = el(`<button class="btn btn-primary qz-next" style="width:100%;margin-top:12px">${i + 1 < questions.length ? 'Next' : 'Finish'}</button>`);
       nx.onclick = advance; panel.appendChild(nx);
     };
 
@@ -94,7 +117,7 @@ export function runQuiz(env, questions, cfg, resume) {
       panel.appendChild(el('<h3 style="margin-bottom:12px;white-space:pre-wrap"></h3>')).textContent = q.statement;
       const row = el('<div class="row" style="gap:8px"></div>');
       for (const [val, lbl] of [[true, 'True'], [false, 'False']]) {
-        const b = el(`<button class="btn" style="flex:1">${lbl}</button>`);
+        const b = el(`<button class="btn qz-tf" style="flex:1">${lbl}</button>`);
         b.onclick = () => { for (const x of row.querySelectorAll('button')) x.disabled = true; commit(val); };
         row.appendChild(b);
       }
@@ -112,7 +135,7 @@ export function runQuiz(env, questions, cfg, resume) {
           const inp = el('<input class="input" placeholder="Your answer">'); panel.appendChild(inp); inputs.push(() => inp.value);
         }
       }
-      const submit = el('<button class="btn btn-primary" style="width:100%;margin-top:12px">Submit</button>');
+      const submit = el('<button class="btn btn-primary qz-submit" style="width:100%;margin-top:12px">Submit</button>');
       submit.onclick = () => { submit.disabled = true; commit(inputs.map(g => g())); };
       panel.appendChild(submit);
     }
@@ -130,7 +153,7 @@ export function runQuiz(env, questions, cfg, resume) {
   };
 
   const finish = () => {
-    clearSnapshot(); combo.clear();
+    clearSnapshot(); combo.clear(); cleanupKeys();
     for (const r of record) recordOutcome(r.q.real, r.status === 'semi' ? 'partial' : r.status); // A2: weak-spot tracking
     const score = record.filter(r => r.status === 'correct').length;
     const semi = record.filter(r => r.status === 'semi').length;
@@ -153,6 +176,7 @@ export function review(env, data, justFinished) {
     <p>${Math.round(pct * 100)}% · ${data.total} question${data.total === 1 ? '' : 's'}${data.semi ? ` · ${data.semi} partial` : ''}${data.timeMs ? ` · ${Math.round(data.timeMs / 1000)}s` : ''}</p></div>`);
   host.appendChild(sum);
   if (justFinished && pct >= 0.7) bloomBurst(sum);
+  if (justFinished) { const st = studyStreak(); if (st.current > 0) sum.appendChild(el(`<p class="study-streak-line" style="color:var(--success);font-weight:600;margin-top:4px">${icon('leaf', 14)} ${st.current}-day streak${isStreakMilestone(st.current) ? ' — lovely!' : ''}</p>`)); }
 
   // §5d: drill-down breakdown — Class › Section › Unit › Topic, % at every level
   const box = el('<div class="panel" style="padding:12px;margin:0 0 12px"></div>');

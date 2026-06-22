@@ -27,7 +27,8 @@ function treeFromQuestions(questions) {
   return root;
 }
 
-const barColor = (pct) => pct >= 70 ? 'var(--success)' : pct >= 40 ? 'var(--highlight)' : 'var(--warn)';
+// Red (low) → Yellow (medium) → Green (high), so a glance reads as a report card.
+const barColor = (pct) => pct >= 70 ? 'var(--success)' : pct >= 40 ? '#e6c44d' : 'var(--danger)';
 
 /**
  * Render a collapsible breakdown of `questions` into `host`.

@@ -13,6 +13,7 @@ import { moduleElements } from './notebook-parse.js';
 import * as M from './flashcards-model.js';
 import { startStudy, resumeSession, openStudySetEditor } from './flashcards-study.js';
 import { renderStudyGuide, renderFocus, renderBookmarks, needsWorkCards } from './flashcards-focus.js';
+import { studyStreak } from './study-streak.js';
 
 function dueCount(widget) { const t = todayStr(); return objectsOf(widget.id, 'flashcard').filter(c => (c.data.due || t) <= t).length; }
 function nbLabel(nb) {
@@ -43,7 +44,9 @@ registry.register({
     if (!roots.length) { host.appendChild(el('<p class="soft">Tap to plant your first deck, or link a Notebook.</p>')); return; }
     const cards = objectsOf(widget.id, 'flashcard').length;
     const sets = M.studySets(widget).length;
-    host.appendChild(el(`<div class="row-between"><span style="font-size:0.92rem">${roots.length} top-level · ${cards} cards${sets ? ` · ${sets} set${sets === 1 ? '' : 's'}` : ''}</span><span class="chip ${dueCount(widget) ? 'accent' : ''}">${dueCount(widget)} due</span></div>`));
+    const streak = studyStreak();
+    const leaf = streak.current > 0 ? `<span class="chip study-streak" title="${streak.todayDone ? 'Tended today' : 'Keep your streak alive'}" style="${streak.todayDone ? 'color:var(--success)' : 'color:var(--text-soft)'}">${icon('leaf', 12)} ${streak.current}</span>` : '';
+    host.appendChild(el(`<div class="row-between"><span style="font-size:0.92rem">${roots.length} top-level · ${cards} cards${sets ? ` · ${sets} set${sets === 1 ? '' : 's'}` : ''}</span><span class="row" style="gap:6px">${leaf}<span class="chip ${dueCount(widget) ? 'accent' : ''}">${dueCount(widget)} due</span></span></div>`));
   },
 
   renderFull(host, widget, ctx) {

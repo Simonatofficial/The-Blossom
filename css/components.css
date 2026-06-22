@@ -66,6 +66,8 @@
 .study-combo.glow { box-shadow: 0 0 calc(10px + var(--combo, 0) * 26px) var(--glow); }
 .study-combo-chip { color: var(--accent); display: inline-flex; align-items: center; gap: 3px; font-size: 0.78rem; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .study-combo { transition: none; } .study-combo.glow { box-shadow: none; } }
+.kb-hint { opacity: 0.8; }
+@media (hover: none) { .kb-hint { display: none; } } /* no physical keyboard on touch */
 
 /* ---- build wizard (docs/13 §3c) ---- */
 .bw-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: background var(--t-fast) var(--ease); }

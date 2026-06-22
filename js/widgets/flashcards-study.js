@@ -12,6 +12,7 @@ import { createObject, saveObject, bloomBurst } from './base.js';
 import * as M from './flashcards-model.js';
 import { breakReason, showBreakNudge } from './study-break.js';
 import { makeCombo } from './study-combo.js';
+import { studyStreak, isStreakMilestone } from './study-streak.js';
 
 const ORDER_OPTS = [['adaptive', 'Smart'], ['inorder', 'In order'], ['random', 'Random'], ['hardest', 'Hardest first'], ['easiest', 'Easiest first']];
 
@@ -109,6 +110,17 @@ function runSession(env, opts) {
   host.innerHTML = ''; host.appendChild(stage);
   const combo = makeCombo(stage);
 
+  // Keyboard shortcuts (desktop study): Space/Enter flips; 1/2/3 grade Hard/Good/Easy.
+  const KEY_GRADE = { '1': 'hard', '2': 'good', '3': 'easy' };
+  const onKey = (e) => {
+    if (!stage.isConnected) return document.removeEventListener('keydown', onKey);
+    if (e.target.matches?.('input, textarea, select') || e.target.isContentEditable) return;
+    if (e.key === ' ' || e.key === 'Enter') { const c = stage.querySelector('.fc-card'); if (c) { e.preventDefault(); c.click(); } return; }
+    if (flipped && KEY_GRADE[e.key]) { const b = stage.querySelector(`[data-g="${KEY_GRADE[e.key]}"]`); if (b) { e.preventDefault(); b.click(); } }
+  };
+  document.addEventListener('keydown', onKey);
+  const cleanupKeys = () => document.removeEventListener('keydown', onKey);
+
   const face = () => {
     const card = queue[i];
     const f = M.cardFaces(card, opts.front, opts.back);
@@ -122,14 +134,14 @@ function runSession(env, opts) {
         <div class="fc-face fc-front"></div><div class="fc-face fc-back"></div></div></div>
       <div class="fc-grades ${flipped ? '' : 'hidden'}">
         <button class="btn" data-g="hard">Hard</button><button class="btn" data-g="good">Good</button><button class="btn" data-g="easy">Easy</button></div>
-      ${flipped ? '' : '<p class="soft" style="text-align:center;font-size:0.8rem;margin-top:10px">Tap the card to flip</p>'}`;
+      ${flipped ? '' : '<p class="soft" style="text-align:center;font-size:0.8rem;margin-top:10px">Tap the card to flip<span class="kb-hint"> · or press Space</span></p>'}`;
     stage.querySelector('.fc-front').textContent = f.front;
     stage.querySelector('.fc-back').textContent = f.back;
     stage.querySelector('.fc-card').onclick = () => { flipped = !flipped; face(); };
     const bm = stage.querySelector('.fc-bm');
     if (bm) bm.onclick = () => { const on = M.toggleBookmark(card.real); bm.style.color = on ? 'var(--highlight)' : ''; toast(on ? 'Bookmarked' : 'Removed bookmark', 'star'); };
-    stage.querySelector('.fc-pause').onclick = () => { snapshot(); toast('Session saved — resume from the deck list.', 'check'); env.render(); };
-    stage.querySelector('.fc-close').onclick = () => { snapshot(); env.render(); };
+    stage.querySelector('.fc-pause').onclick = () => { snapshot(); toast('Session saved — resume from the deck list.', 'check'); cleanupKeys(); env.render(); };
+    stage.querySelector('.fc-close').onclick = () => { snapshot(); cleanupKeys(); env.render(); };
     for (const b of stage.querySelectorAll('[data-g]')) b.onclick = () => {
       const g = b.dataset.g;
       M.gradeCard(widget, card, g); card.result = g; tally[g]++;
@@ -140,15 +152,17 @@ function runSession(env, opts) {
       snapshot();
       // offer a breather once if it's run long or hit a rough patch
       const reason = breakOffered ? null : breakReason(i, recent.filter(x => x === 'hard').length);
-      if (reason) { breakOffered = true; return showBreakNudge(stage, { reason, count: i, onBreak: () => env.render(), onContinue: () => face() }); }
+      if (reason) { breakOffered = true; return showBreakNudge(stage, { reason, count: i, onBreak: () => { cleanupKeys(); env.render(); }, onContinue: () => face() }); }
       face();
     };
   };
 
   const results = () => {
-    clearSnapshot(); combo.clear();
+    clearSnapshot(); combo.clear(); cleanupKeys();
     stage.innerHTML = `<div class="empty-state">${icon('sprout', 32)}<h3 style="margin:8px 0 4px">The garden grew</h3>
       <p>You tended ${queue.length} card${queue.length === 1 ? '' : 's'} — ${tally.hard} hard · ${tally.good} good · ${tally.easy} easy.</p></div>`;
+    const st = studyStreak();
+    if (st.current > 0) stage.querySelector('.empty-state').appendChild(el(`<p class="study-streak-line" style="color:var(--success);font-weight:600;margin-top:4px">${icon('leaf', 14)} ${st.current}-day streak${isStreakMilestone(st.current) ? ' — lovely!' : ''}</p>`));
     const parts = partBreakdown(queue);
     if (parts.length > 1) stage.appendChild(partPanel(parts, g => g.got));
     const wrap = el('<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin-top:10px"></div>');
