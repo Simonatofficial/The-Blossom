@@ -65,6 +65,8 @@ export function addRep(widget, delta = 1, dateStr = todayStr(), opts = {}) {
     }
   }
   saveObject(log);
+  // V3 growth loop (docs/17 §3): a newly-completed day feeds this tool's aspect once.
+  if (completedNow) events.emit('growth:emit', { widget, action: { kind: 'complete', date: dateStr, key: `${widget.id}:complete:${dateStr}` } });
   return { done: log.data.done, completedNow, coins };
 }
 

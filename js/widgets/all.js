@@ -51,6 +51,7 @@ import './relationshipweb.js';
 import './pcsheet.js';
 import './blossoms.js';
 import './hub.js';
+import './aspect.js'; // V3 §3.1: self-contained Aspect flower (reads the growth ledger)
 import './pagewidget.js';
 import './characteristic.js';
 import './questboard.js';

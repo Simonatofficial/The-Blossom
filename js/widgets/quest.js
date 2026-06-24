@@ -135,6 +135,9 @@ registry.register({
 
   onDayRolled(widget, ctx, info) { if (!isMission(widget)) q.rollQuestDay(widget, info?.from); },
 
+  // V3 growth (docs/17 §3): completing the quest feeds the module's aspect (+10).
+  grows: (before, after, action) => (action?.kind === 'complete' ? [{ amount: 10 }] : []),
+
   renderCard(host, widget, ctx) {
     if (isMission(widget)) return missionCard(host, widget, ctx);
     legacyCard(host, widget, ctx);

@@ -72,6 +72,9 @@ registry.register({
     key: 'progressPct', name: 'Progress %', dayKeyed: false, get: () => progress(widget)
   }],
 
+  // V3 growth (docs/17 §3): a milestone is a bigger beat than a daily tick (+20).
+  grows: (before, after, action) => (action?.kind === 'milestone' ? [{ amount: 20 }] : []),
+
   renderCard(host, widget, ctx) {
     host.innerHTML = '';
     const pct = progress(widget);
@@ -128,6 +131,8 @@ registry.register({
           store.put('widgets', widget);
           renderMs();
           checkCompletion(widget, ctx, msHost);
+          // V3 growth (docs/17 §3): a reached milestone feeds the module's aspect (+20), once.
+          if (m.done) ctx.events.emit('growth:emit', { widget, action: { kind: 'milestone', id: m.id, key: `${widget.id}:ms:${m.id}` } });
           ctx.events.emit('object:changed', { widgetId: widget.id });
         };
         msHost.appendChild(row);

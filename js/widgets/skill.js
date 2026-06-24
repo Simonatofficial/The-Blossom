@@ -47,6 +47,9 @@ export function grantXp(widget, amount, ctx, reason = '') {
   if (!amount) return;
   const c = st(widget);
   c.xp += Math.round(amount);
+  // V3 growth (docs/17 §3): direct XP grants feed Mental → Learning 1:1, tagged with the
+  // skill's name (a star). Child-levelup propagation is excluded so XP isn't double-counted.
+  if (reason !== 'child-levelup') events.emit('growth:emit', { widget, action: { kind: 'xp', amount: Math.round(amount), skill: widget.name } });
   let leveled = false;
   while (c.xp >= xpToNext(c.level)) {
     c.xp -= xpToNext(c.level);
@@ -82,6 +85,10 @@ registry.register({
     { key: 'level', name: 'Level', dayKeyed: false, get: () => st(widget).level },
     { key: 'xpToday', name: 'XP today', dayKeyed: true, get: (d) => xpFor(widget, d || todayStr()) }
   ],
+
+  // V3 growth (docs/17 §3): granted XP feeds Learning 1:1, tagged with the skill name.
+  grows: (before, after, action) => (action?.kind === 'xp' && action.amount > 0
+    ? [{ attribute: 'learning', amount: action.amount, skill: action.skill }] : []),
 
   onDayRolled(widget, ctx, info) {
     if (!info?.from) return;

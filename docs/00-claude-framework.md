@@ -16,7 +16,9 @@ Five jobs, every time you touch this repo:
 
 Every new request from the user is a *seed*, not a *spec*. Before writing code, grow it.
 
-When the user gives a prompt (new feature, change, fix, removal, overhaul), do this **first, in one short block**:
+**Rule 0 — match effort to the ask.** Small or clear asks (one feature, a tweak, an obvious change) get built directly, or confirmed in one plain sentence — no plan file, no helper. Big/new/underspecified work goes to **grill-me**. Only messy or multi-message dumps earn the full refine. When unsure, lean toward just building. *(This protocol is also a triggerable skill: `overhaul-the-ask`, which merges the old `braindump-to-spec`.)*
+
+When the user gives a prompt that warrants it, do this **first, in one short block**:
 
 1. **Restate** the request in one line, so intent is locked.
 2. **Overhaul it** — improve on what was asked along these axes, without drifting from intent:
@@ -54,6 +56,8 @@ Tokens are coins. The cheapest correct path wins. The app-building process has b
 - Batch independent tool calls in one turn.
 
 **Output sizing:** match effort to the task. A one-line fix gets a one-line reply. Don't pad, don't over-explain, don't write a README nobody asked for.
+
+**Usage transparency (always-on).** When a single turn burns *unusually high* usage — reading a very large file whole (e.g. the ~120KB `docs/13-v2-framework.md`), many tool calls/file scans, big web fetches or pasted content, a long subagent, or Opus + high thinking effort — end that message with **one plain line** naming what drove it and the cheaper next-time path. A quiet footnote, not a lecture; ordinary turns get nothing. Format: `ⓘ Heavier turn — read the full V2 doc (~120KB) + scanned 8 files. Next time I can target one heading to keep it cheap.` The deep "why is my usage high" diagnostic lives in the `usage-check` skill.
 
 ---
 
@@ -117,6 +121,20 @@ A feature is done only when all hold:
 - **Clean** — module <300 lines, JSDoc on public functions, no console errors.
 - **Verified** — ran the local server (`tools/serve.ps1`, or `python -m http.server`), tested in browser, checked console, tested offline.
 - **Logged & pushed** — `docs/STATUS.md` updated, committed, pushed to `main` (§4).
+
+---
+
+## 6. The framework as skills
+
+These rules are also installed as project skills in `.claude/skills/` so they trigger automatically in Claude Code — the framework doc is the single source of truth; the skills are thin triggerable entry points into it. Each session still reads this doc; the skills make sure the right section fires at the right moment even mid-task.
+
+| Skill | Fires when | Maps to |
+|---|---|---|
+| `overhaul-the-ask` | any build request / messy idea-dump (merges old `braindump-to-spec`) | §1 |
+| `cozy-check` | adding or changing anything the user sees or feels | §3 |
+| `ship-it` | a feature is finished and verified | §4 + §5 |
+| `usage-check` | "why is my usage so high"; also defines the always-on heavy-turn note | §2 |
+| `grill-me` | a new module/widget/large feature needs interviewing out | §1 (deep path) |
 
 ---
 

@@ -8,6 +8,8 @@ import { ulid } from '../../core/ids.js';
 import { registry } from '../../widgets/registry.js';
 import { PRESET_IDENTITIES, PRESET_HOME_LAYOUTS } from '../../fx/identity.js';
 import { BLOSSOM_PRESET } from './blossom.js';
+import { PRODUCTIVITY_PRESET } from './productivity.js';
+import { ACTIVITY_PRESET } from './activity.js';
 import { STUDY_PRESET } from './study.js';
 import { INFCANVAS_PRESET } from './infcanvas.js';
 import { WORLD_PRESET } from './worldbuilder.js';
@@ -153,6 +155,8 @@ export function instantiatePageInto(mod, pDef) {
 /** The preset gallery list. Heavier definitions join as phases land (docs/10). */
 export const PRESET_MODULES = [
   BLOSSOM_PRESET,
+  PRODUCTIVITY_PRESET,
+  ACTIVITY_PRESET,
   STUDY_PRESET,
   INFCANVAS_PRESET,
   WORLD_PRESET,

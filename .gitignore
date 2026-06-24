@@ -7,4 +7,8 @@ config.js
 .env
 
 # Local Claude Code tooling (machine-specific paths; not for the public repo)
-.claude/
+.claude/*
+# ...but DO version the project skills so they sync across sessions/machines
+!.claude/skills/
+# grill-me is third-party, fetched via curl (see CLAUDE.md) — keep it local
+.claude/skills/grill-me/

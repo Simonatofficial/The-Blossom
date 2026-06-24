@@ -60,6 +60,7 @@ export const registry = {
    *  container?: boolean, external?: boolean, internal?: boolean,
    *  defaultConfig?: () => object,
    *  outputs?: (widget: object) => {key: string, name: string, dayKeyed?: boolean, get: (date?: string) => number}[],
+   *  grows?: (before: object|null, after: object|null, action: object) => {aspect?: string, attribute?: string, amount: number, skill?: string}[],
    *  renderCard?: (el: HTMLElement, widget: object, ctx: object) => void,
    *  renderFull?: (el: HTMLElement, widget: object, ctx: object) => void,
    *  renderSettings?: (el: HTMLElement, widget: object, ctx: object) => void,

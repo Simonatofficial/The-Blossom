@@ -62,6 +62,10 @@ registry.register({
 
   onDayRolled(widget, ctx, info) { q.rollQuestDay(widget, info?.from); },
 
+  // V3 growth (docs/17 §3): a completed day feeds the module's aspect (+10), routed by
+  // module or this instance's config.growthAttribute. Idempotent via the action key.
+  grows: (before, after, action) => (action?.kind === 'complete' ? [{ amount: 10 }] : []),
+
   renderCard(host, widget, ctx) {
     host.innerHTML = '';
     const c = widget.config;
