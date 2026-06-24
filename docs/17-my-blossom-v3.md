@@ -293,9 +293,16 @@ cross-device sync of the `hubs` store (needs the Phase-4 Supabase enum to gain `
 `js/core/growth.js` ledger + curve; the `grows()` registry contract; port the Habit/Quest/Goal/Skill
 mappings; the self-contained **Aspect tool** with its built-in flower graph and own XP (§3).
 
-**Phase 3 — Liri.**
-The Liri module + `companion`/`elementquiz`/`lirilife` tools; ambient presence + dock avatar;
-Liri reads the growth ledger (§4).
+**Phase 3 — Liri. ✅ SHIPPED (v122).**
+`js/core/liri.js` (state model + appearance derived from the growth ledger: Physical→size,
+Mental→abilities, Emotional→colour, Social→outfits, Recreation→liveliness; sub-element evolves with
+the dominant aspect then locks; forms swap until a cap) + `js/presets/liri-content.js` (4 elements,
+5 forms, the 15-q quiz). Widgets `companion` (procedural SVG vignette via `js/widgets/liri-render.js`,
+a placeholder for Simon's final layered art), `elementquiz`, `lirilife` (gentle care: bond/mood/
+feed/play/toys/journal), sharing `js/widgets/liri-quiz.js`. The **Liri module** (Liri · Liri Life ·
+Discover) is in the gallery; `initLiri()` bonds + evolves on `growth:changed`. Verified end-to-end.
+*Deferred to a follow-up:* the **ambient presence + dock avatar** on other pages (touches chrome);
+outfits/backgrounds as inventory; Cosmos-tier element/form overrides (§8).
 
 **Phase 4 — Cloud sync.**
 Supabase schema + RLS + auth + `js/core/sync.js`; verify on two devices (§8).
@@ -310,7 +317,16 @@ RevenueCat no-paywall tiers + 7-day Cosmos trial, Settings-only (§8).
 Drastic UI refresh on top of Living Layout (`docs/15`); custom theme creator (Designer tier);
 interactive atmosphere effects; Android home-screen Widgets.
 
-Use **grill-me** (per `CLAUDE.md`) to interview out each new module/tool before building it, and
+**Phase 8 — Module deepening (NEW — was previously scattered).** Make each of the six modules
+*perfect for its aspect* (the DESIGN-DOC "ultimate tool" intent), beyond the Phase-0 skeletons:
+land the **four remaining aspect modules** (My Blossom hub · Meditation · Connection · Entertainment)
+as data, then the deep per-module builds — **Activity:** interactive muscle-map + meal planner +
+exercise databases; **Productivity:** learning guides/databases (Cosmos-tier), study depth;
+**Meditation/Connection/Entertainment:** their signature instruments. New widgets are built here as
+needed (self-contained, per §7). This is its own phase so the "make it the perfect tool" work isn't
+lost inside Phase 7's polish. Grill-me each new module/widget first.
+
+Use **grill-me** (per `CLAUDE.md`) to interview out each new module/widget before building it, and
 **ship-it** (Definition of Done → STATUS → commit → push) at the end of each phase.
 
 ---

@@ -6,6 +6,7 @@ import { events } from './core/events.js';
 import { router } from './core/router.js';
 import { initHubs } from './core/hubs.js';
 import { initGrowth } from './core/growth.js';
+import { initLiri } from './core/liri.js';
 import { registry } from './widgets/registry.js';
 import './widgets/all.js';
 import { makeCtx } from './widgets/base.js';
@@ -92,6 +93,7 @@ async function boot() {
   maybeBackupReminder(); // gentle off-device backup nudge when overdue
   initHubs(); // V3 Phase 1: migrate groups→hubs + usage tracking — before router.init fires the first route
   initGrowth(); // V3 growth loop (docs/17 §3) — listen before any tool emits a completion
+  initLiri();   // V3 Liri (docs/17 §4) — bond/evolve in step with growth
   router.init();
   initOnboarding();
   navigator.storage?.persist?.();

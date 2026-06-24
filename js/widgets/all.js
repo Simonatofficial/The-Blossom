@@ -52,6 +52,9 @@ import './pcsheet.js';
 import './blossoms.js';
 import './hub.js';
 import './aspect.js'; // V3 §3.1: self-contained Aspect flower (reads the growth ledger)
+import './companion.js';   // V3 §4: Liri vignette (living portrait of the aspects)
+import './elementquiz.js'; // V3 §4: 15-q element discovery
+import './lirilife.js';    // V3 §4: gentle care loop
 import './pagewidget.js';
 import './characteristic.js';
 import './questboard.js';

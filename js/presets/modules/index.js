@@ -10,6 +10,7 @@ import { PRESET_IDENTITIES, PRESET_HOME_LAYOUTS } from '../../fx/identity.js';
 import { BLOSSOM_PRESET } from './blossom.js';
 import { PRODUCTIVITY_PRESET } from './productivity.js';
 import { ACTIVITY_PRESET } from './activity.js';
+import { LIRI_PRESET } from './liri.js';
 import { STUDY_PRESET } from './study.js';
 import { INFCANVAS_PRESET } from './infcanvas.js';
 import { WORLD_PRESET } from './worldbuilder.js';
@@ -155,6 +156,7 @@ export function instantiatePageInto(mod, pDef) {
 /** The preset gallery list. Heavier definitions join as phases land (docs/10). */
 export const PRESET_MODULES = [
   BLOSSOM_PRESET,
+  LIRI_PRESET,
   PRODUCTIVITY_PRESET,
   ACTIVITY_PRESET,
   STUDY_PRESET,
