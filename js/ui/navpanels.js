@@ -10,7 +10,7 @@ import { icon, iconOrEmoji } from './icons.js';
 import { el, toast, confirmDialog, openPanel, popMenu, promptText, input, field, emptyState } from './components.js';
 import { getTheme } from '../fx/themes.js';
 import { PRESET_CATEGORIES } from '../presets/modules/index.js';
-import { listGroups, inGroup, toggleModuleInGroup, createGroup, isPinned, toggleFavPin, pruneModule } from '../core/groups.js';
+import { listHubs, inHub, toggleModuleInHub, createHub, isPinned, toggleFavPin, pruneModule } from '../core/hubs.js';
 
 /* ---------- shared helpers ---------- */
 
@@ -49,8 +49,8 @@ async function copyCode(type, id, name) {
 export function openModulesPanel() {
   const d = openPanel({ title: 'Modules', iconName: 'grid' });
   const search = el('<input class="input" placeholder="Search modules, categories, tags" style="margin-bottom:10px">');
-  const groupsBtn = el(`<button class="btn-soft-wide" style="margin-bottom:10px">${icon('layers', 15)} Manage groups</button>`);
-  groupsBtn.onclick = async () => { const { openGroupManager } = await import('./groupmanager.js'); openGroupManager(); };
+  const groupsBtn = el(`<button class="btn-soft-wide" style="margin-bottom:10px">${icon('layers', 15)} Manage hubs</button>`);
+  groupsBtn.onclick = async () => { const { openHubManager } = await import('./hubmanager.js'); openHubManager(); };
   const list = el('<div class="nav-list"></div>');
   d.body.append(search, groupsBtn, list);
 
@@ -122,7 +122,7 @@ function moduleRow(m, active, d, rerender) {
     popMenu(anchor, [
       { label: 'Edit', iconName: 'edit', fn: () => editModule(m, rerender) },
       { label: isPinned(m.id) ? 'Unpin from Favorites' : 'Pin to Favorites', iconName: 'star', fn: () => { toggleFavPin(m.id); rerender?.(); } },
-      { label: 'Add to group…', iconName: 'layers', fn: () => groupAssignMenu(anchor, m) },
+      { label: 'Add to hub…', iconName: 'layers', fn: () => hubAssignMenu(anchor, m) },
       { label: 'Copy Code', iconName: 'code', fn: () => copyCode('mod', m.id, m.name) },
       'sep',
       { label: 'Delete', iconName: 'trash', danger: true, fn: () => deleteModule(m, rerender) }
@@ -131,15 +131,15 @@ function moduleRow(m, active, d, rerender) {
   return row;
 }
 
-/** Toggle a module's membership in custom groups (docs/13 §3b). */
-function groupAssignMenu(anchor, m) {
-  const items = listGroups().filter(g => !g.builtin).map(g => ({
-    label: `${inGroup(g.id, m.id) ? '✓ ' : ''}${g.name}`, iconName: 'layers',
-    fn: () => { toggleModuleInGroup(g.id, m.id); toast(inGroup(g.id, m.id) ? `Added to ${g.name}` : `Removed from ${g.name}`, 'layers'); }
+/** Toggle a module's membership in custom hubs (docs/17 §5). */
+function hubAssignMenu(anchor, m) {
+  const items = listHubs().filter(g => !g.builtin).map(g => ({
+    label: `${inHub(g.id, m.id) ? '✓ ' : ''}${g.name}`, iconName: 'layers',
+    fn: () => { toggleModuleInHub(g.id, m.id); toast(inHub(g.id, m.id) ? `Added to ${g.name}` : `Removed from ${g.name}`, 'layers'); }
   }));
-  items.push({ label: 'New group…', iconName: 'plus', fn: async () => {
-    const name = await promptText({ title: 'New group', label: 'Group name', placeholder: 'School', confirmText: 'Create' });
-    if (name) { const g = createGroup(name); toggleModuleInGroup(g.id, m.id); toast(`Added to ${g.name}`, 'layers'); }
+  items.push({ label: 'New hub…', iconName: 'plus', fn: async () => {
+    const name = await promptText({ title: 'New hub', label: 'Hub name', placeholder: 'Physical', confirmText: 'Create' });
+    if (name) { const g = createHub(name); toggleModuleInHub(g.id, m.id); toast(`Added to ${g.name}`, 'layers'); }
   } });
   popMenu(anchor, items);
 }

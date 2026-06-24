@@ -4,7 +4,7 @@
 import { store } from './core/store.js';
 import { events } from './core/events.js';
 import { router } from './core/router.js';
-import { initGroups } from './core/groups.js';
+import { initHubs } from './core/hubs.js';
 import { initGrowth } from './core/growth.js';
 import { registry } from './widgets/registry.js';
 import './widgets/all.js';
@@ -90,7 +90,7 @@ async function boot() {
   initSaves();
   checkDayRollover();
   maybeBackupReminder(); // gentle off-device backup nudge when overdue
-  initGroups(); // usage tracking — listen before router.init fires the first route
+  initHubs(); // V3 Phase 1: migrate groups→hubs + usage tracking — before router.init fires the first route
   initGrowth(); // V3 growth loop (docs/17 §3) — listen before any tool emits a completion
   router.init();
   initOnboarding();

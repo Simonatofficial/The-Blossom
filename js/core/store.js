@@ -7,9 +7,9 @@
 import { events } from './events.js';
 
 const DB_NAME = 'blossom';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // v2 (V3 Phase 1): adds the `hubs` object store; onupgradeneeded is additive
 export const SCHEMA_VERSION = 1;
-const STORES = ['modules', 'pages', 'widgets', 'objects', 'themes', 'meta', 'saves', 'trash'];
+const STORES = ['modules', 'pages', 'widgets', 'objects', 'themes', 'meta', 'saves', 'trash', 'hubs'];
 const TRASH_DAYS = 30;
 
 let db = null;

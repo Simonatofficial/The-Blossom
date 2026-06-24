@@ -10,7 +10,7 @@ import { el, toast, confirmDialog, openDrawer, popMenu, promptText, openPopover 
 import { openSettings } from './settings.js';
 import { initFab } from './fab.js';
 import { getTheme, allThemes } from '../fx/themes.js';
-import { activeGroupId, setActiveGroup, getGroup, groupModuleIds, groupLastModule, listGroups, createGroup } from '../core/groups.js';
+import { activeHubId, setActiveHub, getHub, hubModuleIds, hubLastModule, listHubs, createHub } from '../core/hubs.js';
 
 const MAX_TABS = 5;
 
@@ -24,7 +24,7 @@ export function initShell(app) {
   const chrome = el(`
     <div id="chrome-top">
       <div id="module-rail" role="tablist" aria-label="Module switcher">
-        <button class="rail-group" aria-label="Module group">${icon('grid', 15)}${icon('chevron-down', 12)}</button>
+        <button class="rail-group" aria-label="Module hub">${icon('grid', 15)}${icon('chevron-down', 12)}</button>
         <button class="rail-arrow rail-prev" aria-label="Previous module">${icon('chevron-left', 18)}</button>
         <div class="rail-mods"></div>
         <button class="rail-arrow rail-next" aria-label="Next module">${icon('chevron-right', 18)}</button>
@@ -54,7 +54,7 @@ export function initShell(app) {
   events.on('module:changed', renderTabs);
   events.on('route:changed', renderRail);
   events.on('module:changed', renderRail);
-  events.on('groups:changed', renderRail);
+  events.on('hubs:changed', renderRail);
   renderTabs();
   renderRail();
 }
@@ -69,14 +69,14 @@ function renderRail() {
   rail.classList.toggle('hidden', !!widgetId || !!focus);
   if (widgetId || focus) return;
 
-  const gid = activeGroupId();
-  const group = getGroup(gid);
-  const ids = groupModuleIds(gid);
+  const gid = activeHubId();
+  const hub = getHub(gid);
+  const ids = hubModuleIds(gid);
 
   const pill = rail.querySelector('.rail-group');
-  pill.innerHTML = `${icon(group?.icon || 'grid', 15)}${icon('chevron-down', 12)}`;
-  pill.setAttribute('aria-label', `Group: ${group?.name || 'All'}`);
-  pill.onclick = (e) => openGroupPicker(e.currentTarget);
+  pill.innerHTML = `${icon(hub?.icon || 'grid', 15)}${icon('chevron-down', 12)}`;
+  pill.setAttribute('aria-label', `Hub: ${hub?.name || 'All'}`);
+  pill.onclick = (e) => openHubPicker(e.currentTarget);
 
   const mods = rail.querySelector('.rail-mods');
   mods.innerHTML = '';
@@ -105,9 +105,9 @@ function renderRail() {
   next.onclick = () => stepModule(1);
 }
 
-/** Move ±1 within the active group from whatever module is current. */
+/** Move ±1 within the active hub from whatever module is current. */
 function stepModule(dir) {
-  const ids = groupModuleIds(activeGroupId());
+  const ids = hubModuleIds(activeHubId());
   const i = ids.indexOf(router.current().moduleId);
   const j = i + dir;
   if (i >= 0 && j >= 0 && j < ids.length) router.go(ids[j]);
@@ -135,30 +135,30 @@ function attachRailSwipe(rail) {
   }, { passive: true });
 }
 
-function openGroupPicker(anchor) {
-  const pop = openPopover(anchor, { title: 'Groups' });
-  const cur = activeGroupId();
-  for (const g of listGroups()) {
+function openHubPicker(anchor) {
+  const pop = openPopover(anchor, { title: 'Hubs' });
+  const cur = activeHubId();
+  for (const g of listHubs()) {
     const row = el(`<button class="list-item">${icon(g.icon, 16)}<span class="li-main"><span class="li-title"></span></span>${g.id === cur ? icon('check', 16) : ''}</button>`);
     row.querySelector('.li-title').textContent = g.name;
-    row.onclick = () => { pop.close(); switchGroup(g.id); };
+    row.onclick = () => { pop.close(); switchHub(g.id); };
     pop.body.appendChild(row);
   }
-  const ng = el(`<button class="btn-soft-wide" style="margin-top:8px">${icon('plus', 15)} New group</button>`);
+  const ng = el(`<button class="btn-soft-wide" style="margin-top:8px">${icon('plus', 15)} New hub</button>`);
   ng.onclick = async () => {
     pop.close();
-    const name = await promptText({ title: 'New group', label: 'Group name', placeholder: 'School', confirmText: 'Create' });
-    if (name) switchGroup(createGroup(name).id);
+    const name = await promptText({ title: 'New hub', label: 'Hub name', placeholder: 'Physical', confirmText: 'Create' });
+    if (name) switchHub(createHub(name).id);
   };
-  const mng = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('layers', 15)} Manage groups</button>`);
-  mng.onclick = async () => { pop.close(); const { openGroupManager } = await import('./groupmanager.js'); openGroupManager(); };
+  const mng = el(`<button class="btn-soft-wide" style="margin-top:6px">${icon('layers', 15)} Manage hubs</button>`);
+  mng.onclick = async () => { pop.close(); const { openHubManager } = await import('./hubmanager.js'); openHubManager(); };
   pop.body.append(ng, mng);
 }
 
-/** Switch active group → land on that group's last-used module (or its first). */
-function switchGroup(id) {
-  setActiveGroup(id);
-  const target = groupLastModule(id);
+/** Switch active hub → land on that hub's last-used module (or its first). */
+function switchHub(id) {
+  setActiveHub(id);
+  const target = hubLastModule(id);
   if (target && target !== router.current().moduleId) router.go(target);
   else renderRail();
 }

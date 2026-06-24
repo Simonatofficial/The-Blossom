@@ -205,14 +205,13 @@ module needs zero engine changes.
 
 ---
 
-## 7. Tools vocabulary (the rename)
+## 7. Vocabulary — keep "Widgets" (rename CANCELLED)
 
-**Decision: user-facing labels first.** Rename **"widget" → "tool"** everywhere the user sees it —
-chrome, menus, the add gallery, docs prose — while keeping internal code identifiers
-(`widgets/registry.js`, file names, the `Widget` interface) **unchanged for now** to avoid a risky
-refactor. The word **"Widget"** is reserved for the *Android home-screen widgets* (a later
-Capacitor feature), per the Transfer Pack glossary: a **Tool** is the in-app thing; a **Widget** is
-the same tool surfaced on the phone home screen.
+**Decision reversed (2026-06-24).** The earlier plan to rename **"widget" → "tool"** is **dropped.**
+"Tools" belonged to an earlier app version that didn't pan out; the user wants the proven **"Widget"**
+name kept everywhere — chrome, menus, the add gallery, code, and docs. There is no in-app/home-screen
+split: a Widget is a Widget. Treat any remaining "Tool/Tools" wording in this doc as legacy meaning
+"Widget." (The Android home-screen widget, when it lands in Phase 7, is also just a "Widget.")
 
 **Self-containment is the contract.** Every tool must function on its own — drop it on a blank page
 and it works. It may *read* another tool's data (links, growth, graph points) as a bonus, but never
@@ -280,9 +279,15 @@ Rebrand chrome to *My Blossom* (manifest already done at v86); adopt the **Tools
 user-facing strings (§7); land the 6 preset module definitions + the default Hub map as data;
 write `js/presets/aspects.js` (data only, nothing rendered yet).
 
-**Phase 1 — Hub layer.**
-Add the `hubs` store kind, the one-time groups→hubs migration with fallback, the hub-to-hub link
-editor, and re-point the top rail / Manage panel at hubs (§5).
+**Phase 1 — Hub layer. ✅ SHIPPED (v121).**
+`js/core/hubs.js` (evolved from the deleted `groups.js`): new **`hubs` store kind** (DB v2,
+additive `onupgradeneeded`), one-time **groups→hubs migration** (`settings.hubsMigrated`, same ids,
+read-through fallback to legacy `moduleGroups` if skipped), **hub-to-hub links** (two-way
+`linkHubs`/`unlinkHubs`, severed on delete), All/Favorites still computed. Top rail + pickers
+(`shell.js`, `navpanels.js`) re-pointed at hubs; the group manager became **`js/ui/hubmanager.js`**
+("Manage hubs") with a link editor. Verified end-to-end in-browser. *Deferred to a later phase:*
+seeding the default Hub map (`js/presets/hubs.js`) — pairs naturally with the My Blossom hub module;
+cross-device sync of the `hubs` store (needs the Phase-4 Supabase enum to gain `hub`).
 
 **Phase 2 — Aspects + growth loop.**
 `js/core/growth.js` ledger + curve; the `grows()` registry contract; port the Habit/Quest/Goal/Skill
@@ -315,16 +320,16 @@ Use **grill-me** (per `CLAUDE.md`) to interview out each new module/tool before 
 **Locked.** 5 aspects (Mental · Physical · Emotional · Social · Recreation), each Aspect →
 Attribute → Skill, drawn as flowers. 6 modules (My Blossom hub · Productivity · Activity ·
 Meditation · Connection · Entertainment), Productivity & Activity first. **Hub** is a real layer
-above Module, evolved from groups, hubs link to hubs. **Tools** = in-app (user-facing rename of
-widgets); **Widgets** reserved for Android home-screen. Companion = **Liri** (soul-bonded, fixed
+above Module, evolved from groups, hubs link to hubs. **Keep "Widgets"** — the Tools rename is
+cancelled (§7). Companion = **Liri** (soul-bonded, fixed
 element via 15-q quiz, swappable form, own page + ambient + dock, Liri Life game). **No-paywall**
 subscriptions, Settings-only, 7-day Cosmos trial, **Designer** creation tier. **Supabase** sync,
 RLS always on, anon key only, text ids, soft delete. Wrapped with **Capacitor/TWA** (not Expo).
 Android-first, web at launch, iOS later. Offline always. **Add, never rebuild.**
 
 **Glossary.** *Aspect* — one of five sides of life, a flower. *Attribute* — a petal. *Skill* — a
-star orbiting it. *Blossom loop* — tools emit growth → attributes → aspects → Liri. *Tool* — an
-in-app widget; *Widget* — the same tool on the phone home screen; *Object* — a tool's data. *Hub* —
+star orbiting it. *Blossom loop* — widgets emit growth → attributes → aspects → Liri. *Widget* — an
+in-app card/tool (the only name; no Tool/home-screen split); *Object* — a widget's data. *Hub* —
 a package of connected modules, itself connectable to other hubs. *Liri* — your soul-bonded
 elemental companion. *Entitlement* — an active tier (Cosmos/Designer) that *reveals* content.
 
